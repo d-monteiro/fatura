@@ -7,6 +7,29 @@ import { normalizeSupplierName } from '@/lib/utils/suppliers';
 import { validateMontants } from '@/lib/utils/validation';
 import type { Invoice, GeminiInvoiceData } from '@/types/database';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+/** Refresh Google access token if expired. Returns fresh token. */
+async function ensureFreshToken(userId: string): Promise<string | null> {
+  const { data: row } = await supabase.from('user_oauth_tokens').select('id, access_token, refresh_token, token_expiry')
+    .eq('user_id', userId).eq('provider', 'google').order('is_primary_storage', { ascending: false }).limit(1).single();
+  if (!row) return null;
+  // If token not expired yet (with 5min buffer), use it
+  if (row.token_expiry && new Date(row.token_expiry) > new Date(Date.now() + 5 * 60 * 1000)) return row.access_token;
+  // Token expired - refresh it
+  if (!row.refresh_token) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/refresh-token`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ token_id: row.id }),
+    });
+    if (!res.ok) return null;
+    const { access_token } = await res.json();
+    return access_token || null;
+  } catch { return null; }
+}
+
 export interface UploadResult {
   success: boolean; invoice?: Invoice; error?: string; isDuplicate?: boolean; warnings?: string[];
 }
@@ -127,14 +150,22 @@ export async function processInvoiceUpload(
     if (file.size > 10 * 1024 * 1024) return [{ success: false, error: 'Fichier trop volumineux (max 10 Mo)' }];
     const ok = ['image/jpeg','image/png','image/jpg','application/pdf','image/heic','image/heif'];
     if (!ok.includes(file.type)) return [{ success: false, error: 'Format non supporté. Utilisez JPG, PNG, PDF ou HEIC.' }];
-    if (!accessToken) return [{ success: false, error: 'Ajoutez un compte Google dans Automatisations.' }];
+    if (!accessToken && !userId) return [{ success: false, error: 'Ajoutez un compte Google dans Paramètres.' }];
+
+    // Auto-refresh token if expired
+    let token = accessToken;
+    if (userId) {
+      const fresh = await ensureFreshToken(userId);
+      if (fresh) token = fresh;
+    }
+    if (!token) return [{ success: false, error: 'Token Google expiré. Reconnectez dans Paramètres.' }];
 
     const invoices = await analyzeInvoiceWithGemini(await fileToBase64(file), file.type);
     const results: UploadResult[] = [];
     for (const g of invoices) {
       const cid = await detectCompanyId(g.destinataire_name, defaultCompanyId ?? undefined);
       if (!cid) { results.push({ success: false, error: 'Entreprise non trouvée' }); continue; }
-      results.push(await processSingle(g, file, cid, userId, accessToken));
+      results.push(await processSingle(g, file, cid, userId, token!));
     }
     return results;
   } catch (error) {
