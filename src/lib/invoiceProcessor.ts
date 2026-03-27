@@ -11,22 +11,35 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 /** Refresh Google access token if expired. Returns fresh token. */
 async function ensureFreshToken(userId: string): Promise<string | null> {
-  const { data: row } = await supabase.from('user_oauth_tokens').select('id, access_token, refresh_token, token_expiry')
+  const { data: row } = await supabase.from('user_oauth_tokens').select('id, email, access_token, refresh_token, token_expiry')
     .eq('user_id', userId).eq('provider', 'google').order('is_primary_storage', { ascending: false }).limit(1).single();
   if (!row) return null;
   // If token not expired yet (with 5min buffer), use it
   if (row.token_expiry && new Date(row.token_expiry) > new Date(Date.now() + 5 * 60 * 1000)) return row.access_token;
-  // Token expired - refresh it
-  if (!row.refresh_token) return null;
+  // Token expired - refresh via Edge Function (expects { email }, needs auth)
+  if (!row.refresh_token || !row.email) return null;
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
     const res = await fetch(`${SUPABASE_URL}/functions/v1/refresh-token`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json',
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ token_id: row.id }),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ email: row.email }),
     });
     if (!res.ok) return null;
-    const { access_token } = await res.json();
-    return access_token || null;
+    const result = await res.json();
+    if (result.refreshed) {
+      // Re-fetch the updated token from DB
+      const { data: updated } = await supabase.from('user_oauth_tokens').select('access_token')
+        .eq('id', row.id).single();
+      return updated?.access_token || null;
+    }
+    // Token was still valid
+    return row.access_token;
   } catch { return null; }
 }
 
