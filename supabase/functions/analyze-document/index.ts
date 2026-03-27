@@ -1,6 +1,6 @@
 // ============================================
 // Edge Function: analyze-document
-// OpenRouter → Gemini 2.5 Pro — Prompt FR Construction + Line Items
+// OpenRouter → Gemini 2.5 Pro — Multi-invoice extraction + auto-detect company
 // Deploy: supabase functions deploy analyze-document --project-ref wvopuqyotvwgronujvrb
 // Secret: OPENROUTER_API_KEY
 // ============================================
@@ -14,24 +14,22 @@ const corsHeaders = {
 };
 
 const GEMINI_PROMPT = `# RÔLE
-Tu es un COMPTABLE SENIOR spécialisé dans le secteur du BÂTIMENT et de la CONSTRUCTION en France. Ton objectif est d'extraire avec une précision chirurgicale les données de documents financiers pour l'entreprise "LGM".
+Tu es un COMPTABLE SENIOR spécialisé dans le secteur du BÂTIMENT et de la CONSTRUCTION en France.
 
 # OBJECTIF
-Traiter des images/PDFs de factures et renvoyer un JSON structuré pour la classification des coûts, en garantissant qu'aucune donnée n'est perdue.
+Traiter des images/PDFs de factures et renvoyer un JSON structuré.
+Si le PDF contient PLUSIEURS factures (numéros différents), extraire CHAQUE facture séparément.
 
 # VALIDATION INITIALE (CRITIQUE)
-Avant tout, vérifie si l'image/document est réellement une FACTURE, REÇU ou document financier valide.
+Vérifie si l'image/document est réellement une FACTURE, REÇU ou document financier valide.
 - Photo de personne, selfie, paysage, objet aléatoire, mème → is_valid_document = false
 - Document financier lisible (facture, reçu, avoir) → is_valid_document = true
 - Document mais illisible/très flou → is_valid_document = false, rejection_reason = "document_illisible"
 
-# RÈGLES DE CLASSIFICATION (CRITIQUE)
+# RÈGLES DE CLASSIFICATION
 
 1. TYPE DE DOCUMENT (document_type):
-   - "facture": Justificatif de dépense fiscale
-   - "avoir": Note de crédit (réduction de valeur)
-   - "recu": Justificatif de paiement
-   - "autre": Documents non fiscaux
+   - "facture" | "avoir" | "recu" | "autre"
 
 2. TYPE DE COÛT (cost_type):
    - "cout_fixe": Dépenses récurrentes/structurelles (loyers, assurances, télécom, logiciels, énergie)
@@ -39,40 +37,28 @@ Avant tout, vérifie si l'image/document est réellement une FACTURE, REÇU ou d
    - null: Si ce n'est pas une dépense
 
 3. MÉTIER (metier):
-   - "electricite": Travaux électriques, câblage, tableaux
-   - "plomberie": Plomberie, sanitaire, tuyauterie
-   - "chauffage": Chauffage, climatisation, CVC
-   - "platrerie": Plâtrerie, cloisons sèches, isolation
-   - "autre": Tout le reste
+   - "electricite" | "plomberie" | "chauffage" | "platrerie" | "autre"
 
 4. NATURE DE LA DÉPENSE (nature_depense):
-   - "materiaux": Matériaux de construction (Point P, Leroy Merlin, Cedeo, etc.)
-   - "sous_traitants": Factures de sous-traitants (ATTENTION: autoliquidation TVA)
-   - "location_materiel": Location d'équipement (Kiloutou, Loxam, etc.)
-   - "restauration": Repas, restauration
-   - "carburant": Carburant, péage
-   - "atelier": Atelier, entrepôt, stockage
-   - "assurances": Assurances professionnelles
-   - "comptabilite": Expert-comptable, frais comptables
-   - "fournitures_bureau": Fournitures de bureau, papeterie
-   - "autre": Tout le reste
+   - "materiaux" | "sous_traitants" | "location_materiel" | "restauration" | "carburant" | "atelier" | "assurances" | "comptabilite" | "fournitures_bureau" | "autre"
 
 # EXTRACTION DE DONNÉES
 
 - doc_date: Format YYYY-MM-DD. Si jour/mois ambigu, format FR (JJ/MM/AAAA → YYYY-MM-DD)
 - date_echeance: Date d'échéance si présente, format YYYY-MM-DD
-- supplier_name: Nom court en MAJUSCULES (ex: "POINT P" pas "Point P Distribution SAS")
+- supplier_name: Nom court en MAJUSCULES du FOURNISSEUR (celui qui ÉMET la facture). Ex: "POINT P", "CEDEO"
+- destinataire_name: Nom du destinataire/client de la facture (celui qui REÇOIT la facture, pas le fournisseur). Ex: "SARL LGM", "HOLDING XYZ". Extraire tel quel depuis le document.
 - supplier_siret: SIRET 14 chiffres si visible
 - montant_ht: Montant Hors Taxes. Point pour décimales (ex: 1234.56)
 - taux_tva: Taux de TVA en % (20, 10, 5.5, 2.1, ou 0)
 - montant_tva: Montant TVA. Point pour décimales
 - montant_ttc: Montant TTC. Point pour décimales
-- autoliquidation: true si mention "autoliquidation" ou article 283-2 nonies du CGI (sous-traitants BTP)
+- autoliquidation: true si mention "autoliquidation" ou article 283-2 nonies du CGI
 - payment_method: "CB", "virement", "chèque", "espèces", ou null
 - supplier_iban: IBAN si visible
-- summary: Résumé télégraphique (max 5 mots). Ex: "Matériaux plomberie chantier" ou "Location nacelle mars"
+- summary: Résumé télégraphique (max 5 mots)
 
-# NORMALISATIONS FOURNISSEURS (CRITIQUE)
+# NORMALISATIONS FOURNISSEURS
 - "Leroy Merlin" → "LEROY MERLIN"
 - "Point.P" ou "Point P Distribution" → "POINT P"
 - "Cedeo" → "CEDEO"
@@ -84,55 +70,57 @@ Avant tout, vérifie si l'image/document est réellement une FACTURE, REÇU ou d
 - "Loxam" → "LOXAM"
 - "Orange" ou "France Telecom" → "ORANGE"
 
-# AUTOLIQUIDATION TVA (CRITIQUE - CONSTRUCTION)
-Si la facture provient d'un sous-traitant (sous-traitance BTP):
-- La mention "Autoliquidation de la TVA" ou "Art. 283-2 nonies du CGI" doit apparaître
+# AUTOLIQUIDATION TVA (CONSTRUCTION)
+Si sous-traitant BTP avec mention "Autoliquidation" ou "Art. 283-2 nonies du CGI":
 - montant_tva = 0, taux_tva = 0, autoliquidation = true
-- montant_ht = montant_ttc (pas de TVA facturée)
+- montant_ht = montant_ttc
 
 # LIGNES DE FACTURE (line_items)
-Extraire chaque ligne de détail si visible:
-- description: Description du produit/service
-- quantity: Quantité (nombre)
-- unit: Unité (m2, ml, u, forfait, h, kg, pce, lot, etc.)
-- unit_price_ht: Prix unitaire HT
-- total_ht: Total HT de la ligne
-- taux_tva: Taux TVA de la ligne
-Si les lignes ne sont pas clairement identifiables, renvoyer un tableau vide.
+Extraire chaque ligne de détail si visible (max 30 par facture):
+- description, quantity, unit, unit_price_ht, total_ht, taux_tva
+- IGNORER les lignes de contribution REP PMCB et ABJ (eco-contribution/eco-participation)
+- Si les lignes ne sont pas clairement identifiables, renvoyer un tableau vide.
 
 # FORMAT DE SORTIE (JSON UNIQUEMENT)
-Réponds UNIQUEMENT avec cet objet JSON, sans markdown, sans texte avant ou après:
+Réponds UNIQUEMENT avec cet objet JSON, sans markdown, sans texte avant ou après.
+TOUJOURS renvoyer un objet avec une clé "invoices" contenant un TABLEAU de factures.
+Même si une seule facture, renvoyer { "invoices": [{ ... }] }.
 
 {
-  "is_valid_document": boolean,
-  "rejection_reason": "pas_un_document" | "document_illisible" | "pas_une_facture" | null,
-  "document_type": "facture" | "avoir" | "recu" | "autre" | null,
-  "cost_type": "cout_fixe" | "cout_variable" | null,
-  "metier": "electricite" | "plomberie" | "chauffage" | "platrerie" | "autre" | null,
-  "nature_depense": "materiaux" | "sous_traitants" | "location_materiel" | "restauration" | "carburant" | "atelier" | "assurances" | "comptabilite" | "fournitures_bureau" | "autre" | null,
-  "doc_year": number | null,
-  "doc_date": "YYYY-MM-DD" | null,
-  "date_echeance": "YYYY-MM-DD" | null,
-  "supplier_name": "string" | null,
-  "supplier_siret": "string" | null,
-  "doc_number": "string" | null,
-  "montant_ht": number | null,
-  "taux_tva": number | null,
-  "montant_tva": number | null,
-  "montant_ttc": number | null,
-  "autoliquidation": boolean,
-  "payment_method": "CB" | "virement" | "chèque" | "espèces" | null,
-  "supplier_iban": "string" | null,
-  "summary": "string" | null,
-  "confidence_score": number,
-  "line_items": [
+  "invoices": [
     {
-      "description": "string" | null,
-      "quantity": number | null,
-      "unit": "string" | null,
-      "unit_price_ht": number | null,
-      "total_ht": number | null,
-      "taux_tva": number | null
+      "is_valid_document": boolean,
+      "rejection_reason": "pas_un_document" | "document_illisible" | "pas_une_facture" | null,
+      "document_type": "facture" | "avoir" | "recu" | "autre" | null,
+      "cost_type": "cout_fixe" | "cout_variable" | null,
+      "metier": "electricite" | "plomberie" | "chauffage" | "platrerie" | "autre" | null,
+      "nature_depense": "materiaux" | "sous_traitants" | "location_materiel" | "restauration" | "carburant" | "atelier" | "assurances" | "comptabilite" | "fournitures_bureau" | "autre" | null,
+      "doc_year": number | null,
+      "doc_date": "YYYY-MM-DD" | null,
+      "date_echeance": "YYYY-MM-DD" | null,
+      "supplier_name": "string" | null,
+      "destinataire_name": "string" | null,
+      "supplier_siret": "string" | null,
+      "doc_number": "string" | null,
+      "montant_ht": number | null,
+      "taux_tva": number | null,
+      "montant_tva": number | null,
+      "montant_ttc": number | null,
+      "autoliquidation": boolean,
+      "payment_method": "CB" | "virement" | "chèque" | "espèces" | null,
+      "supplier_iban": "string" | null,
+      "summary": "string" | null,
+      "confidence_score": number,
+      "line_items": [
+        {
+          "description": "string" | null,
+          "quantity": number | null,
+          "unit": "string" | null,
+          "unit_price_ht": number | null,
+          "total_ht": number | null,
+          "taux_tva": number | null
+        }
+      ]
     }
   ]
 }
@@ -143,6 +131,55 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number):
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+}
+
+/** Try to repair truncated JSON and parse it. */
+function tryParseJSON(text: string): unknown {
+  // 1. Direct parse
+  try { return JSON.parse(text); } catch { /* continue */ }
+
+  // 2. Fix truncated JSON: find last complete object, close open brackets
+  let fixed = text;
+  const lastBrace = fixed.lastIndexOf('}');
+  if (lastBrace > 0) {
+    fixed = fixed.substring(0, lastBrace + 1);
+    // Count open vs close brackets/braces to close them
+    const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
+    const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
+    fixed += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
+    try { return JSON.parse(fixed); } catch { /* continue */ }
+  }
+
+  // 3. Last resort: strip line_items if they cause the truncation
+  const lineItemsIdx = text.indexOf('"line_items"');
+  if (lineItemsIdx > 0) {
+    const before = text.substring(0, lineItemsIdx) + '"line_items": []}';
+    // If inside invoices array, close it too
+    const invoicesClose = before.includes('"invoices"') ? ']}' : '}';
+    try { return JSON.parse(before); } catch { /* continue */ }
+    try { return JSON.parse(before + invoicesClose); } catch { /* continue */ }
+  }
+
+  throw new Error("Could not parse Gemini response as JSON");
+}
+
+/** Normalize the parsed result to always return { invoices: [...] } */
+function normalizeResult(parsed: unknown): { invoices: unknown[] } {
+  if (parsed && typeof parsed === 'object') {
+    // Already in { invoices: [...] } format
+    if ('invoices' in parsed && Array.isArray((parsed as Record<string, unknown>).invoices)) {
+      return parsed as { invoices: unknown[] };
+    }
+    // Single invoice object returned (backward compat)
+    if ('is_valid_document' in parsed) {
+      return { invoices: [parsed] };
+    }
+    // Array of invoices returned directly
+    if (Array.isArray(parsed)) {
+      return { invoices: parsed };
+    }
+  }
+  return { invoices: [parsed] };
 }
 
 Deno.serve(async (req) => {
@@ -165,7 +202,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // OpenRouter API (OpenAI-compatible format) → Gemini 2.5 Pro
     const response = await fetchWithTimeout(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -184,7 +220,7 @@ Deno.serve(async (req) => {
               content: [
                 { type: "text", text: GEMINI_PROMPT },
                 { type: "image_url", image_url: { url: `data:${mimeType};base64,${data}` } },
-                { type: "text", text: "Analyse ce document et renvoie le JSON selon le format spécifié." },
+                { type: "text", text: "Analyse ce document et renvoie le JSON selon le format spécifié. Si plusieurs factures, extrais-les toutes." },
               ],
             },
           ],
@@ -204,45 +240,12 @@ Deno.serve(async (req) => {
 
     const result = await response.json();
     const text = result.choices?.[0]?.message?.content || "";
-    let cleanedText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleanedText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-    // Fix truncated JSON: try to repair common issues
-    let parsed;
-    try {
-      parsed = JSON.parse(cleanedText);
-    } catch {
-      // Try to fix truncated line_items array
-      // Close any open strings, arrays, objects
-      let fixed = cleanedText;
-      // Remove trailing incomplete line item
-      const lastComplete = fixed.lastIndexOf('}');
-      if (lastComplete > 0) {
-        fixed = fixed.substring(0, lastComplete + 1);
-        // Close line_items array and root object if needed
-        if (!fixed.endsWith(']}')) {
-          if (!fixed.endsWith(']')) fixed += ']';
-          if (!fixed.endsWith('}')) fixed += '}';
-        }
-      }
-      try {
-        parsed = JSON.parse(fixed);
-      } catch {
-        // Last resort: extract what we can before line_items
-        const lineItemsIdx = cleanedText.indexOf('"line_items"');
-        if (lineItemsIdx > 0) {
-          const beforeLineItems = cleanedText.substring(0, lineItemsIdx) + '"line_items": []}';
-          try {
-            parsed = JSON.parse(beforeLineItems);
-          } catch {
-            throw new Error("Could not parse Gemini response as JSON");
-          }
-        } else {
-          throw new Error("Could not parse Gemini response as JSON");
-        }
-      }
-    }
+    const parsed = tryParseJSON(cleanedText);
+    const normalized = normalizeResult(parsed);
 
-    return new Response(JSON.stringify(parsed), {
+    return new Response(JSON.stringify(normalized), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

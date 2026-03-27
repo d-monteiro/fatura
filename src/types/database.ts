@@ -224,6 +224,7 @@ export interface GeminiInvoiceData {
   supplier_name: string | null;
   supplier_siret: string | null;
   doc_number: string | null;
+  destinataire_name: string | null;
 
   montant_ht: number | null;
   taux_tva: number | null;

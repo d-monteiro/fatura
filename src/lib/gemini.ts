@@ -1,6 +1,7 @@
 /**
  * Client frontend pour Edge Function analyze-document (Gemini 2.5 Pro)
  * API key JAMAIS dans le frontend — uniquement dans l'Edge Function.
+ * Returns GeminiInvoiceData[] (one PDF can contain multiple invoices).
  */
 
 import { geminiLimiter } from '@/lib/rateLimiter';
@@ -9,13 +10,28 @@ import type { GeminiInvoiceData } from '@/types/database';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const GEMINI_TIMEOUT_MS = 120_000;
 
+const REJECTION_MESSAGES: Record<string, string> = {
+  'pas_un_document': "Ce n'est pas une facture ou document financier. Veuillez envoyer une image de facture, reçu ou avoir.",
+  'document_illisible': 'Le document est illisible ou trop flou. Veuillez envoyer une image de meilleure qualité.',
+  'pas_une_facture': "Ce document n'est pas une facture de dépense.",
+};
+
+function validateInvoice(inv: GeminiInvoiceData): void {
+  if (!inv.is_valid_document) {
+    const reason = inv.rejection_reason || 'pas_un_document';
+    throw new Error(REJECTION_MESSAGES[reason] || REJECTION_MESSAGES['pas_un_document']);
+  }
+  if (!inv.supplier_name || !inv.doc_date || inv.montant_ttc === null) {
+    throw new Error("Impossible d'extraire toutes les données. Vérifiez que l'image est complète et lisible.");
+  }
+}
+
 export async function analyzeInvoiceWithGemini(
   fileData: string,
   mimeType: string,
-): Promise<GeminiInvoiceData> {
+): Promise<GeminiInvoiceData[]> {
   try {
     await geminiLimiter.waitForSlot();
-
     if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL non configurée');
 
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -40,23 +56,15 @@ export async function analyzeInvoiceWithGemini(
       throw new Error(errorData.error || `Erreur serveur: ${response.status}`);
     }
 
-    const data: GeminiInvoiceData = await response.json();
+    const data = await response.json();
 
-    if (!data.is_valid_document) {
-      const messages: Record<string, string> = {
-        'pas_un_document': "Ce n'est pas une facture ou document financier. Veuillez envoyer une image de facture, reçu ou avoir.",
-        'document_illisible': 'Le document est illisible ou trop flou. Veuillez envoyer une image de meilleure qualité.',
-        'pas_une_facture': "Ce document n'est pas une facture de dépense.",
-      };
-      const reason = data.rejection_reason || 'pas_un_document';
-      throw new Error(messages[reason] || messages['pas_un_document']);
-    }
+    // Edge Function may return { invoices: [...] } or a single object
+    const invoices: GeminiInvoiceData[] = Array.isArray(data.invoices)
+      ? data.invoices
+      : [data as GeminiInvoiceData];
 
-    if (!data.supplier_name || !data.doc_date || data.montant_ttc === null) {
-      throw new Error("Impossible d'extraire toutes les données. Vérifiez que l'image est complète et lisible.");
-    }
-
-    return data;
+    invoices.forEach(validateInvoice);
+    return invoices;
   } catch (error) {
     throw new Error(
       error instanceof Error

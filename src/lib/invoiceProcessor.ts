@@ -1,9 +1,4 @@
-/**
- * PIPELINE COMPLET DE TRAITEMENT DE FACTURES
- * 1. Valider fichier → 2. Analyser Gemini → 3. Normaliser fournisseur
- * 4. Vérifier doublons → 5. Upload Drive → 6. Sauvegarder DB → 7. Sheets
- */
-
+/** Pipeline factures: Gemini -> auto-detect entreprise -> Drive -> DB -> Sheets */
 import { supabase } from '@/lib/supabase/client';
 import { analyzeInvoiceWithGemini, fileToBase64 } from '@/lib/gemini';
 import { uploadInvoiceToDrive, ensureFolder, getOrCreateYearlySheet } from '@/lib/google/drive';
@@ -13,231 +8,136 @@ import { validateMontants } from '@/lib/utils/validation';
 import type { Invoice, GeminiInvoiceData } from '@/types/database';
 
 export interface UploadResult {
-  success: boolean;
-  invoice?: Invoice;
-  error?: string;
-  isDuplicate?: boolean;
-  warnings?: string[];
+  success: boolean; invoice?: Invoice; error?: string; isDuplicate?: boolean; warnings?: string[];
 }
 
-const MONTH_NAMES_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-];
+const MONTH_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-export async function processInvoiceUpload(
-  file: File,
-  companyId: string,
-  userId: string | null = null,
-  accessToken: string | null = null
+async function detectCompanyId(dest: string | null, fallback?: string): Promise<string | null> {
+  if (dest) {
+    const { data } = await supabase.from('companies').select('id, name, short_name').eq('is_active', true);
+    const d = dest.toLowerCase();
+    const match = data?.find(c => d.includes(c.name.toLowerCase()) || d.includes(c.short_name.toLowerCase()));
+    if (match) return match.id;
+  }
+  if (fallback) return fallback;
+  const { data: first } = await supabase.from('companies').select('id').eq('is_active', true).order('name').limit(1).single();
+  return first?.id ?? null;
+}
+
+async function checkDuplicate(g: GeminiInvoiceData, cid: string): Promise<string | null> {
+  const label = `${g.supplier_name} - ${g.doc_date} (${g.montant_ttc?.toFixed(2)}€)`;
+  if (g.doc_number) {
+    const { data } = await supabase.from('invoices').select('id').eq('company_id', cid)
+      .ilike('doc_number', g.doc_number).is('deleted_at', null).limit(1);
+    if (data?.length) return `Facture en double: ${label} | Doc: ${g.doc_number}`;
+  } else {
+    const { data } = await supabase.from('invoices').select('id, summary').eq('company_id', cid)
+      .ilike('supplier_name', g.supplier_name || '').eq('doc_date', g.doc_date)
+      .eq('montant_ttc', g.montant_ttc).is('deleted_at', null).limit(5);
+    if (data?.some(d => (d.summary || '').toLowerCase().trim() === (g.summary || '').toLowerCase().trim()))
+      return `Facture en double: ${label}`;
+  }
+  return null;
+}
+
+async function matchOrCreateSupplier(g: GeminiInvoiceData, invId: string) {
+  if (!g.supplier_name) return;
+  const { data: ex } = await supabase.from('suppliers').select('id').eq('name', g.supplier_name).single();
+  if (ex) { await supabase.from('invoices').update({ supplier_id: ex.id }).eq('id', invId); return; }
+  const { data: ns } = await supabase.from('suppliers').insert({
+    name: g.supplier_name, display_name: g.supplier_name, siret: g.supplier_siret,
+    is_sous_traitant: g.autoliquidation, default_metier: g.metier,
+    default_nature: g.nature_depense, default_cost_type: g.cost_type,
+  }).select('id').single();
+  if (ns) await supabase.from('invoices').update({ supplier_id: ns.id }).eq('id', invId);
+}
+
+async function processSingle(
+  g: GeminiInvoiceData, file: File, cid: string, userId: string | null, token: string,
 ): Promise<UploadResult> {
-  const warnings: string[] = [];
+  const w: string[] = [];
+  g.supplier_name = normalizeSupplierName(g.supplier_name);
+  const v = validateMontants(g.montant_ht, g.montant_tva, g.montant_ttc, g.taux_tva);
+  if (!v.valid) w.push(...v.errors);
+  if (v.warnings.length) w.push(...v.warnings);
+
+  const dup = await checkDuplicate(g, cid);
+  if (dup) return { success: false, isDuplicate: true, error: dup };
+
+  const { data: co } = await supabase.from('companies').select('short_name').eq('id', cid).single();
+  const coName = co?.short_name || 'LGM';
+  const year = g.doc_year || new Date().getFullYear();
+  const month = g.doc_date ? new Date(g.doc_date).getMonth() : new Date().getMonth();
+  const mLabel = `${String(month + 1).padStart(2, '0')} - ${MONTH_FR[month]}`;
+  const metier = g.metier ? g.metier.charAt(0).toUpperCase() + g.metier.slice(1).replace(/_/g, ' ') : 'Autre';
+
+  const root = await ensureFolder(token, 'FACTURES');
+  const cF = await ensureFolder(token, coName, root);
+  const yF = await ensureFolder(token, year.toString(), cF);
+  const mF = await ensureFolder(token, mLabel, yF);
+  const metF = await ensureFolder(token, metier, mF);
+  const sheetId = await getOrCreateYearlySheet(token, year, yF);
+
+  const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+  const fName = `${g.doc_date}_${g.supplier_name}_${g.montant_ttc?.toFixed(2) || '0.00'}.${ext}`.replace(/[/\\?%*:|"<>]/g, '_');
+  const buf = await file.arrayBuffer();
+  const df = await uploadInvoiceToDrive(token, new Uint8Array(buf), fName, metF, file.type);
+
+  const curYear = new Date().getFullYear();
+  const review = g.confidence_score < 70 || (g.doc_year !== null && g.doc_year < curYear - 1) || !v.valid;
+  const { data: inv, error: err } = await supabase.from('invoices').insert({
+    user_id: userId, company_id: cid, source: 'upload',
+    file_url: df.webViewLink, drive_link: df.webViewLink, drive_file_id: df.id, spreadsheet_id: sheetId,
+    document_type: g.document_type, cost_type: g.cost_type, metier: g.metier, nature_depense: g.nature_depense,
+    doc_date: g.doc_date, doc_year: g.doc_year, date_echeance: g.date_echeance,
+    supplier_name: g.supplier_name, supplier_siret: g.supplier_siret, doc_number: g.doc_number,
+    montant_ht: g.montant_ht, taux_tva: g.taux_tva, montant_tva: g.montant_tva, montant_ttc: g.montant_ttc,
+    autoliquidation: g.autoliquidation, payment_method: g.payment_method, supplier_iban: g.supplier_iban,
+    summary: g.summary, confidence_score: g.confidence_score,
+    status: review ? 'review' : 'processed', manual_review: review,
+    review_reason: review ? (!v.valid ? 'Erreur validation montants' : g.confidence_score < 70 ? 'Confiance faible' : 'Date suspecte') : null,
+  }).select().single();
+  if (err) return { success: false, error: `Erreur sauvegarde: ${err.message}` };
+
+  if (g.line_items?.length && inv) {
+    await supabase.from('invoice_line_items').insert(g.line_items.map((li, i) => ({
+      invoice_id: inv.id, line_number: i + 1, description: li.description,
+      quantity: li.quantity, unit: li.unit, unit_price_ht: li.unit_price_ht, total_ht: li.total_ht, taux_tva: li.taux_tva,
+    })));
+  }
+  await matchOrCreateSupplier(g, inv!.id);
 
   try {
-    // 1. VALIDATION
-    if (file.size > 10 * 1024 * 1024) {
-      return { success: false, error: 'Fichier trop volumineux (max 10 Mo)' };
+    await appendInvoiceToSheet(token, sheetId, {
+      doc_date: g.doc_date, supplier_name: g.supplier_name, supplier_siret: g.supplier_siret,
+      metier: g.metier, nature_depense: g.nature_depense, cost_type: g.cost_type, doc_number: g.doc_number,
+      montant_ht: g.montant_ht, montant_tva: g.montant_tva, montant_ttc: g.montant_ttc,
+      taux_tva: g.taux_tva, summary: g.summary, drive_link: df.webViewLink,
+    });
+  } catch { w.push('Échec sync Google Sheets (facture sauvegardée quand même)'); }
+
+  return { success: true, invoice: inv as Invoice, warnings: w.length ? w : undefined };
+}
+
+export async function processInvoiceUpload(
+  file: File, userId: string | null, accessToken: string | null, defaultCompanyId?: string | null,
+): Promise<UploadResult[]> {
+  try {
+    if (file.size > 10 * 1024 * 1024) return [{ success: false, error: 'Fichier trop volumineux (max 10 Mo)' }];
+    const ok = ['image/jpeg','image/png','image/jpg','application/pdf','image/heic','image/heif'];
+    if (!ok.includes(file.type)) return [{ success: false, error: 'Format non supporté. Utilisez JPG, PNG, PDF ou HEIC.' }];
+    if (!accessToken) return [{ success: false, error: 'Ajoutez un compte Google dans Automatisations.' }];
+
+    const invoices = await analyzeInvoiceWithGemini(await fileToBase64(file), file.type);
+    const results: UploadResult[] = [];
+    for (const g of invoices) {
+      const cid = await detectCompanyId(g.destinataire_name, defaultCompanyId ?? undefined);
+      if (!cid) { results.push({ success: false, error: 'Entreprise non trouvée' }); continue; }
+      results.push(await processSingle(g, file, cid, userId, accessToken));
     }
-
-    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'image/heic', 'image/heif'];
-    if (!allowed.includes(file.type)) {
-      return { success: false, error: 'Format non supporté. Utilisez JPG, PNG, PDF ou HEIC.' };
-    }
-
-    if (!accessToken) {
-      return { success: false, error: 'Ajoutez un compte Google dans Automatisations.' };
-    }
-
-    // 2. ANALYSE GEMINI
-    const base64 = await fileToBase64(file);
-    const gemini: GeminiInvoiceData = await analyzeInvoiceWithGemini(base64, file.type);
-
-    // 3. NORMALISER FOURNISSEUR
-    gemini.supplier_name = normalizeSupplierName(gemini.supplier_name);
-
-    // 3b. VALIDER MONTANTS
-    const validation = validateMontants(gemini.montant_ht, gemini.montant_tva, gemini.montant_ttc, gemini.taux_tva);
-    if (!validation.valid) warnings.push(...validation.errors);
-    if (validation.warnings.length) warnings.push(...validation.warnings);
-
-    // 4. DOUBLONS
-    if (gemini.doc_number) {
-      const { data: dups } = await supabase
-        .from('invoices')
-        .select('id, doc_number')
-        .eq('company_id', companyId)
-        .ilike('doc_number', gemini.doc_number)
-        .is('deleted_at', null)
-        .limit(1);
-      if (dups && dups.length > 0) {
-        return {
-          success: false, isDuplicate: true,
-          error: `Facture en double: ${gemini.supplier_name} - ${gemini.doc_date} (${gemini.montant_ttc?.toFixed(2)}€) | Doc: ${gemini.doc_number}`,
-        };
-      }
-    } else {
-      const { data: dups } = await supabase
-        .from('invoices')
-        .select('id, summary')
-        .eq('company_id', companyId)
-        .ilike('supplier_name', gemini.supplier_name || '')
-        .eq('doc_date', gemini.doc_date)
-        .eq('montant_ttc', gemini.montant_ttc)
-        .is('deleted_at', null)
-        .limit(5);
-      if (dups?.some(d => (d.summary || '').toLowerCase().trim() === (gemini.summary || '').toLowerCase().trim())) {
-        return {
-          success: false, isDuplicate: true,
-          error: `Facture en double: ${gemini.supplier_name} - ${gemini.doc_date} (${gemini.montant_ttc?.toFixed(2)}€)`,
-        };
-      }
-    }
-
-    // 5. GOOGLE DRIVE — FACTURES > {ENTREPRISE} > {ANNEE} > {MM - Mois} > {Métier}
-    const year = gemini.doc_year || new Date().getFullYear();
-    const month = gemini.doc_date ? new Date(gemini.doc_date).getMonth() : new Date().getMonth();
-    const monthFolder = `${String(month + 1).padStart(2, '0')} - ${MONTH_NAMES_FR[month]}`;
-
-    // Get company short name
-    const { data: company } = await supabase.from('companies').select('short_name').eq('id', companyId).single();
-    const companyName = company?.short_name || 'LGM';
-
-    const rootId = await ensureFolder(accessToken, 'FACTURES');
-    const companyFolderId = await ensureFolder(accessToken, companyName, rootId);
-    const yearFolderId = await ensureFolder(accessToken, year.toString(), companyFolderId);
-    const monthFolderId = await ensureFolder(accessToken, monthFolder, yearFolderId);
-
-    const metierFolder = gemini.metier
-      ? gemini.metier.charAt(0).toUpperCase() + gemini.metier.slice(1).replace(/_/g, ' ')
-      : 'Autre';
-    const metierFolderId = await ensureFolder(accessToken, metierFolder, monthFolderId);
-
-    const spreadsheetId = await getOrCreateYearlySheet(accessToken, year, yearFolderId);
-
-    const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
-    const fileName = `${gemini.doc_date}_${gemini.supplier_name}_${gemini.montant_ttc?.toFixed(2) || '0.00'}.${ext}`
-      .replace(/[/\\?%*:|"<>]/g, '_');
-
-    const arrayBuffer = await file.arrayBuffer();
-    const driveFile = await uploadInvoiceToDrive(
-      accessToken, new Uint8Array(arrayBuffer), fileName, metierFolderId, file.type
-    );
-
-    // 6. SUPABASE DB
-    const currentYear = new Date().getFullYear();
-    const needsReview = (gemini.confidence_score < 70) ||
-      (gemini.doc_year !== null && gemini.doc_year < currentYear - 1) ||
-      !validation.valid;
-
-    const { data: invoice, error: insertError } = await supabase
-      .from('invoices')
-      .insert({
-        user_id: userId,
-        company_id: companyId,
-        source: 'upload',
-        file_url: driveFile.webViewLink,
-        drive_link: driveFile.webViewLink,
-        drive_file_id: driveFile.id,
-        spreadsheet_id: spreadsheetId,
-        document_type: gemini.document_type,
-        cost_type: gemini.cost_type,
-        metier: gemini.metier,
-        nature_depense: gemini.nature_depense,
-        doc_date: gemini.doc_date,
-        doc_year: gemini.doc_year,
-        date_echeance: gemini.date_echeance,
-        supplier_name: gemini.supplier_name,
-        supplier_siret: gemini.supplier_siret,
-        doc_number: gemini.doc_number,
-        montant_ht: gemini.montant_ht,
-        taux_tva: gemini.taux_tva,
-        montant_tva: gemini.montant_tva,
-        montant_ttc: gemini.montant_ttc,
-        autoliquidation: gemini.autoliquidation,
-        payment_method: gemini.payment_method,
-        supplier_iban: gemini.supplier_iban,
-        summary: gemini.summary,
-        confidence_score: gemini.confidence_score,
-        status: needsReview ? 'review' : 'processed',
-        manual_review: needsReview,
-        review_reason: needsReview
-          ? (!validation.valid ? 'Erreur validation montants' : gemini.confidence_score < 70 ? 'Confiance faible' : 'Date suspecte')
-          : null,
-      })
-      .select()
-      .single();
-
-    if (insertError) return { success: false, error: `Erreur sauvegarde: ${insertError.message}` };
-
-    // 6b. LINE ITEMS
-    if (gemini.line_items && gemini.line_items.length > 0 && invoice) {
-      const lineItems = gemini.line_items.map((li, idx) => ({
-        invoice_id: invoice.id,
-        line_number: idx + 1,
-        description: li.description,
-        quantity: li.quantity,
-        unit: li.unit,
-        unit_price_ht: li.unit_price_ht,
-        total_ht: li.total_ht,
-        taux_tva: li.taux_tva,
-      }));
-      await supabase.from('invoice_line_items').insert(lineItems);
-    }
-
-    // 6c. MATCH/CREATE SUPPLIER
-    if (gemini.supplier_name) {
-      const { data: existing } = await supabase
-        .from('suppliers')
-        .select('id')
-        .eq('name', gemini.supplier_name)
-        .single();
-
-      if (existing) {
-        await supabase.from('invoices').update({ supplier_id: existing.id }).eq('id', invoice!.id);
-      } else {
-        const { data: newSup } = await supabase
-          .from('suppliers')
-          .insert({
-            name: gemini.supplier_name,
-            display_name: gemini.supplier_name,
-            siret: gemini.supplier_siret,
-            is_sous_traitant: gemini.autoliquidation,
-            default_metier: gemini.metier,
-            default_nature: gemini.nature_depense,
-            default_cost_type: gemini.cost_type,
-          })
-          .select('id')
-          .single();
-        if (newSup) {
-          await supabase.from('invoices').update({ supplier_id: newSup.id }).eq('id', invoice!.id);
-        }
-      }
-    }
-
-    // 7. GOOGLE SHEETS
-    try {
-      await appendInvoiceToSheet(accessToken, spreadsheetId, {
-        doc_date: gemini.doc_date,
-        supplier_name: gemini.supplier_name,
-        supplier_siret: gemini.supplier_siret,
-        metier: gemini.metier,
-        nature_depense: gemini.nature_depense,
-        cost_type: gemini.cost_type,
-        doc_number: gemini.doc_number,
-        montant_ht: gemini.montant_ht,
-        montant_tva: gemini.montant_tva,
-        montant_ttc: gemini.montant_ttc,
-        taux_tva: gemini.taux_tva,
-        summary: gemini.summary,
-        drive_link: driveFile.webViewLink,
-      });
-    } catch (e) {
-      warnings.push('Échec sync Google Sheets (facture sauvegardée quand même)');
-    }
-
-    return { success: true, invoice: invoice as Invoice, warnings: warnings.length ? warnings : undefined };
-
+    return results;
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    return [{ success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' }];
   }
 }
