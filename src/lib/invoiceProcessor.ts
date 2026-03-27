@@ -16,30 +16,21 @@ async function ensureFreshToken(userId: string): Promise<string | null> {
   if (!row) return null;
   // If token not expired yet (with 5min buffer), use it
   if (row.token_expiry && new Date(row.token_expiry) > new Date(Date.now() + 5 * 60 * 1000)) return row.access_token;
-  // Token expired - refresh via Edge Function (expects { email }, needs auth)
+  // Token expired - refresh via Edge Function
   if (!row.refresh_token || !row.email) return null;
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
     const res = await fetch(`${SUPABASE_URL}/functions/v1/refresh-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({ email: row.email }),
     });
     if (!res.ok) return null;
     const result = await res.json();
-    if (result.refreshed) {
-      // Re-fetch the updated token from DB
-      const { data: updated } = await supabase.from('user_oauth_tokens').select('access_token')
-        .eq('id', row.id).single();
-      return updated?.access_token || null;
-    }
-    // Token was still valid
-    return row.access_token;
+    // Edge Function returns access_token directly (both refreshed and still-valid cases)
+    return result.access_token || null;
   } catch { return null; }
 }
 
