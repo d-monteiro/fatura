@@ -24,20 +24,37 @@ export function useUploadDeps(): UploadDeps {
   const companyParam = searchParams.get('company') || 'lgm';
   const userId = user?.id ?? null;
 
-  // Resolve short_name -> UUID
+  // Resolve company: specific selection or first company when "all"
   const { data: companyId, isLoading: companyLoading } = useQuery({
     queryKey: ['company-id', companyParam],
     queryFn: async () => {
-      if (companyParam === 'all') return null;
-      const { data } = await supabase
+      if (companyParam === 'all') {
+        // Default to first company (LGM) when "all" is selected
+        const { data } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('is_active', true)
+          .order('name')
+          .limit(1)
+          .single();
+        return data?.id ?? null;
+      }
+      // Try UUID first, then short_name
+      const { data: byId } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('id', companyParam)
+        .eq('is_active', true)
+        .single();
+      if (byId?.id) return byId.id;
+      const { data: byName } = await supabase
         .from('companies')
         .select('id')
         .ilike('short_name', companyParam)
         .eq('is_active', true)
         .single();
-      return data?.id ?? null;
+      return byName?.id ?? null;
     },
-    enabled: companyParam !== 'all',
     staleTime: 5 * 60 * 1000,
   });
 
@@ -60,7 +77,7 @@ export function useUploadDeps(): UploadDeps {
   });
 
   const loading = companyLoading || tokenLoading;
-  const resolvedCompanyId = companyParam === 'all' ? null : (companyId ?? null);
+  const resolvedCompanyId = companyId ?? null;
 
   return {
     userId,
@@ -68,7 +85,7 @@ export function useUploadDeps(): UploadDeps {
     accessToken: accessToken ?? null,
     ready: !loading && !!resolvedCompanyId && !!accessToken,
     noGoogle: !tokenLoading && !accessToken,
-    noCompany: !companyLoading && !resolvedCompanyId && companyParam !== 'all',
+    noCompany: !companyLoading && !resolvedCompanyId,
     loading,
   };
 }

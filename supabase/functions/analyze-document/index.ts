@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
               ],
             },
           ],
-          max_tokens: 4096,
+          max_tokens: 16384,
           temperature: 0.1,
         }),
       },
@@ -204,8 +204,43 @@ Deno.serve(async (req) => {
 
     const result = await response.json();
     const text = result.choices?.[0]?.message?.content || "";
-    const cleanedText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleanedText);
+    let cleanedText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    // Fix truncated JSON: try to repair common issues
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanedText);
+    } catch {
+      // Try to fix truncated line_items array
+      // Close any open strings, arrays, objects
+      let fixed = cleanedText;
+      // Remove trailing incomplete line item
+      const lastComplete = fixed.lastIndexOf('}');
+      if (lastComplete > 0) {
+        fixed = fixed.substring(0, lastComplete + 1);
+        // Close line_items array and root object if needed
+        if (!fixed.endsWith(']}')) {
+          if (!fixed.endsWith(']')) fixed += ']';
+          if (!fixed.endsWith('}')) fixed += '}';
+        }
+      }
+      try {
+        parsed = JSON.parse(fixed);
+      } catch {
+        // Last resort: extract what we can before line_items
+        const lineItemsIdx = cleanedText.indexOf('"line_items"');
+        if (lineItemsIdx > 0) {
+          const beforeLineItems = cleanedText.substring(0, lineItemsIdx) + '"line_items": []}';
+          try {
+            parsed = JSON.parse(beforeLineItems);
+          } catch {
+            throw new Error("Could not parse Gemini response as JSON");
+          }
+        } else {
+          throw new Error("Could not parse Gemini response as JSON");
+        }
+      }
+    }
 
     return new Response(JSON.stringify(parsed), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
