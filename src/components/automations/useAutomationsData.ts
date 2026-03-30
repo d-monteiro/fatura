@@ -18,13 +18,14 @@ export interface SyncResult {
   errors: number;
 }
 
+// Gmail scopes commented out until Google OAuth verification is approved
 const GOOGLE_SCOPES = [
   'email',
   'profile',
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.modify',
+  // 'https://www.googleapis.com/auth/gmail.readonly',
+  // 'https://www.googleapis.com/auth/gmail.modify',
 ].join(' ');
 
 export function isTokenExpired(expiryDate: string) {
