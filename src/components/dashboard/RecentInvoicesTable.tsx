@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
 import { formatEUR, formatDateFR } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
@@ -10,6 +11,8 @@ interface RecentInvoicesTableProps {
 
 export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['recent-invoices', companyId],
     queryFn: async () => {
@@ -30,9 +33,13 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
     },
   });
 
+  const handleRowClick = (invoiceId: string) => {
+    navigate('/invoices', { state: { invoiceId } });
+  };
+
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.recent')}</h3>
         <div className="animate-pulse space-y-3">
           {[...Array(5)].map((_, i) => (
@@ -44,29 +51,33 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.recent')}</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-gray-500">
-              <th className="pb-3 font-medium">{t('inv.date')}</th>
-              <th className="pb-3 font-medium">{t('inv.supplier')}</th>
-              <th className="pb-3 font-medium">{t('inv.metier')}</th>
-              <th className="pb-3 text-right font-medium">{t('inv.amount_ttc')}</th>
-              <th className="pb-3 font-medium">{t('inv.status')}</th>
+              <th className="px-4 pb-3 font-medium sm:px-0">{t('inv.date')}</th>
+              <th className="px-4 pb-3 font-medium sm:px-0">{t('inv.supplier')}</th>
+              <th className="hidden pb-3 font-medium sm:table-cell">{t('inv.metier')}</th>
+              <th className="px-4 pb-3 text-right font-medium sm:px-0">{t('inv.amount_ttc')}</th>
+              <th className="px-4 pb-3 font-medium sm:px-0">{t('inv.status')}</th>
             </tr>
           </thead>
           <tbody>
             {invoices?.map((inv) => (
-              <tr key={inv.id} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="py-3 text-gray-600">{formatDateFR(inv.doc_date)}</td>
-                <td className="py-3 font-medium text-gray-900">{inv.supplier_name ?? '\u2014'}</td>
-                <td className="py-3 text-gray-600">{inv.metier ?? '\u2014'}</td>
-                <td className="py-3 text-right font-medium text-gray-900">
+              <tr
+                key={inv.id}
+                onClick={() => handleRowClick(inv.id)}
+                className="cursor-pointer border-b border-gray-50 hover:bg-blue-50/50"
+              >
+                <td className="px-4 py-3 text-gray-600 sm:px-0">{formatDateFR(inv.doc_date)}</td>
+                <td className="px-4 py-3 font-medium text-gray-900 sm:px-0">{inv.supplier_name ?? '\u2014'}</td>
+                <td className="hidden py-3 text-gray-600 sm:table-cell">{inv.metier ?? '\u2014'}</td>
+                <td className="px-4 py-3 text-right font-medium text-gray-900 sm:px-0">
                   {formatEUR(inv.montant_ttc)}
                 </td>
-                <td className="py-3">
+                <td className="px-4 py-3 sm:px-0">
                   <StatusBadge status={inv.status} />
                 </td>
               </tr>

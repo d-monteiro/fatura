@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { formatEUR } from '@/lib/utils/validation';
 import { Search, BadgeCheck } from 'lucide-react';
+import { SupplierDetailModal } from '@/components/fournisseurs/SupplierDetailModal';
 import type { Supplier } from '@/types/database';
 
 export default function Fournisseurs() {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers', search],
@@ -29,11 +31,22 @@ export default function Fournisseurs() {
     },
   });
 
-  const selectedSupplier = suppliers?.find((s) => s.id === selectedId);
+  const handleRowClick = (sup: Supplier) => {
+    setSelectedSupplier(sup);
+  };
+
+  const handleUpdated = () => {
+    queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    // Refresh modal with updated data
+    if (selectedSupplier) {
+      const fresh = suppliers?.find((s) => s.id === selectedSupplier.id);
+      if (fresh) setSelectedSupplier(fresh);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">{t('nav.suppliers')}</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.suppliers')}</h1>
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -43,7 +56,7 @@ export default function Fournisseurs() {
           placeholder={t('action.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="min-h-[44px] w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -54,8 +67,8 @@ export default function Fournisseurs() {
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm -mx-4 sm:mx-0">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">{t('sup.name')}</th>
@@ -70,18 +83,16 @@ export default function Fournisseurs() {
               {suppliers?.map((sup) => (
                 <tr
                   key={sup.id}
-                  onClick={() => setSelectedId(sup.id === selectedId ? null : sup.id)}
-                  className={`cursor-pointer border-b border-gray-50 transition-colors hover:bg-blue-50/50 ${
-                    sup.id === selectedId ? 'bg-blue-50' : ''
-                  }`}
+                  onClick={() => handleRowClick(sup)}
+                  className="cursor-pointer border-b border-gray-50 transition-colors hover:bg-blue-50/50"
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {sup.display_name ?? sup.name}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                    {sup.siret ?? '—'}
+                    {sup.siret ?? '---'}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{sup.default_metier ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{sup.default_metier ?? '---'}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
                     {formatEUR(sup.total_spent)}
                   </td>
@@ -107,31 +118,12 @@ export default function Fournisseurs() {
         </div>
       )}
 
-      {/* TODO: Replace with a proper drawer/modal */}
       {selectedSupplier && (
-        <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-6">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {selectedSupplier.display_name ?? selectedSupplier.name}
-          </h3>
-          <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500">SIRET:</span>{' '}
-              <span className="font-mono">{selectedSupplier.siret ?? '—'}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">IBAN:</span>{' '}
-              <span className="font-mono">{selectedSupplier.iban ?? '—'}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">{t('sup.total_spent')}:</span>{' '}
-              <span className="font-medium">{formatEUR(selectedSupplier.total_spent)}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">{t('sup.invoice_count')}:</span>{' '}
-              <span className="font-medium">{selectedSupplier.invoice_count}</span>
-            </div>
-          </div>
-        </div>
+        <SupplierDetailModal
+          supplier={selectedSupplier}
+          onClose={() => setSelectedSupplier(null)}
+          onUpdated={handleUpdated}
+        />
       )}
     </div>
   );

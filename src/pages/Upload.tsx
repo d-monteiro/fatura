@@ -67,8 +67,8 @@ export default function Upload() {
   const errorCount = files.filter((f) => f.status === 'error' || f.status === 'duplicate').length;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">{t('upload.title')}</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('upload.title')}</h1>
 
       {noGoogle && <NoGoogleBanner />}
 

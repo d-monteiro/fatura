@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { Euro, Lock, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -10,6 +11,7 @@ import { RecentInvoicesTable } from '@/components/dashboard/RecentInvoicesTable'
 
 export default function Dashboard() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { companyId } = useCompanyFilter();
 
   const { data: metrics } = useQuery({
@@ -44,17 +46,18 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">{t('nav.dashboard')}</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.dashboard')}</h1>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <MetricCard
           title={t('dash.total_expenses')}
           value={metrics?.totalDepenses ?? null}
           icon={Euro}
           trend={null}
           color="bg-blue-500"
+          onClick={() => navigate('/invoices')}
         />
         <MetricCard
           title={t('dash.fixed_costs')}
@@ -62,6 +65,7 @@ export default function Dashboard() {
           icon={Lock}
           trend={null}
           color="bg-violet-500"
+          onClick={() => navigate('/invoices?cost_type=cout_fixe')}
         />
         <MetricCard
           title={t('dash.variable_costs')}
@@ -69,6 +73,7 @@ export default function Dashboard() {
           icon={TrendingUp}
           trend={null}
           color="bg-cyan-500"
+          onClick={() => navigate('/invoices?cost_type=cout_variable')}
         />
         <MetricCard
           title={t('dash.to_review')}
@@ -76,11 +81,12 @@ export default function Dashboard() {
           icon={AlertTriangle}
           trend={null}
           color="bg-amber-500"
+          onClick={() => navigate('/inbox')}
         />
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <TrendChart companyId={companyId} />
         <CategoryDonut companyId={companyId} />
       </div>

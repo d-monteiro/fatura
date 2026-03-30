@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { supabase } from '@/lib/supabase/client';
 import { formatEUR } from '@/lib/utils/validation';
@@ -19,12 +20,20 @@ const NATURE_LABELS: Record<string, string> = {
   autre: 'Autre',
 };
 
+// Reverse lookup: label -> db key
+const LABEL_TO_KEY: Record<string, string> = {};
+for (const [key, label] of Object.entries(NATURE_LABELS)) {
+  LABEL_TO_KEY[label] = key;
+}
+
 interface CategoryDonutProps {
   companyId: string | null;
 }
 
 export function CategoryDonut({ companyId }: CategoryDonutProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+
   const { data: chartData = [] } = useQuery({
     queryKey: ['dashboard-categories', companyId],
     queryFn: async () => {
@@ -40,7 +49,6 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Aggregate by nature_depense
       const map: Record<string, number> = {};
       for (const row of data ?? []) {
         const key = row.nature_depense ?? 'autre';
@@ -58,8 +66,15 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
     },
   });
 
+  const handleSliceClick = (_: unknown, index: number) => {
+    const entry = chartData[index];
+    if (!entry) return;
+    const dbKey = LABEL_TO_KEY[entry.name] ?? entry.name;
+    navigate(`/invoices?nature=${dbKey}`);
+  };
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.categories')}</h3>
       {chartData.length === 0 ? (
         <p className="py-16 text-center text-sm text-gray-400">Aucune donnee</p>
@@ -74,6 +89,8 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
               outerRadius={100}
               paddingAngle={3}
               dataKey="value"
+              onClick={handleSliceClick}
+              className="cursor-pointer"
             >
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />

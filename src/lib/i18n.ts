@@ -73,6 +73,15 @@ const translations = {
   'sup.total_spent': { fr: 'Total dépensé', pt: 'Total gasto' },
   'sup.invoice_count': { fr: 'Nb factures', pt: 'N° faturas' },
   'sup.subcontractor': { fr: 'Sous-traitant', pt: 'Subempreiteiro' },
+  'sup.detail': { fr: 'Détails fournisseur', pt: 'Detalhes fornecedor' },
+  'sup.recent_invoices': { fr: 'Factures récentes', pt: 'Faturas recentes' },
+  'sup.address': { fr: 'Adresse', pt: 'Morada' },
+  'sup.iban': { fr: 'IBAN', pt: 'IBAN' },
+  'sup.tva_intracom': { fr: 'TVA Intracom', pt: 'IVA Intracom' },
+  'sup.edit': { fr: 'Modifier', pt: 'Editar' },
+  'sup.no_invoices': { fr: 'Aucune facture', pt: 'Sem faturas' },
+  'sup.saved': { fr: 'Fournisseur enregistré', pt: 'Fornecedor guardado' },
+  'sup.siret_invalid': { fr: 'SIRET doit contenir 14 chiffres', pt: 'SIRET deve ter 14 digitos' },
 
   // Settings
   'set.companies': { fr: 'Entreprises', pt: 'Empresas' },
@@ -85,7 +94,9 @@ const translations = {
   'action.cancel': { fr: 'Annuler', pt: 'Cancelar' },
   'action.delete': { fr: 'Supprimer', pt: 'Eliminar' },
   'action.export_excel': { fr: 'Exporter Excel', pt: 'Exportar Excel' },
+  'action.exporting': { fr: 'Export en cours...', pt: 'A exportar...' },
   'action.export_zip': { fr: 'Télécharger ZIP', pt: 'Descarregar ZIP' },
+  'action.approve': { fr: 'Approuver', pt: 'Aprovar' },
   'action.search': { fr: 'Rechercher...', pt: 'Pesquisar...' },
   'action.filter': { fr: 'Filtrer', pt: 'Filtrar' },
   'action.clear_filters': { fr: 'Effacer filtres', pt: 'Limpar filtros' },
@@ -101,6 +112,11 @@ const translations = {
 
   // Companies
   'company.all': { fr: 'Toutes les entreprises', pt: 'Todas as empresas' },
+  'company.name': { fr: 'Nom', pt: 'Nome' },
+  'company.siret': { fr: 'SIRET', pt: 'SIRET' },
+  'company.tva_intracom': { fr: 'TVA Intracom', pt: 'IVA Intracom' },
+  'company.address': { fr: 'Adresse', pt: 'Morada' },
+  'company.saved': { fr: 'Entreprise enregistrée', pt: 'Empresa guardada' },
 
   // Errors
   'error.file_too_large': { fr: 'Fichier trop volumineux (max 10 Mo)', pt: 'Ficheiro demasiado grande (max 10MB)' },
@@ -109,6 +125,30 @@ const translations = {
   'error.analysis_failed': { fr: "Erreur lors de l'analyse du document.", pt: 'Erro ao analisar documento.' },
   'error.not_invoice': { fr: "Ce document n'est pas une facture.", pt: 'Este documento não é uma fatura.' },
   'error.illegible': { fr: 'Document illisible. Veuillez envoyer une meilleure qualité.', pt: 'Documento ilegível. Envie melhor qualidade.' },
+
+  // Bulk
+  'bulk.selected': { fr: 'sélectionné(s)', pt: 'selecionado(s)' },
+  'bulk.select_all': { fr: 'Tout sélectionner', pt: 'Selecionar tudo' },
+  'bulk.approve': { fr: 'Approuver', pt: 'Aprovar' },
+  'bulk.delete': { fr: 'Supprimer', pt: 'Eliminar' },
+
+  // Export
+  'export.pdf_link': { fr: 'Lien PDF', pt: 'Link PDF' },
+
+  // Drawer / Detail
+  'drawer.title': { fr: 'Détails de la facture', pt: 'Detalhes da fatura' },
+  'drawer.edit': { fr: 'Modifier', pt: 'Editar' },
+  'drawer.delete': { fr: 'Supprimer', pt: 'Eliminar' },
+  'drawer.view_doc': { fr: 'Voir le document', pt: 'Ver documento' },
+  'drawer.company': { fr: 'Entreprise', pt: 'Empresa' },
+  'drawer.confidence': { fr: 'Confiance IA', pt: 'Confianca IA' },
+  'drawer.iban': { fr: 'IBAN fournisseur', pt: 'IBAN fornecedor' },
+  'drawer.delete_confirm': { fr: 'Voulez-vous vraiment supprimer cette facture ?', pt: 'Tem a certeza que pretende eliminar esta fatura?' },
+  'drawer.no_items': { fr: 'Aucune ligne de facture', pt: 'Sem linhas de fatura' },
+
+  // Edit Modal
+  'edit.title': { fr: 'Modifier la facture', pt: 'Editar fatura' },
+  'edit.saving': { fr: 'Enregistrement...', pt: 'A guardar...' },
 
   // Months
   'month.1': { fr: 'Janvier', pt: 'Janeiro' },

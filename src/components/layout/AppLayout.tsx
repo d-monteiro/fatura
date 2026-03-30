@@ -1,11 +1,18 @@
+import { useState, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { MobileHeader } from '@/components/layout/MobileHeader';
 
 export function AppLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const toggleMobile = useCallback(() => setMobileOpen((o) => !o), []);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
-      <main className="ml-60 min-h-screen p-6">
+      <MobileHeader onMenuToggle={toggleMobile} />
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={closeMobile} />
+      <main className="min-h-screen p-4 pt-[72px] sm:p-6 sm:pt-[72px] md:ml-60 md:pt-6">
         <Outlet />
       </main>
     </div>

@@ -10,13 +10,19 @@ import {
   Settings,
   ChevronDown,
   Globe,
+  X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { cn } from '@/lib/cn';
 import type { Company } from '@/types/database';
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [companyOpen, setCompanyOpen] = useState(false);
   const { lang, setLang, t } = useI18n();
@@ -63,13 +69,32 @@ export function Sidebar() {
     setLang(lang === 'fr' ? 'pt' : 'fr');
   }
 
+  const handleNavClick = () => {
+    onMobileClose?.();
+  };
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col bg-primary text-primary-foreground">
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+      <aside className={cn(
+        'fixed inset-y-0 left-0 z-50 flex w-60 flex-col bg-primary text-primary-foreground transition-transform duration-200 ease-in-out',
+        'md:z-30 md:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+      )}>
       {/* Logo */}
-      <div className="flex h-16 items-center px-6">
+      <div className="flex h-16 items-center justify-between px-6">
         <span className="text-xl font-bold tracking-tight">
           Fatura<span className="text-accent">AI</span>
         </span>
+        <button onClick={onMobileClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center md:hidden rounded-lg hover:bg-white/10">
+          <X className="h-5 w-5 text-white/70" />
+        </button>
       </div>
 
       {/* Company selector */}
@@ -115,9 +140,10 @@ export function Sidebar() {
             key={to}
             to={to}
             end={to === '/'}
+            onClick={handleNavClick}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors min-h-[44px]',
                 isActive
                   ? 'bg-accent text-accent-foreground'
                   : 'text-white/70 hover:bg-white/10 hover:text-white',
@@ -144,5 +170,6 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

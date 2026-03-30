@@ -9,8 +9,8 @@ export default function Settings() {
   const { user } = useAuth();
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl">
-      <h1 className="text-2xl font-bold">{t('nav.settings')}</h1>
+    <div className="space-y-6 sm:space-y-8 max-w-4xl">
+      <h1 className="text-xl font-bold sm:text-2xl">{t('nav.settings')}</h1>
 
       <GoogleAccounts userId={user?.id || ''} />
       <EmailAccounts userId={user?.id || ''} />
