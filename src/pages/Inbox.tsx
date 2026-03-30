@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
@@ -6,7 +6,6 @@ import { Inbox as InboxIcon } from 'lucide-react';
 import { useCompanyFilter } from '@/hooks/useCompanyFilter';
 import { InboxCard } from '@/components/inbox/InboxCard';
 import { InvoiceDetailDrawer } from '@/components/faturas/InvoiceDetailDrawer';
-import { InvoiceEditModal } from '@/components/faturas/InvoiceEditModal';
 import type { Invoice } from '@/types/database';
 
 export default function Inbox() {
@@ -15,7 +14,6 @@ export default function Inbox() {
   const { companyId } = useCompanyFilter();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['inbox-invoices', companyId],
@@ -56,22 +54,6 @@ export default function Inbox() {
     updateStatus.mutate({ id, status: 'processed' });
   };
 
-  const softDelete = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('invoices')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setDrawerOpen(false);
-      setSelectedInvoice(null);
-      queryClient.invalidateQueries({ queryKey: ['inbox-invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
-    },
-  });
-
   const handleEdit = (id: string) => {
     const inv = invoices?.find((i) => i.id === id);
     if (inv) {
@@ -79,15 +61,6 @@ export default function Inbox() {
       setDrawerOpen(true);
     }
   };
-
-  const handleDrawerEdit = useCallback((invoice: Invoice) => {
-    setDrawerOpen(false);
-    setEditInvoice(invoice);
-  }, []);
-
-  const handleCloseEdit = useCallback(() => {
-    setEditInvoice(null);
-  }, []);
 
   const handleReject = (id: string) => {
     updateStatus.mutate({ id, status: 'pending' });
@@ -107,7 +80,7 @@ export default function Inbox() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="animate-fade-in space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('inbox.title')}</h1>
         {invoices && invoices.length > 0 && (
@@ -140,17 +113,7 @@ export default function Inbox() {
         invoice={selectedInvoice}
         open={drawerOpen}
         onClose={() => { setDrawerOpen(false); setSelectedInvoice(null); }}
-        onEdit={handleDrawerEdit}
-        onDelete={(id) => softDelete.mutate(id)}
       />
-
-      {editInvoice && (
-        <InvoiceEditModal
-          invoice={editInvoice}
-          open={!!editInvoice}
-          onClose={handleCloseEdit}
-        />
-      )}
     </div>
   );
 }

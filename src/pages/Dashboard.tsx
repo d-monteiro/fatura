@@ -46,43 +46,51 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="animate-fade-in space-y-4 sm:space-y-6">
       <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.dashboard')}</h1>
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <MetricCard
-          title={t('dash.total_expenses')}
-          value={metrics?.totalDepenses ?? null}
-          icon={Euro}
-          trend={null}
-          color="bg-blue-500"
-          onClick={() => navigate('/invoices')}
-        />
-        <MetricCard
-          title={t('dash.fixed_costs')}
-          value={metrics?.coutsFixed ?? null}
-          icon={Lock}
-          trend={null}
-          color="bg-violet-500"
-          onClick={() => navigate('/invoices?cost_type=cout_fixe')}
-        />
-        <MetricCard
-          title={t('dash.variable_costs')}
-          value={metrics?.coutsVar ?? null}
-          icon={TrendingUp}
-          trend={null}
-          color="bg-cyan-500"
-          onClick={() => navigate('/invoices?cost_type=cout_variable')}
-        />
-        <MetricCard
-          title={t('dash.to_review')}
-          value={metrics?.toReview ?? null}
-          icon={AlertTriangle}
-          trend={null}
-          color="bg-amber-500"
-          onClick={() => navigate('/inbox')}
-        />
+        <div className="animate-fade-in-up" style={{ animationDelay: '0ms' }}>
+          <MetricCard
+            title={t('dash.total_expenses')}
+            value={metrics?.totalDepenses ?? null}
+            icon={Euro}
+            trend={null}
+            color="bg-blue-500"
+            onClick={() => navigate('/invoices')}
+          />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+          <MetricCard
+            title={t('dash.fixed_costs')}
+            value={metrics?.coutsFixed ?? null}
+            icon={Lock}
+            trend={null}
+            color="bg-violet-500"
+            onClick={() => navigate('/invoices?cost_type=cout_fixe')}
+          />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+          <MetricCard
+            title={t('dash.variable_costs')}
+            value={metrics?.coutsVar ?? null}
+            icon={TrendingUp}
+            trend={null}
+            color="bg-cyan-500"
+            onClick={() => navigate('/invoices?cost_type=cout_variable')}
+          />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: '240ms' }}>
+          <MetricCard
+            title={t('dash.to_review')}
+            value={metrics?.toReview ?? null}
+            icon={AlertTriangle}
+            trend={null}
+            color="bg-amber-500"
+            onClick={() => navigate('/inbox')}
+          />
+        </div>
       </div>
 
       {/* Charts row */}

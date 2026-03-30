@@ -11,6 +11,7 @@ import Upload from '@/pages/Upload';
 import Fournisseurs from '@/pages/Fournisseurs';
 import Login from '@/pages/Login';
 import Settings from '@/pages/Settings';
+import Automations from '@/pages/Automations';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ function AppRoutes() {
         <Route path="invoices" element={<Faturas />} />
         <Route path="upload" element={<Upload />} />
         <Route path="suppliers" element={<Fournisseurs />} />
+        <Route path="automations" element={<Automations />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

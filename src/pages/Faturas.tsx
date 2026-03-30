@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,16 +8,15 @@ import { useBulkActions } from '@/hooks/useBulkActions';
 import { FaturasFilters, type FaturasFilterState } from '@/components/faturas/FaturasFilters';
 import { FaturasTable, type SortField, type SortDir } from '@/components/faturas/FaturasTable';
 import { ExportButton } from '@/components/faturas/ExportButton';
+import { ZipExportButton } from '@/components/faturas/ZipExportButton';
 import { BulkActionBar } from '@/components/faturas/BulkActionBar';
 import { InvoiceDetailDrawer } from '@/components/faturas/InvoiceDetailDrawer';
-import { InvoiceEditModal } from '@/components/faturas/InvoiceEditModal';
 import type { Invoice } from '@/types/database';
 
 const PAGE_SIZE = 20;
 
 export default function Faturas() {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
   const { companyId } = useCompanyFilter();
 
   const [filters, setFilters] = useState<FaturasFilterState>({
@@ -28,7 +27,6 @@ export default function Faturas() {
   const [page, setPage] = useState(0);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
 
   const bulk = useBulkActions();
 
@@ -55,23 +53,6 @@ export default function Faturas() {
     },
   });
 
-  const softDelete = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('invoices')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setDrawerOpen(false);
-      setSelectedInvoice(null);
-      queryClient.invalidateQueries({ queryKey: ['faturas'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['recent-invoices'] });
-    },
-  });
-
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('desc'); }
@@ -83,19 +64,17 @@ export default function Faturas() {
     setDrawerOpen(true);
   };
 
-  const handleEdit = useCallback((invoice: Invoice) => {
-    setDrawerOpen(false);
-    setEditInvoice(invoice);
-  }, []);
-
   const invoices = data?.invoices ?? [];
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="animate-fade-in space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.invoices')}</h1>
-        <ExportButton filters={filters} companyId={companyId} />
+        <div className="flex gap-2">
+          <ZipExportButton invoices={invoices} />
+          <ExportButton filters={filters} companyId={companyId} />
+        </div>
       </div>
 
       <FaturasFilters filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} />
@@ -142,12 +121,8 @@ export default function Faturas() {
         invoice={selectedInvoice}
         open={drawerOpen}
         onClose={() => { setDrawerOpen(false); setSelectedInvoice(null); }}
-        onEdit={handleEdit}
-        onDelete={(id) => softDelete.mutate(id)}
       />
-      {editInvoice && (
-        <InvoiceEditModal invoice={editInvoice} open={!!editInvoice} onClose={() => setEditInvoice(null)} />
-      )}
+
       {bulk.selectedIds.size > 0 && (
         <BulkActionBar
           count={bulk.selectedIds.size}

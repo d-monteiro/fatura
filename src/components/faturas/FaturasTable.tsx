@@ -1,6 +1,8 @@
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { formatEUR, formatDateFR } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { MobileInvoiceCard } from './MobileInvoiceCard';
 import type { Invoice } from '@/types/database';
 
 export type SortField = 'doc_date' | 'supplier_name' | 'metier' | 'nature_depense' | 'cost_type' | 'montant_ttc';
@@ -31,27 +33,39 @@ export function FaturasTable({
   selectedIds, onToggleSelect, onToggleAll,
 }: FaturasTableProps) {
   const { t } = useI18n();
+  const isMobile = useIsMobile();
   const allSelected = invoices.length > 0 && invoices.every((inv) => selectedIds.has(inv.id));
 
+  // Mobile card view
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {invoices.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-400">
+            {t('inbox.empty')}
+          </div>
+        ) : (
+          invoices.map((inv) => (
+            <MobileInvoiceCard key={inv.id} invoice={inv} onClick={() => onRowClick(inv)} />
+          ))
+        )}
+      </div>
+    );
+  }
+
+  // Desktop table view
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm -mx-4 sm:mx-0">
       <table className="w-full min-w-[700px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50/50">
             <th className="w-10 px-3 py-3">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={onToggleAll}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
+              <input type="checkbox" checked={allSelected} onChange={onToggleAll}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             </th>
             {COLUMNS.map((col) => (
-              <th
-                key={col.field}
-                onClick={() => onSort(col.field)}
-                className={`cursor-pointer px-4 py-3 font-medium text-gray-500 select-none hover:text-gray-700 ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-              >
+              <th key={col.field} onClick={() => onSort(col.field)}
+                className={`cursor-pointer px-4 py-3 font-medium text-gray-500 select-none hover:text-gray-700 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
                 <span className="inline-flex items-center gap-1">
                   {t(col.label as 'inv.date')}
                   {sortField === col.field && (
@@ -64,17 +78,12 @@ export function FaturasTable({
         </thead>
         <tbody>
           {invoices.map((inv) => (
-            <tr
-              key={inv.id}
-              className={`cursor-pointer border-b border-gray-50 transition-colors hover:bg-blue-50/50 ${selectedIds.has(inv.id) ? 'bg-blue-50' : ''}`}
-            >
+            <tr key={inv.id}
+              className={`cursor-pointer border-b border-gray-50 transition-colors hover:bg-blue-50/50 ${selectedIds.has(inv.id) ? 'bg-blue-50' : ''}`}>
               <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(inv.id)}
+                <input type="checkbox" checked={selectedIds.has(inv.id)}
                   onChange={() => onToggleSelect(inv.id)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               </td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{formatDateFR(inv.doc_date)}</td>
               <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>{inv.supplier_name ?? '\u2014'}</td>
@@ -89,11 +98,7 @@ export function FaturasTable({
             </tr>
           ))}
           {invoices.length === 0 && (
-            <tr>
-              <td colSpan={7} className="py-12 text-center text-gray-400">
-                Aucune facture trouvee
-              </td>
-            </tr>
+            <tr><td colSpan={7} className="py-12 text-center text-gray-400">{t('inbox.empty')}</td></tr>
           )}
         </tbody>
       </table>

@@ -8,6 +8,7 @@ import {
   Upload,
   Users,
   Settings,
+  Zap,
   ChevronDown,
   Globe,
   X,
@@ -33,6 +34,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { to: '/invoices', icon: FileText, label: t('nav.invoices') },
     { to: '/upload', icon: Upload, label: t('nav.upload') },
     { to: '/suppliers', icon: Users, label: t('nav.suppliers') },
+    { to: '/automations', icon: Zap, label: t('nav.automations') },
     { to: '/settings', icon: Settings, label: t('nav.settings') },
   ];
 
