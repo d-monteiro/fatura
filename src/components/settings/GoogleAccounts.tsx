@@ -6,13 +6,15 @@ import { useI18n } from '@/contexts/I18nContext';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
+// Gmail scopes commented out until Google verification is approved
+// Uncomment after verification video is accepted
 const SCOPES = [
   'email',
   'profile',
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.modify',
+  // 'https://www.googleapis.com/auth/gmail.readonly',
+  // 'https://www.googleapis.com/auth/gmail.modify',
 ].join(' ');
 
 export function GoogleAccounts({ userId }: { userId: string }) {
