@@ -9,11 +9,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// ADAPTAR: URLs do frontend do cliente
 const ALLOWED_ORIGINS = [
-  "https://{{CLIENT_DOMAIN}}",
-  "http://localhost:3000",
-  "http://localhost:8080",
+  "https://faturai-lgm.vercel.app",
   "http://localhost:5173",
 ];
 
@@ -61,27 +58,32 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // Verificar que o user autenticado e dono do token
+    // Auth check: verify caller owns the token
     const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      const userClient = createClient(supabaseUrl!, Deno.env.get("SUPABASE_ANON_KEY") || "", {
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    if (authHeader && anonKey) {
+      const userClient = createClient(supabaseUrl!, anonKey, {
         auth: { persistSession: false },
         global: { headers: { Authorization: authHeader } },
       });
       const { data: { user } } = await userClient.auth.getUser();
-      if (user) {
-        const { data: tokenCheck } = await supabase
-          .from(oauthTable)
-          .select("id")
-          .eq("email", email)
-          .eq("user_id", user.id)
-          .single();
-        if (!tokenCheck) {
-          return new Response(
-            JSON.stringify({ error: "Acesso negado" }),
-            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { data: tokenCheck } = await supabase
+        .from(oauthTable)
+        .select("id")
+        .eq("email", email)
+        .eq("user_id", user.id)
+        .single();
+      if (!tokenCheck) {
+        return new Response(
+          JSON.stringify({ error: "Acesso negado" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 

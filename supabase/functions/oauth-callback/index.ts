@@ -9,11 +9,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// ADAPTAR: URLs do frontend do cliente
 const ALLOWED_ORIGINS = [
-  "https://{{CLIENT_DOMAIN}}",  // Dominio de producao
-  "http://localhost:3000",
-  "http://localhost:8080",
+  "https://faturai-lgm.vercel.app",
   "http://localhost:5173",
 ];
 
@@ -207,7 +204,6 @@ function redirectWithError(frontendUrl: string, redirectPath: string, message: s
     status: 302,
     headers: {
       Location: errorUrl.toString(),
-      "Access-Control-Allow-Origin": "*",
     },
   });
 }

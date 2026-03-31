@@ -5,13 +5,25 @@
 // Secret: OPENROUTER_API_KEY
 // ============================================
 
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const API_TIMEOUT_MS = 120_000;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://faturai-lgm.vercel.app",
+  "http://localhost:5173",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const GEMINI_PROMPT = `# RÔLE
 Tu es un COMPTABLE SENIOR spécialisé dans le secteur du BÂTIMENT et de la CONSTRUCTION en France.
@@ -59,7 +71,7 @@ Vérifie si l'image/document est réellement une FACTURE, REÇU ou document fina
 - summary: Résumé télégraphique (max 5 mots)
 
 # CLASSIFICATION SPECIFIQUE PAR FOURNISSEUR
-- Orange, SFR, Bouygues Telecom, Free → cout_fixe, nature: autre (télécom)
+- Orange, SFR, Bouygues Telecom, Free → cout_fixe, nature: autre (télécom) UNIQUEMENT pour abonnements/forfaits. Si achat ponctuel en boutique (accessoire, téléphone, produit physique) → cout_variable, nature: fournitures_bureau
 - EDF, Engie, TotalEnergies → cout_fixe, nature: autre (énergie)
 - Leroy Merlin, Point P, BigMat → cout_variable, nature: materiaux
 - Rexel, Yesss, Sonepar → cout_variable, nature: materiaux, metier: electricite
@@ -196,6 +208,8 @@ function normalizeResult(parsed: unknown): { invoices: unknown[] } {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -207,6 +221,25 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth check: verify caller has valid session
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+      if (supabaseUrl && supabaseAnonKey) {
+        const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { persistSession: false },
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (!user) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     const { data, mimeType } = await req.json();
 
     if (!data || !mimeType) {

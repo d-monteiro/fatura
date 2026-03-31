@@ -4,14 +4,16 @@
 Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empresa (LGM, Holding, Imobiliaria). Utilizadora principal: secretaria francesa. Idioma interface: FR com toggle PT/FR.
 
 ## Stack
-- Frontend: React 18 + Vite + TypeScript + Shadcn/UI + Tailwind CSS
+- Frontend: React 18 + Vite 8 + TypeScript 5.9 (strict) + Shadcn/UI + Tailwind CSS 4
 - Backend: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
+- State: TanStack React Query (server state) + React Context (auth, i18n)
 - AI/OCR: OpenRouter → Gemini 2.5 Pro (visao direta, sem OCR separado)
 - Storage ficheiros: Google Drive API (hierarquia de pastas)
 - Email sync: Gmail API via Edge Function (cron 23:58)
-- Export: Excel .xlsx via SheetJS
-- Deploy: Vercel
+- Export: Excel .xlsx via SheetJS, ZIP via JSZip
+- Deploy: Vercel (frontend) + Supabase Cloud (backend)
 - Supabase ref: wvopuqyotvwgronujvrb
+- URL producao: https://faturai-lgm.vercel.app
 
 ## Regras de Desenvolvimento
 
@@ -30,13 +32,14 @@ Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empres
 ### Seguranca (CRITICO)
 - API keys NUNCA no frontend — so em Edge Functions (`Deno.env.get`)
 - RLS em TODAS as tabelas — usar `(select auth.uid())` em policies (NAO `auth.uid()` bare)
-- Edge functions server-to-server devem verificar service role key
-- Webhook signature verification OBRIGATORIA
+- Edge Functions DEVEM verificar JWT do caller via `supabase.auth.getUser()`
+- CORS: apenas dominios autorizados (`faturai-lgm.vercel.app` + `localhost:5173`)
+- NUNCA usar `Access-Control-Allow-Origin: "*"` em Edge Functions
 - Soft delete SEMPRE (deleted_at em vez de DELETE real)
 - Audit log para alteracoes em faturas (quem mudou o que, quando)
 - Dados sensiveis (tokens OAuth, SIRET) protegidos por RLS
-- CORS: apenas dominios autorizados (producao + localhost dev)
 - Nunca expor SUPABASE_SERVICE_ROLE_KEY no frontend
+- OAuth state parameter deve ser assinado (HMAC) para prevenir forgery
 
 ### Armadilhas Conhecidas
 - **AUTH DEADLOCK:** NUNCA await Supabase calls dentro de `onAuthStateChange` callback — causa `navigator.locks` deadlock
@@ -47,10 +50,11 @@ Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empres
 - **French number parsing:** Virgula e decimal, espaco e milhares. NUNCA confundir com formato US
 - **TVA autoliquidation:** Faturas de sous-traitants tem 0% TVA — campo especifico obrigatorio
 - **HEIC fotos iPhone:** Converter para JPEG server-side antes de enviar ao Gemini
+- **CORS placeholder:** NUNCA usar `{{CLIENT_DOMAIN}}` — sempre usar dominio real
 
 ## Comandos
 ```bash
-npm run dev          # Dev server
+npm run dev          # Dev server (localhost:5173)
 npm run build        # Build producao (testar SEMPRE)
 npm run lint         # ESLint
 ```
@@ -59,52 +63,62 @@ npm run lint         # ESLint
 ```
 src/
   components/
-    ui/              # Shadcn UI
-    common/          # ErrorBoundary, Loading, LanguageToggle
-  features/
-    auth/            # AuthContext, ProtectedRoute, Login
-    dashboard/       # MetricCards, Charts, RecentTable
-    inbox/           # InboxList, ReviewDialog (faturas novas)
-    faturas/         # FaturasTable, Filters, DetailDrawer
-    upload/          # UploadZone, ProcessingStatus
-    fournisseurs/    # SupplierList, SupplierDetail
-    settings/        # Companies, Categories, EmailAccounts
+    ui/                    # Shadcn UI (13 components)
+    common/                # LoadingSpinner
+    layout/                # AppLayout, Sidebar, MobileHeader, CompanySelector
+    dashboard/             # MetricCard, TrendChart, CategoryDonut, RecentInvoicesTable
+    faturas/               # FaturasTable, Filters, Drawers, EditModal, Export (14 components)
+    upload/                # DropZone, ProcessingOverlay, StatusCards (6 components)
+    inbox/                 # InboxCard
+    settings/              # CompanyList, EmailAccounts, GoogleAccounts
+    automations/           # ConnectedAccounts, CheckEmails, AccountRow (6 components)
+    fournisseurs/          # SupplierDetailModal, SupplierEditForm
+  contexts/
+    AuthContext.tsx         # Supabase auth state (user, session)
+    I18nContext.tsx          # Language switching FR/PT
+  hooks/
+    useUploadDeps.ts        # Upload dependencies (OAuth tokens, companies)
   lib/
-    supabase/        # Client, types, hooks
-    google/          # Drive, Sheets, Gmail APIs
-    gemini.ts        # Cliente frontend para Edge Function
-    invoiceProcessor.ts  # Pipeline completo upload
-    rateLimiter.ts   # Rate limiting APIs
-    i18n.ts          # Traducoes FR/PT
+    supabase/client.ts      # Supabase client (anon key only)
+    google/drive.ts         # Google Drive API (folder hierarchy, upload)
+    google/sheets.ts        # Google Sheets API
+    gemini.ts               # Frontend → Edge Function analyze-document
+    invoiceProcessor.ts     # Pipeline completo upload → analyze → save → drive
+    rateLimiter.ts          # Rate limiting APIs (client-side)
+    utils/validation.ts     # formatEUR, formatDate, validation helpers
+    utils/suppliers.ts      # normalizeSupplierName (60+ suppliers)
+    cn.ts                   # Tailwind class merger
+    i18n.ts                 # Traducoes FR/PT
   pages/
-    Dashboard.tsx
-    Inbox.tsx
-    Faturas.tsx
-    Upload.tsx
-    Fournisseurs.tsx
-    Parametres.tsx
-    Automations.tsx
+    Dashboard.tsx           # Metrics, charts, recent invoices
+    Inbox.tsx               # New invoices awaiting review
+    Faturas.tsx             # Invoice management, filtering, bulk actions
+    Upload.tsx              # Document upload & AI processing
+    Fournisseurs.tsx        # Supplier management
+    Settings.tsx            # Company & email settings
+    Automations.tsx         # Email sync, Google account config
+    Login.tsx               # Supabase email/password auth
   types/
-    database.ts      # Interfaces Invoice, Company, Supplier, etc.
+    database.ts             # Invoice, Company, Supplier, Category, enums
 supabase/
   functions/
-    analyze-document/   # Gemini 2.5 Pro (prompt FR)
-    sync-email/         # Gmail sync (cron 23:58)
-    oauth-callback/     # Google OAuth
-    refresh-token/      # Token renewal
+    analyze-document/       # OpenRouter → Gemini 2.5 Pro (prompt FR construction)
+    sync-email/             # Gmail API sync (cron 23:58, 2 contas)
+    oauth-callback/         # Google OAuth token exchange
+    refresh-token/          # Google token renewal (5min buffer)
 ```
 
 ## Base de Dados (Supabase)
 
 ### Tabelas principais
-- `companies` — LGM, Holding, Imobiliaria
-- `invoices` — Faturas com campos FR (montant_ht, montant_tva, montant_ttc, taux_tva)
+- `companies` — LGM, Holding, Imobiliaria (com SIRET, SIREN, TVA intra)
+- `invoices` — Faturas com campos FR (montant_ht, montant_tva, montant_ttc, taux_tva, autoliquidation)
 - `invoice_line_items` — Linhas individuais de cada fatura
-- `suppliers` — Fornecedores com SIRET, auto-learn
-- `categories` — Categorias por empresa (metier, type_cout, nature)
-- `email_accounts` — Contas Gmail para sync (2 contas)
-- `user_oauth_tokens` — Tokens OAuth Google
-- `audit_log` — Historico de alteracoes
+- `suppliers` — Fornecedores com SIRET, IBAN, auto-learn defaults, sous-traitant flag
+- `categories` — Categorias por empresa (metier, type_cout, nature_depense)
+- `email_accounts` — Contas Gmail para sync (2 contas activas)
+- `user_oauth_tokens` — Tokens OAuth Google (RLS por user_id)
+- `audit_log` — Historico de alteracoes (trigger automatico)
 
 ### Emails configurados
 - andreribeirodefaria@gmail.com
@@ -114,6 +128,9 @@ supabase/
 **Por metier:** Electricite, Plomberie, Chauffage, Platrerie, Autre
 **Por type cout:** Couts fixes, Couts variables
 **Por nature:** Materiaux, Sous-traitants, Location materiel, Restauration, Carburant, Atelier, Assurances, Comptabilite, Fournitures bureau, Autre
+
+### Fornecedores Principais
+LEROY MERLIN, POINT P, REXEL, YESSS (CEF SAS), WURTH, LUCIAT (ISDI), CEDEO, KILOUTOU, LOXAM, HILTI, SONEPAR, BIGMAT TOUJAS & COLL
 
 ### Google Drive Structure
 ```
@@ -137,12 +154,26 @@ FACTURES/
 - Comptable (futuro): read-only exportacoes
 
 ## Edge Functions
-| Funcao | Trigger | Descricao |
-|--------|---------|-----------|
-| analyze-document | POST (frontend) | OpenRouter → Gemini 2.5 Pro analise FR |
-| sync-email | pg_cron 23:58 | Gmail API 2 contas |
-| oauth-callback | GET (Google redirect) | Guardar tokens OAuth |
-| refresh-token | POST (frontend) | Renovar tokens expirados |
+| Funcao | Trigger | Auth | CORS | Descricao |
+|--------|---------|------|------|-----------|
+| analyze-document | POST (frontend) | JWT verify | Whitelist | OpenRouter → Gemini 2.5 Pro analise FR |
+| sync-email | POST (frontend) / cron | JWT verify | Whitelist | Gmail API 2 contas |
+| oauth-callback | GET (Google redirect) | State param | Whitelist | Guardar tokens OAuth |
+| refresh-token | POST (frontend) | JWT + ownership | Whitelist | Renovar tokens expirados |
+
+### Edge Function Secrets (Deno.env.get)
+- `OPENROUTER_API_KEY` — analyze-document
+- `GOOGLE_CLIENT_ID` — sync-email, oauth-callback, refresh-token
+- `GOOGLE_CLIENT_SECRET` — sync-email, oauth-callback, refresh-token
+- `SUPABASE_URL` — all except analyze-document
+- `SUPABASE_SERVICE_ROLE_KEY` — sync-email, oauth-callback, refresh-token
+- `SUPABASE_ANON_KEY` — refresh-token, analyze-document, sync-email
+- `FRONTEND_URL` — oauth-callback
+
+### Frontend Env Vars (VITE_*)
+- `VITE_SUPABASE_URL` — Supabase API endpoint
+- `VITE_SUPABASE_ANON_KEY` — Supabase anonymous key (public)
+- `VITE_GOOGLE_CLIENT_ID` — Google OAuth client ID
 
 ## Rate Limits
 | API | Limite |
@@ -159,3 +190,11 @@ FACTURES/
 | Google Drive (upload) | 120s |
 | Google Drive (operacoes) | 30s |
 | Google Sheets | 30s |
+
+## Security Remediations Pendentes
+- [ ] Assinar OAuth state param com HMAC (C3 — prevenir token injection)
+- [ ] Tornar storage bucket `invoices` privado (H1)
+- [ ] Encriptar OAuth tokens at rest com pgcrypto (H2)
+- [ ] Adicionar RLS por company_id em invoices (M2)
+- [ ] Restringir suppliers/categories RLS a admin (M3/M4)
+- [ ] Rate limiting server-side nas Edge Functions (L2)
