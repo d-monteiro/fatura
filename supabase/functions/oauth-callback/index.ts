@@ -36,19 +36,21 @@ Deno.serve(async (req) => {
     const stateParam = url.searchParams.get("state");
     const error = url.searchParams.get("error");
 
-    // Parse state para obter user_id
+    // Parse state para obter user_id e company_id
     let userId: string | null = null;
+    let companyId: string | null = null;
     try {
       if (stateParam) {
         const stateData = JSON.parse(stateParam);
         if (stateData.user_id) userId = stateData.user_id;
+        if (stateData.company_id) companyId = stateData.company_id;
       }
     } catch {
       // Invalid state JSON
     }
 
     const oauthTable = "user_oauth_tokens";
-    const redirectPath = "/automations";
+    const redirectPath = companyId ? "/settings" : "/automations";
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
@@ -177,10 +179,47 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Link email to company if company_id provided
+    if (companyId) {
+      // Get the token ID we just saved
+      const { data: savedToken } = await supabase
+        .from(oauthTable)
+        .select("id")
+        .eq("email", userInfo.email)
+        .eq("provider", "google")
+        .single();
+
+      if (savedToken) {
+        await supabase
+          .from("companies")
+          .update({ email: userInfo.email, oauth_token_id: savedToken.id })
+          .eq("id", companyId);
+      }
+
+      // Also upsert email_accounts for backward compat (sync-email last_sync_at)
+      const { data: existingEA } = await supabase
+        .from("email_accounts")
+        .select("id")
+        .eq("email", userInfo.email)
+        .single();
+
+      if (existingEA) {
+        await supabase.from("email_accounts").update({
+          company_id: companyId, oauth_token_id: savedToken?.id, is_active: true,
+        }).eq("id", existingEA.id);
+      } else {
+        await supabase.from("email_accounts").insert({
+          user_id: userId, email: userInfo.email, provider: "gmail",
+          company_id: companyId, oauth_token_id: savedToken?.id, is_active: true,
+        });
+      }
+    }
+
     // Redirect com sucesso
     const successUrl = new URL(`${frontendUrl}${redirectPath}`);
     successUrl.searchParams.set("oauth", "success");
     successUrl.searchParams.set("email", userInfo.email);
+    if (companyId) successUrl.searchParams.set("company_id", companyId);
 
     return new Response(null, {
       status: 302,

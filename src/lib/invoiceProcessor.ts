@@ -48,7 +48,8 @@ async function detectCompanyId(dest: string | null, fallback?: string): Promise<
     if (match) return match.id;
   }
   if (fallback) return fallback;
-  const { data: first } = await supabase.from('companies').select('id').eq('is_active', true).order('name').limit(1).single();
+  // Prefer default company, then alphabetical
+  const { data: first } = await supabase.from('companies').select('id').eq('is_active', true).order('is_default', { ascending: false }).order('name').limit(1).single();
   return first?.id ?? null;
 }
 

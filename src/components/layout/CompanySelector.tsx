@@ -32,9 +32,10 @@ export function CompanySelector({
           </button>
           {companies.map((c) => (
             <button key={c.id} onClick={() => selectCompany(c.id)}
-              className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors',
+              className={cn('block w-full px-3 py-2 text-left hover:bg-muted transition-colors',
                 c.id === activeCompany && 'font-semibold text-accent-foreground')}>
-              {c.name}
+              <span className="text-sm">{c.name}</span>
+              {c.email && <span className="block text-[11px] text-gray-400 truncate">{c.email}</span>}
             </button>
           ))}
         </div>
