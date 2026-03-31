@@ -58,17 +58,30 @@ Vérifie si l'image/document est réellement une FACTURE, REÇU ou document fina
 - supplier_iban: IBAN si visible
 - summary: Résumé télégraphique (max 5 mots)
 
+# CLASSIFICATION SPECIFIQUE PAR FOURNISSEUR
+- Orange, SFR, Bouygues Telecom, Free → cout_fixe, nature: autre (télécom)
+- EDF, Engie, TotalEnergies → cout_fixe, nature: autre (énergie)
+- Leroy Merlin, Point P, BigMat → cout_variable, nature: materiaux
+- Rexel, Yesss, Sonepar → cout_variable, nature: materiaux, metier: electricite
+- Würth, Hilti → cout_variable, nature: materiaux
+- Kiloutou, Loxam → cout_variable, nature: location_materiel
+- ISDI, Luciat, déchetterie, gravats → cout_variable, nature: autre
+
 # NORMALISATIONS FOURNISSEURS
 - "Leroy Merlin" → "LEROY MERLIN"
 - "Point.P" ou "Point P Distribution" → "POINT P"
 - "Cedeo" → "CEDEO"
 - "Rexel" → "REXEL"
+- "Yesss" ou "YESSS" → "YESSS"
+- "Würth" ou "Wurth" → "WURTH"
 - "EDF" ou "Electricité de France" → "EDF"
 - "Engie" ou "GDF Suez" → "ENGIE"
 - "TotalEnergies" ou "Total" → "TOTALENERGIES"
 - "Kiloutou" → "KILOUTOU"
 - "Loxam" → "LOXAM"
 - "Orange" ou "France Telecom" → "ORANGE"
+- "BigMat" ou "Toujas" → "BIGMAT TOUJAS & COLL"
+- "ISDI Luciat" ou "Luciat" → "LUCIAT"
 
 # AUTOLIQUIDATION TVA (CONSTRUCTION)
 Si sous-traitant BTP avec mention "Autoliquidation" ou "Art. 283-2 nonies du CGI":

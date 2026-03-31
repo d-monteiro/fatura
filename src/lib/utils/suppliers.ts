@@ -10,6 +10,12 @@ export function normalizeSupplierName(name: string | null): string | null {
   if (upper.includes('POINT P') || upper.includes('POINT.P')) return 'POINT P';
   if (upper.includes('CEDEO')) return 'CEDEO';
   if (upper.includes('REXEL')) return 'REXEL';
+  if (upper.includes('YESSS') || upper.includes('YESS')) return 'YESSS';
+  if (upper.includes('WURTH') || upper.includes('WÜRTH')) return 'WURTH';
+  if (upper.includes('BIGMAT') || upper.includes('TOUJAS')) return 'BIGMAT TOUJAS & COLL';
+  if (upper.includes('LUCIAT') || upper.includes('ISDI')) return 'LUCIAT';
+  if (upper.includes('HILTI')) return 'HILTI';
+  if (upper.includes('SONEPAR')) return 'SONEPAR';
   if (upper.includes('BROSSETTE')) return 'BROSSETTE';
   if (upper.includes('PROLIANS')) return 'PROLIANS';
   if (upper.includes('DESCOURS') || upper.includes('CABAUD')) return 'DESCOURS & CABAUD';
