@@ -42,26 +42,27 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!clientId || !supabaseUrl || !user) return;
 
-    // Gmail scopes commented out until Google OAuth verification approved
     const scopes = [
       'email', 'profile',
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/spreadsheets',
-      // 'https://www.googleapis.com/auth/gmail.readonly',
-      // 'https://www.googleapis.com/auth/gmail.modify',
     ].join(' ');
 
-    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('redirect_uri', `${supabaseUrl}/functions/v1/oauth-callback`);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', scopes);
-    authUrl.searchParams.set('access_type', 'offline');
-    authUrl.searchParams.set('prompt', 'consent');
-    authUrl.searchParams.set('state', JSON.stringify({ user_id: user.id, company_id: c.id }));
-    if (c.email) authUrl.searchParams.set('login_hint', c.email);
+    const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
+    const state = JSON.stringify({ user_id: user.id, company_id: c.id });
 
-    window.location.href = authUrl.toString();
+    // Build URL with same pattern as GoogleAccounts.tsx (which works)
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${clientId}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&access_type=offline` +
+      `&prompt=consent` +
+      `&state=${encodeURIComponent(state)}` +
+      (c.email ? `&login_hint=${encodeURIComponent(c.email)}` : '');
+
+    window.location.href = url;
   };
 
   const handleDisconnect = async () => {
