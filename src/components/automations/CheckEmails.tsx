@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Inbox, Mail, Zap, HardDrive, CheckCircle2, Loader2 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
+import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { SyncResult } from './useAutomationsData';
 
@@ -17,7 +18,14 @@ export function CheckEmails() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (!supabaseUrl || !anonKey) {
-        toast.error('Configuration manquante');
+        toast.error(t('sync.error'));
+        return;
+      }
+
+      // Get user session JWT for auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error(t('sync.error'));
         return;
       }
 
@@ -26,13 +34,13 @@ export function CheckEmails() {
         headers: {
           'Content-Type': 'application/json',
           apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        toast.error(data.error || 'Erreur lors de la vérification');
+        toast.error(data.error || t('sync.error'));
         return;
       }
 
@@ -45,14 +53,14 @@ export function CheckEmails() {
       setResult(syncResult);
 
       if (syncResult.processed > 0) {
-        toast.success(`${syncResult.processed} facture(s) traitée(s) !`);
+        toast.success(`${syncResult.processed} ${t('sync.processed')}`);
       } else if (syncResult.duplicates > 0) {
-        toast.info(`${syncResult.duplicates} doublon(s) trouvé(s). Aucune nouvelle.`);
+        toast.info(`${syncResult.duplicates} ${t('sync.duplicates')}`);
       } else {
-        toast.info('Aucun email avec factures trouvé dans les dernières 24h.');
+        toast.info(t('sync.no_emails'));
       }
     } catch {
-      toast.error('Erreur réseau');
+      toast.error(t('sync.error'));
     } finally {
       setSyncing(false);
     }

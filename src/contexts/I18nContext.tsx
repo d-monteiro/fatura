@@ -10,11 +10,17 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('fr');
+  const [lang, setLangState] = useState<Lang>(() => {
+    const saved = localStorage.getItem('faturai-lang');
+    const initial = (saved === 'pt' ? 'pt' : 'fr') as Lang;
+    setModuleLang(initial);
+    return initial;
+  });
 
   const changeLang = useCallback((newLang: Lang) => {
     setLangState(newLang);
-    setModuleLang(newLang); // Keep module-level in sync
+    setModuleLang(newLang);
+    localStorage.setItem('faturai-lang', newLang);
   }, []);
 
   const t = useCallback((key: TranslationKey) => translate(key, lang), [lang]);
