@@ -42,12 +42,13 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!clientId || !supabaseUrl || !user) return;
 
+    // Gmail scopes commented out until Google OAuth verification approved
     const scopes = [
       'email', 'profile',
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/gmail.readonly',
-      'https://www.googleapis.com/auth/gmail.modify',
+      // 'https://www.googleapis.com/auth/gmail.readonly',
+      // 'https://www.googleapis.com/auth/gmail.modify',
     ].join(' ');
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
