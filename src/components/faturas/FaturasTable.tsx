@@ -55,7 +55,7 @@ export function FaturasTable({
 
   // Desktop table view
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm -mx-4 sm:mx-0">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-card -mx-4 sm:mx-0">
       <table className="w-full min-w-[700px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50/50">
@@ -79,7 +79,7 @@ export function FaturasTable({
         <tbody>
           {invoices.map((inv) => (
             <tr key={inv.id}
-              className={`cursor-pointer border-b border-gray-50 transition-colors hover:bg-blue-50/50 ${selectedIds.has(inv.id) ? 'bg-blue-50' : ''}`}>
+              className={`cursor-pointer border-b border-gray-50 transition-all duration-150 hover:bg-blue-50/60 hover:shadow-sm ${selectedIds.has(inv.id) ? 'bg-blue-50' : ''}`}>
               <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" checked={selectedIds.has(inv.id)}
                   onChange={() => onToggleSelect(inv.id)}

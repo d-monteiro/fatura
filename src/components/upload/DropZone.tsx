@@ -61,7 +61,7 @@ export function DropZone({ onFiles, disabled, hasFiles }: DropZoneProps) {
       {isMobile && !hasFiles && (
         <div className="space-y-3 mb-4">
           <button
-            className="flex w-full items-center justify-center gap-3 rounded-xl bg-blue-600 px-4 py-4 text-base font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-4 py-4 text-base font-medium text-white shadow-md hover:opacity-90 disabled:opacity-50 transition-all"
             onClick={() => setShowCameraWarning(true)} disabled={disabled}
           >
             <Camera className="h-5 w-5" />{t('upload.take_photo')}
@@ -92,7 +92,7 @@ export function DropZone({ onFiles, disabled, hasFiles }: DropZoneProps) {
           {dragging ? t('upload.drop_here') : t('upload.drag')}
         </p>
         <p className="mt-1 text-center text-xs text-gray-400">{t('upload.formats')}</p>
-        <label className="mt-4 cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        <label className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all">
           {t('upload.choose_file')}
           <input type="file" accept=".jpg,.jpeg,.png,.pdf,.heic,.heif" multiple onChange={handleInput} disabled={disabled} className="hidden" />
         </label>

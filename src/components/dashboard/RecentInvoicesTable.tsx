@@ -39,7 +39,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card sm:p-6">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.recent')}</h3>
         <div className="animate-pulse space-y-3">
           {[...Array(5)].map((_, i) => (
@@ -51,7 +51,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+    <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.recent')}</h3>
       <div className="overflow-x-auto -mx-4 sm:mx-0">
         <table className="w-full min-w-[600px] text-sm">
@@ -69,7 +69,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
               <tr
                 key={inv.id}
                 onClick={() => handleRowClick(inv.id)}
-                className="cursor-pointer border-b border-gray-50 hover:bg-blue-50/50"
+                className="cursor-pointer border-b border-gray-50 transition-all duration-150 hover:bg-blue-50/60 hover:shadow-sm"
               >
                 <td className="px-4 py-3 text-gray-600 sm:px-0">{formatDateFR(inv.doc_date)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900 sm:px-0">{inv.supplier_name ?? '\u2014'}</td>

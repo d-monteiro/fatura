@@ -50,7 +50,7 @@ export function TrendChart({ companyId }: TrendChartProps) {
   });
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+    <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.trends')}</h3>
       {chartData.length === 0 ? (
         <p className="py-16 text-center text-sm text-gray-400">Aucune donnee</p>

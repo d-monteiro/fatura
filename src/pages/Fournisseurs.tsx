@@ -67,7 +67,7 @@ export default function Fournisseurs() {
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm -mx-4 sm:mx-0">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-card -mx-4 sm:mx-0">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
@@ -84,7 +84,7 @@ export default function Fournisseurs() {
                 <tr
                   key={sup.id}
                   onClick={() => handleRowClick(sup)}
-                  className="cursor-pointer border-b border-gray-50 transition-colors hover:bg-blue-50/50"
+                  className="cursor-pointer border-b border-gray-50 transition-all duration-150 hover:bg-blue-50/60 hover:shadow-sm"
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {sup.display_name ?? sup.name}

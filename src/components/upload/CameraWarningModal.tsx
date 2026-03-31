@@ -34,7 +34,7 @@ export function CameraWarningModal({ onConfirm, onCancel }: CameraWarningModalPr
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all"
           >
             <Camera className="h-4 w-4" />
             {t('upload.camera_confirm')}

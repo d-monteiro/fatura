@@ -97,7 +97,7 @@ export function SupplierEditForm({ supplier, onCancel, onSaved }: Props) {
         </div>
       </div>
       <div className="flex gap-2 pt-2">
-        <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+        <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all disabled:opacity-50">
           {mutation.isPending ? '...' : t('action.save')}
         </button>
         <button onClick={onCancel} className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">

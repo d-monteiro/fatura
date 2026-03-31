@@ -58,6 +58,7 @@ export default function Dashboard() {
             icon={Euro}
             trend={null}
             color="bg-blue-500"
+            variant="gradient"
             onClick={() => navigate('/invoices')}
           />
         </div>

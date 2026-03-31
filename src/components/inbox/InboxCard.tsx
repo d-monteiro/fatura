@@ -19,7 +19,7 @@ export function InboxCard({ invoice, onApprove, onEdit, onReject }: InboxCardPro
     'text-red-600 bg-red-50';
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-gray-900">

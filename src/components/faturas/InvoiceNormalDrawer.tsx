@@ -112,7 +112,7 @@ export function NormalDrawerFooter({ invoice, t, onEdit, onDelete }: FooterProps
       </div>
       <div className="flex gap-2">
         <button onClick={onEdit}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all">
           <Pencil className="h-4 w-4" /> {t('drawer.edit')}
         </button>
         <button onClick={onDelete}

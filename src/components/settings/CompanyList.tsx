@@ -102,7 +102,7 @@ export function CompanyList() {
                   <button
                     onClick={() => mutation.mutate(c.id)}
                     disabled={mutation.isPending}
-                    className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1 text-xs font-medium text-white shadow-sm hover:opacity-90 transition-all disabled:opacity-50"
                   >
                     <Check className="h-3.5 w-3.5" /> {t('action.save')}
                   </button>

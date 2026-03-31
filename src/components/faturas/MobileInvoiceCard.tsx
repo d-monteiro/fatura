@@ -15,8 +15,8 @@ export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) 
   return (
     <div
       onClick={onClick}
-      className="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 shadow-sm
-                 active:bg-gray-50 transition-colors"
+      className="cursor-pointer rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card
+                 active:bg-gray-50 transition-all duration-150 hover:shadow-card-hover"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">

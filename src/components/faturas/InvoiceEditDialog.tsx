@@ -79,7 +79,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
                 <InvoiceEditFormFields form={form} onChange={set} t={t} />
                 <div className="border-t px-4 py-3 flex gap-2 bg-white">
                   <button type="submit" disabled={mutation.isPending}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all disabled:opacity-60">
                     <Save className="h-4 w-4" /> {mutation.isPending ? t('edit.saving') : t('action.save')}
                   </button>
                   <button type="button" onClick={onClose}

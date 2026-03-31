@@ -101,7 +101,7 @@ export function InvoiceEditModal({ invoice, open, onClose }: Props) {
               <button type="button" onClick={onClose}
                 className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{t('action.cancel')}</button>
               <button type="submit" disabled={mutation.isPending}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all disabled:opacity-60">
                 {mutation.isPending ? t('edit.saving') : t('action.save')}</button>
             </div>
           </form>
