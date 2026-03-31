@@ -58,7 +58,8 @@ export async function ensureFolder(
 
   await driveLimiter.waitForSlot();
 
-  let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
+  const safeName = folderName.replace(/'/g, "\\'");
+  let query = `mimeType='application/vnd.google-apps.folder' and name='${safeName}' and trashed=false`;
   if (parentId) {
     query += ` and '${parentId}' in parents`;
   }
@@ -182,7 +183,8 @@ export async function checkFileExists(
   parentId: string
 ): Promise<string | null> {
   await driveLimiter.waitForSlot();
-  const query = `name='${fileName}' and '${parentId}' in parents and trashed=false`;
+  const safeFileName = fileName.replace(/'/g, "\\'");
+  const query = `name='${safeFileName}' and '${parentId}' in parents and trashed=false`;
   const t = createTimeoutSignal(DRIVE_TIMEOUT_MS);
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,

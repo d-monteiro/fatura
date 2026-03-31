@@ -168,9 +168,10 @@ Deno.serve(async (req) => {
               });
 
               if (!analyzeResp.ok) { errors++; continue; }
-              const geminiResult = await analyzeResp.json();
+              const analyzeResult = await analyzeResp.json();
 
-              if (!geminiResult.is_valid_document) { skipped++; continue; }
+              // Handle multi-invoice format: { invoices: [...] }
+              const invoices = analyzeResult.invoices || (analyzeResult.is_valid_document !== undefined ? [analyzeResult] : []);
 
               // Get default company for this email account
               const companyId = account.company_id;
@@ -188,64 +189,69 @@ Deno.serve(async (req) => {
                 ? `${supabaseUrl}/storage/v1/object/public/invoices/${storageData.path}`
                 : "";
 
-              // Insert invoice
-              const needsReview = geminiResult.confidence_score < 70;
-              const { error: insertErr } = await supabase.from("invoices").insert({
-                user_id: account.user_id,
-                company_id: companyId,
-                source: "email",
-                email_message_id: msg.id,
-                file_url: fileUrl,
-                storage_path: storageData?.path || null,
-                document_type: geminiResult.document_type,
-                cost_type: geminiResult.cost_type,
-                metier: geminiResult.metier,
-                nature_depense: geminiResult.nature_depense,
-                doc_date: geminiResult.doc_date,
-                doc_year: geminiResult.doc_year,
-                date_echeance: geminiResult.date_echeance,
-                supplier_name: geminiResult.supplier_name?.toUpperCase(),
-                supplier_siret: geminiResult.supplier_siret,
-                doc_number: geminiResult.doc_number,
-                montant_ht: geminiResult.montant_ht,
-                taux_tva: geminiResult.taux_tva,
-                montant_tva: geminiResult.montant_tva,
-                montant_ttc: geminiResult.montant_ttc,
-                autoliquidation: geminiResult.autoliquidation || false,
-                payment_method: geminiResult.payment_method,
-                supplier_iban: geminiResult.supplier_iban,
-                summary: geminiResult.summary,
-                confidence_score: geminiResult.confidence_score,
-                status: needsReview ? "review" : "inbox",
-                manual_review: needsReview,
-                review_reason: needsReview ? "Confiance faible" : null,
-              });
+              for (const inv of invoices) {
+                if (!inv.is_valid_document) { skipped++; continue; }
 
-              if (!insertErr) {
-                processed++;
-                // Insert line items
-                if (geminiResult.line_items?.length > 0) {
-                  const { data: inv } = await supabase
-                    .from("invoices")
-                    .select("id")
-                    .eq("email_message_id", msg.id)
-                    .single();
-                  if (inv) {
-                    await supabase.from("invoice_line_items").insert(
-                      geminiResult.line_items.map((li: any, idx: number) => ({
-                        invoice_id: inv.id,
-                        line_number: idx + 1,
-                        description: li.description,
-                        quantity: li.quantity,
-                        unit: li.unit,
-                        unit_price_ht: li.unit_price_ht,
-                        total_ht: li.total_ht,
-                        taux_tva: li.taux_tva,
-                      }))
+                // Insert invoice
+                const needsReview = (inv.confidence_score || 0) < 80;
+                const { error: insertErr } = await supabase.from("invoices").insert({
+                  user_id: account.user_id,
+                  company_id: companyId,
+                  source: "email",
+                  email_message_id: msg.id,
+                  file_url: fileUrl,
+                  storage_path: storageData?.path || null,
+                  document_type: inv.document_type,
+                  cost_type: inv.cost_type,
+                  metier: inv.metier,
+                  nature_depense: inv.nature_depense,
+                  doc_date: inv.doc_date,
+                  doc_year: inv.doc_year,
+                  date_echeance: inv.date_echeance,
+                  supplier_name: inv.supplier_name?.toUpperCase(),
+                  supplier_siret: inv.supplier_siret,
+                  doc_number: inv.doc_number,
+                  montant_ht: inv.montant_ht,
+                  taux_tva: inv.taux_tva,
+                  montant_tva: inv.montant_tva,
+                  montant_ttc: inv.montant_ttc,
+                  autoliquidation: inv.autoliquidation || false,
+                  payment_method: inv.payment_method,
+                  supplier_iban: inv.supplier_iban,
+                  summary: inv.summary,
+                  confidence_score: inv.confidence_score,
+                  status: needsReview ? "review" : "inbox",
+                  manual_review: needsReview,
+                  review_reason: needsReview ? "Confiance faible" : null,
+                });
+
+                if (!insertErr) {
+                  processed++;
+                  // Insert line items
+                  if (inv.line_items?.length > 0) {
+                    const { data: savedInv } = await supabase
+                      .from("invoices")
+                      .select("id")
+                      .eq("email_message_id", msg.id)
+                      .eq("doc_number", inv.doc_number)
+                      .single();
+                    if (savedInv) {
+                      await supabase.from("invoice_line_items").insert(
+                        inv.line_items.map((li: any, idx: number) => ({
+                          invoice_id: savedInv.id,
+                          line_number: idx + 1,
+                          description: li.description,
+                          quantity: li.quantity,
+                          unit: li.unit,
+                          unit_price_ht: li.unit_price_ht,
+                          total_ht: li.total_ht,
+                          taux_tva: li.taux_tva,
+                        }))
                     );
                   }
                 }
               } else { errors++; }
+              } // end for (const inv of invoices)
 
             } catch { errors++; }
           }

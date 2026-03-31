@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         refreshed: true,
         message: "Token renovado com sucesso",
+        access_token: tokens.access_token,
         expires_at: newExpiry
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
