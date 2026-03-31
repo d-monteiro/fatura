@@ -27,7 +27,9 @@ export function InvoiceDocPreview({ invoice }: Props) {
 
   if (drivePreviewUrl) {
     return (
-      <iframe src={drivePreviewUrl} className="w-full h-full border-0" title="Document Preview" allow="autoplay" />
+      <div className="w-full h-full p-2">
+        <iframe src={drivePreviewUrl} className="w-full h-full border-0 rounded-lg" title="Document Preview" allow="autoplay" />
+      </div>
     );
   }
 

@@ -46,13 +46,13 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
         <div className="relative flex h-[90vh] w-full max-w-[95vw] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl md:w-[1400px]"
           onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-1 flex-col md:flex-row min-h-0">
-            {/* LEFT - Document preview (hidden on mobile) */}
-            <div className="hidden md:flex flex-1 bg-gray-50 border-r min-h-0">
+            {/* LEFT - Document preview (takes all available space) */}
+            <div className="hidden md:flex flex-1 bg-gray-100 min-h-0 items-center justify-center">
               <InvoiceDocPreview invoice={invoice} />
             </div>
 
-            {/* RIGHT - Data panel */}
-            <div className="flex w-full flex-col md:w-[400px] min-h-0 flex-1 md:flex-none">
+            {/* RIGHT - Data panel (fixed width sidebar) */}
+            <div className="flex w-full flex-col md:w-[380px] md:shrink-0 min-h-0 flex-1 md:flex-none border-l">
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
