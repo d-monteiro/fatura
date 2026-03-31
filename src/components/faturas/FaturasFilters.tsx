@@ -18,26 +18,28 @@ interface FaturasFiltersProps {
 
 const YEARS = ['2026', '2025', '2024', '2023'];
 
-const METIERS: { value: Metier; label: string }[] = [
-  { value: 'electricite', label: 'Electricite' },
-  { value: 'plomberie', label: 'Plomberie' },
-  { value: 'chauffage', label: 'Chauffage' },
-  { value: 'platrerie', label: 'Platrerie' },
-  { value: 'autre', label: 'Autre' },
+import type { TranslationKey } from '@/lib/i18n';
+
+const METIER_KEYS: { value: Metier; key: TranslationKey }[] = [
+  { value: 'electricite', key: 'cat.electricite' },
+  { value: 'plomberie', key: 'cat.plomberie' },
+  { value: 'chauffage', key: 'cat.chauffage' },
+  { value: 'platrerie', key: 'cat.platrerie' },
+  { value: 'autre', key: 'cat.autre' },
 ];
 
-const NATURES: { value: NatureDepense; label: string }[] = [
-  { value: 'materiaux', label: 'Materiaux' },
-  { value: 'sous_traitants', label: 'Sous-traitants' },
-  { value: 'location_materiel', label: 'Location materiel' },
-  { value: 'restauration', label: 'Restauration' },
-  { value: 'carburant', label: 'Carburant' },
-  { value: 'autre', label: 'Autre' },
+const NATURE_KEYS: { value: NatureDepense; key: TranslationKey }[] = [
+  { value: 'materiaux', key: 'cat.materiaux' },
+  { value: 'sous_traitants', key: 'cat.sous_traitants' },
+  { value: 'location_materiel', key: 'cat.location_materiel' },
+  { value: 'restauration', key: 'cat.restauration' },
+  { value: 'carburant', key: 'cat.carburant' },
+  { value: 'autre', key: 'cat.autre' },
 ];
 
-const COST_TYPES: { value: CostType; label: string }[] = [
-  { value: 'cout_fixe', label: 'Cout fixe' },
-  { value: 'cout_variable', label: 'Cout variable' },
+const COST_TYPE_KEYS: { value: CostType; key: TranslationKey }[] = [
+  { value: 'cout_fixe', key: 'cat.cout_fixe' },
+  { value: 'cout_variable', key: 'cat.cout_variable' },
 ];
 
 const EMPTY_FILTERS: FaturasFilterState = {
@@ -71,11 +73,11 @@ export function FaturasFilters({ filters, onChange }: FaturasFiltersProps) {
 
       {/* Filter dropdowns */}
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        <SelectFilter label="Annee" value={filters.year} options={YEARS.map((y) => ({ value: y, label: y }))} onChange={(v) => set('year', v)} />
-        <SelectFilter label="Mois" value={filters.month} options={MONTHS} onChange={(v) => set('month', v)} />
-        <SelectFilter label="Metier" value={filters.metier} options={METIERS} onChange={(v) => set('metier', v)} />
-        <SelectFilter label="Nature" value={filters.nature} options={NATURES} onChange={(v) => set('nature', v)} />
-        <SelectFilter label="Type" value={filters.costType} options={COST_TYPES} onChange={(v) => set('costType', v)} />
+        <SelectFilter label={t('filter.year')} value={filters.year} options={YEARS.map((y) => ({ value: y, label: y }))} onChange={(v) => set('year', v)} />
+        <SelectFilter label={t('filter.month')} value={filters.month} options={MONTHS} onChange={(v) => set('month', v)} />
+        <SelectFilter label={t('filter.metier')} value={filters.metier} options={METIER_KEYS.map((m) => ({ value: m.value, label: t(m.key) }))} onChange={(v) => set('metier', v)} />
+        <SelectFilter label={t('filter.nature')} value={filters.nature} options={NATURE_KEYS.map((n) => ({ value: n.value, label: t(n.key) }))} onChange={(v) => set('nature', v)} />
+        <SelectFilter label={t('filter.cost_type')} value={filters.costType} options={COST_TYPE_KEYS.map((c) => ({ value: c.value, label: t(c.key) }))} onChange={(v) => set('costType', v)} />
         {hasFilters && (
           <button
             onClick={() => onChange(EMPTY_FILTERS)}

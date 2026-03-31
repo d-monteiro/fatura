@@ -4,11 +4,6 @@ import { supabase } from '@/lib/supabase/client';
 import { formatEUR } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 
-const MONTH_LABELS = [
-  '', 'Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jun',
-  'Jul', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
 interface TrendChartProps {
   companyId: string | null;
 }
@@ -44,7 +39,7 @@ export function TrendChart({ companyId }: TrendChartProps) {
         .slice(-12)
         .map(([key, total]) => {
           const monthNum = parseInt(key.split('-')[1]);
-          return { month: MONTH_LABELS[monthNum] ?? key, total };
+          return { month: t(`month_abbr.${monthNum}` as 'month_abbr.1'), total };
         });
     },
   });
@@ -53,7 +48,7 @@ export function TrendChart({ companyId }: TrendChartProps) {
     <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.trends')}</h3>
       {chartData.length === 0 ? (
-        <p className="py-16 text-center text-sm text-gray-400">Aucune donnee</p>
+        <p className="py-16 text-center text-sm text-gray-400">{t('generic.no_data')}</p>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={chartData}>

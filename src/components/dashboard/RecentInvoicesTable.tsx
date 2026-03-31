@@ -85,7 +85,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
             {(!invoices || invoices.length === 0) && (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-gray-400">
-                  Aucune facture
+                  {t('inbox.no_invoices')}
                 </td>
               </tr>
             )}

@@ -16,6 +16,9 @@ export interface Company {
   address: string | null;
   tva_intracom: string | null; // FR + 2 digits + SIREN
   is_active: boolean;
+  email: string | null;        // Gmail associado a esta empresa
+  oauth_token_id: string | null; // FK user_oauth_tokens
+  is_default: boolean;         // Empresa predefinida (LGM)
 }
 
 // ==========================================

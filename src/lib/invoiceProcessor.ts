@@ -112,7 +112,8 @@ async function processSingle(
   const df = await uploadInvoiceToDrive(token, new Uint8Array(buf), fName, metF, file.type);
 
   const curYear = new Date().getFullYear();
-  const review = g.confidence_score < 70 || (g.doc_year !== null && g.doc_year < curYear - 1) || !v.valid;
+  const CONFIDENCE_THRESHOLD = 80;
+  const review = g.confidence_score < CONFIDENCE_THRESHOLD || (g.doc_year !== null && g.doc_year < curYear - 1) || !v.valid;
   const { data: inv, error: err } = await supabase.from('invoices').insert({
     user_id: userId, company_id: cid, source: 'upload',
     file_url: df.webViewLink, drive_link: df.webViewLink, drive_file_id: df.id, spreadsheet_id: sheetId,
@@ -122,8 +123,8 @@ async function processSingle(
     montant_ht: g.montant_ht, taux_tva: g.taux_tva, montant_tva: g.montant_tva, montant_ttc: g.montant_ttc,
     autoliquidation: g.autoliquidation, payment_method: g.payment_method, supplier_iban: g.supplier_iban,
     summary: g.summary, confidence_score: g.confidence_score,
-    status: review ? 'review' : 'processed', manual_review: review,
-    review_reason: review ? (!v.valid ? 'Erreur validation montants' : g.confidence_score < 70 ? 'Confiance faible' : 'Date suspecte') : null,
+    status: review ? 'review' : 'inbox', manual_review: review,
+    review_reason: review ? (!v.valid ? 'Erreur validation montants' : g.confidence_score < CONFIDENCE_THRESHOLD ? 'Confiance faible' : 'Date suspecte') : null,
   }).select().single();
   if (err) return { success: false, error: `Erreur sauvegarde: ${err.message}` };
 

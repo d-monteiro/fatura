@@ -7,24 +7,20 @@ import { useI18n } from '@/contexts/I18nContext';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#6b7280'];
 
-const NATURE_LABELS: Record<string, string> = {
-  materiaux: 'Materiaux',
-  sous_traitants: 'Sous-traitants',
-  location_materiel: 'Location materiel',
-  restauration: 'Restauration',
-  carburant: 'Carburant',
-  atelier: 'Atelier',
-  assurances: 'Assurances',
-  comptabilite: 'Comptabilite',
-  fournitures_bureau: 'Fournitures bureau',
-  autre: 'Autre',
-};
+import type { TranslationKey } from '@/lib/i18n';
 
-// Reverse lookup: label -> db key
-const LABEL_TO_KEY: Record<string, string> = {};
-for (const [key, label] of Object.entries(NATURE_LABELS)) {
-  LABEL_TO_KEY[label] = key;
-}
+const NATURE_KEYS: Record<string, TranslationKey> = {
+  materiaux: 'cat.materiaux',
+  sous_traitants: 'cat.sous_traitants',
+  location_materiel: 'cat.location_materiel',
+  restauration: 'cat.restauration',
+  carburant: 'cat.carburant',
+  atelier: 'cat.atelier',
+  assurances: 'cat.assurances',
+  comptabilite: 'cat.comptabilite',
+  fournitures_bureau: 'cat.fournitures_bureau',
+  autre: 'cat.autre',
+};
 
 interface CategoryDonutProps {
   companyId: string | null;
@@ -59,7 +55,7 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
         .filter(([, value]) => value > 0)
         .sort(([, a], [, b]) => b - a)
         .map(([name, value], i) => ({
-          name: NATURE_LABELS[name] ?? name,
+          name,
           value,
           color: COLORS[i % COLORS.length],
         }));
@@ -69,15 +65,16 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
   const handleSliceClick = (_: unknown, index: number) => {
     const entry = chartData[index];
     if (!entry) return;
-    const dbKey = LABEL_TO_KEY[entry.name] ?? entry.name;
-    navigate(`/invoices?nature=${dbKey}`);
+    navigate(`/invoices?nature=${entry.name}`);
   };
+
+  const getNatureLabel = (key: string) => t(NATURE_KEYS[key] ?? 'cat.autre');
 
   return (
     <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('dash.categories')}</h3>
       {chartData.length === 0 ? (
-        <p className="py-16 text-center text-sm text-gray-400">Aucune donnee</p>
+        <p className="py-16 text-center text-sm text-gray-400">{t('generic.no_data')}</p>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
           <PieChart>
@@ -97,12 +94,12 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value) => formatEUR(Number(value))}
+              formatter={(value, name) => [formatEUR(Number(value)), getNatureLabel(String(name))]}
               contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
             />
             <Legend
               formatter={(value: string) => (
-                <span className="text-sm text-gray-600">{value}</span>
+                <span className="text-sm text-gray-600">{getNatureLabel(value)}</span>
               )}
             />
           </PieChart>

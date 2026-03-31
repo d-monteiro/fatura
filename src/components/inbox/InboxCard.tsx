@@ -23,7 +23,7 @@ export function InboxCard({ invoice, onApprove, onEdit, onReject }: InboxCardPro
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-gray-900">
-            {invoice.supplier_name ?? 'Fournisseur inconnu'}
+            {invoice.supplier_name ?? t('sup.unknown')}
           </h3>
           <p className="mt-1 text-sm text-gray-500">
             {formatDateFR(invoice.doc_date)} &middot; {invoice.doc_number ?? '—'}
@@ -37,7 +37,7 @@ export function InboxCard({ invoice, onApprove, onEdit, onReject }: InboxCardPro
       {/* Confidence + suggested categories */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceColor}`}>
-          {confidence}% confiance
+          {confidence}% {t('inbox.confidence')}
         </span>
         {invoice.metier && (
           <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
@@ -51,7 +51,7 @@ export function InboxCard({ invoice, onApprove, onEdit, onReject }: InboxCardPro
         )}
         {invoice.cost_type && (
           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-            {invoice.cost_type === 'cout_fixe' ? 'Fixe' : 'Variable'}
+            {t(invoice.cost_type === 'cout_fixe' ? 'cat.cout_fixe' : 'cat.cout_variable')}
           </span>
         )}
       </div>

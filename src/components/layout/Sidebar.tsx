@@ -114,7 +114,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           <button onClick={handleLogout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-white/10 hover:text-red-300 transition-colors">
             <LogOut size={18} />
-            <span>Deconnexion</span>
+            <span>{t('nav.logout')}</span>
           </button>
           <p className="px-3 pt-2 text-[11px] text-white/30 tracking-wide">
             FaturaAI &bull; 2026

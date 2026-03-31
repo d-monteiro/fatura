@@ -243,6 +243,87 @@ const translations = {
   'edit.title': { fr: 'Modifier la facture', pt: 'Editar fatura' },
   'edit.saving': { fr: 'Enregistrement...', pt: 'A guardar...' },
 
+  // Company-email integration
+  'company.email': { fr: 'Email lié', pt: 'Email associado' },
+  'company.no_email': { fr: 'Aucun email connecté', pt: 'Nenhum email conectado' },
+  'company.connect_gmail': { fr: 'Connecter Gmail', pt: 'Conectar Gmail' },
+  'company.disconnect_gmail': { fr: 'Déconnecter', pt: 'Desconectar' },
+  'company.gmail_connected': { fr: 'Gmail connecté', pt: 'Gmail conectado' },
+  'company.default': { fr: 'Par défaut', pt: 'Predefinida' },
+  'company.oauth_success': { fr: 'Compte Gmail connecté avec succès !', pt: 'Conta Gmail conectada com sucesso!' },
+  'company.oauth_error': { fr: 'Erreur de connexion Gmail', pt: 'Erro ao conectar Gmail' },
+
+  // Navigation extras
+  'nav.logout': { fr: 'Déconnexion', pt: 'Terminar sessão' },
+
+  // Generic
+  'generic.loading': { fr: 'Chargement...', pt: 'A carregar...' },
+  'generic.no_data': { fr: 'Aucune donnée', pt: 'Sem dados' },
+  'generic.confirm_remove': { fr: 'Confirmer la suppression ?', pt: 'Confirmar remoção?' },
+
+  // Supplier extras
+  'sup.none': { fr: 'Aucun fournisseur', pt: 'Nenhum fornecedor' },
+  'sup.unknown': { fr: 'Fournisseur inconnu', pt: 'Fornecedor desconhecido' },
+  'sup.sous_traitant': { fr: 'Sous-traitant', pt: 'Subempreiteiro' },
+
+  // Categories (nature depense)
+  'cat.materiaux': { fr: 'Matériaux', pt: 'Materiais' },
+  'cat.sous_traitants': { fr: 'Sous-traitants', pt: 'Subempreiteiros' },
+  'cat.location_materiel': { fr: 'Location matériel', pt: 'Aluguer equipamento' },
+  'cat.restauration': { fr: 'Restauration', pt: 'Alimentação' },
+  'cat.carburant': { fr: 'Carburant', pt: 'Combustível' },
+  'cat.atelier': { fr: 'Atelier', pt: 'Oficina' },
+  'cat.assurances': { fr: 'Assurances', pt: 'Seguros' },
+  'cat.comptabilite': { fr: 'Comptabilité', pt: 'Contabilidade' },
+  'cat.fournitures_bureau': { fr: 'Fourn. bureau', pt: 'Mat. escritório' },
+  'cat.autre': { fr: 'Autre', pt: 'Outro' },
+
+  // Cost types
+  'cat.cout_fixe': { fr: 'Coût fixe', pt: 'Custo fixo' },
+  'cat.cout_variable': { fr: 'Coût variable', pt: 'Custo variável' },
+
+  // Metiers
+  'cat.electricite': { fr: 'Électricité', pt: 'Eletricidade' },
+  'cat.plomberie': { fr: 'Plomberie', pt: 'Canalização' },
+  'cat.chauffage': { fr: 'Chauffage', pt: 'Aquecimento' },
+  'cat.platrerie': { fr: 'Plâtrerie', pt: 'Estuque' },
+
+  // Filters
+  'filter.year': { fr: 'Année', pt: 'Ano' },
+  'filter.month': { fr: 'Mois', pt: 'Mês' },
+  'filter.metier': { fr: 'Métier', pt: 'Especialidade' },
+  'filter.nature': { fr: 'Nature', pt: 'Natureza' },
+  'filter.cost_type': { fr: 'Type', pt: 'Tipo' },
+  'filter.all_metiers': { fr: 'Tous les métiers', pt: 'Todas especialidades' },
+  'filter.all_natures': { fr: 'Toutes les natures', pt: 'Todas naturezas' },
+  'filter.all_types': { fr: 'Tous les types', pt: 'Todos os tipos' },
+  'filter.all_years': { fr: 'Toutes les années', pt: 'Todos os anos' },
+  'filter.all_months': { fr: 'Tous les mois', pt: 'Todos os meses' },
+
+  // Inbox extras
+  'inbox.confidence': { fr: 'confiance', pt: 'confiança' },
+  'inbox.no_invoices': { fr: 'Aucune facture', pt: 'Sem faturas' },
+
+  // Sync toasts
+  'sync.processed': { fr: 'facture(s) traitée(s) !', pt: 'fatura(s) processada(s)!' },
+  'sync.duplicates': { fr: 'doublon(s) trouvé(s)', pt: 'duplicada(s) encontrada(s)' },
+  'sync.no_emails': { fr: 'Aucun email avec factures dans les dernières 24h', pt: 'Nenhum email com faturas nas últimas 24h' },
+  'sync.error': { fr: 'Erreur lors de la vérification', pt: 'Erro ao verificar' },
+
+  // Month abbreviations
+  'month_abbr.1': { fr: 'Jan', pt: 'Jan' },
+  'month_abbr.2': { fr: 'Fév', pt: 'Fev' },
+  'month_abbr.3': { fr: 'Mar', pt: 'Mar' },
+  'month_abbr.4': { fr: 'Avr', pt: 'Abr' },
+  'month_abbr.5': { fr: 'Mai', pt: 'Mai' },
+  'month_abbr.6': { fr: 'Jun', pt: 'Jun' },
+  'month_abbr.7': { fr: 'Jul', pt: 'Jul' },
+  'month_abbr.8': { fr: 'Aoû', pt: 'Ago' },
+  'month_abbr.9': { fr: 'Sep', pt: 'Set' },
+  'month_abbr.10': { fr: 'Oct', pt: 'Out' },
+  'month_abbr.11': { fr: 'Nov', pt: 'Nov' },
+  'month_abbr.12': { fr: 'Déc', pt: 'Dez' },
+
   // Months
   'month.1': { fr: 'Janvier', pt: 'Janeiro' },
   'month.2': { fr: 'Février', pt: 'Fevereiro' },

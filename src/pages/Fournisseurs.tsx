@@ -100,7 +100,7 @@ export default function Fournisseurs() {
                   <td className="px-4 py-3">
                     {sup.is_sous_traitant && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
-                        <BadgeCheck className="h-3.5 w-3.5" /> Sous-traitant
+                        <BadgeCheck className="h-3.5 w-3.5" /> {t('sup.sous_traitant')}
                       </span>
                     )}
                   </td>
@@ -109,7 +109,7 @@ export default function Fournisseurs() {
               {(!suppliers || suppliers.length === 0) && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
-                    Aucun fournisseur
+                    {t('sup.none')}
                   </td>
                 </tr>
               )}
