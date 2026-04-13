@@ -1,6 +1,6 @@
 /**
- * FaturaAI - LGM
- * Types base de dados. Multi-empresa, campos FR, line items.
+ * FaturaAI - Multi-Tenant SaaS
+ * Types base de dados. Multi-tenant, multi-empresa, campos FR, line items.
  */
 
 // ==========================================
@@ -9,16 +9,17 @@
 export interface Company {
   id: string;
   created_at: string;
-  name: string;               // "LGM", "Holding", "Imobiliária"
-  short_name: string;          // "LGM", "HOLD", "IMMO"
-  siret: string | null;        // SIRET 14 digits
-  siren: string | null;        // SIREN 9 digits
+  tenant_id: string;
+  name: string;
+  short_name: string;
+  siret: string | null;
+  siren: string | null;
   address: string | null;
-  tva_intracom: string | null; // FR + 2 digits + SIREN
+  tva_intracom: string | null;
   is_active: boolean;
-  email: string | null;        // Gmail associado a esta empresa
-  oauth_token_id: string | null; // FK user_oauth_tokens
-  is_default: boolean;         // Empresa predefinida (LGM)
+  email: string | null;
+  oauth_token_id: string | null;
+  is_default: boolean;
 }
 
 // ==========================================
@@ -51,9 +52,10 @@ export interface Invoice {
   id: string;
   created_at: string;
   updated_at: string;
-  deleted_at: string | null;    // Soft delete
+  deleted_at: string | null;
+  tenant_id: string;
   user_id: string | null;
-  company_id: string;           // FK companies
+  company_id: string;
 
   // SOURCE
   source: 'upload' | 'email' | 'photo';
@@ -111,7 +113,8 @@ export interface Invoice {
 export interface InvoiceLineItem {
   id: string;
   created_at: string;
-  invoice_id: string;            // FK invoices
+  tenant_id: string;
+  invoice_id: string;
   line_number: number;
   description: string | null;
   quantity: number | null;
@@ -128,7 +131,8 @@ export interface Supplier {
   id: string;
   created_at: string;
   updated_at: string;
-  name: string;                   // MAJUSCULES normalized
+  tenant_id: string;
+  name: string;
   display_name: string | null;    // Original name
   siret: string | null;
   siren: string | null;
@@ -150,7 +154,8 @@ export type CategoryAxis = 'metier' | 'type_cout' | 'nature_depense';
 
 export interface Category {
   id: string;
-  company_id: string | null;     // null = shared across all
+  tenant_id: string | null;
+  company_id: string | null;
   axis: CategoryAxis;
   code: string;                  // electricite, cout_fixe, materiaux
   label_fr: string;              // Électricité
@@ -165,6 +170,7 @@ export interface Category {
 export interface EmailAccount {
   id: string;
   created_at: string;
+  tenant_id: string;
   user_id: string;
   email: string;                 // Gmail address
   provider: 'gmail';
@@ -182,6 +188,7 @@ export interface OAuthToken {
   id: string;
   created_at: string;
   updated_at: string;
+  tenant_id: string;
   user_id: string;
   provider: string;
   access_token: string;
@@ -200,6 +207,7 @@ export type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'review' 
 export interface AuditLog {
   id: string;
   created_at: string;
+  tenant_id: string | null;
   user_id: string | null;
   table_name: string;
   record_id: string;

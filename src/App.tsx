@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { TenantProvider } from '@/contexts/TenantContext';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -57,10 +58,12 @@ export default function App() {
     <I18nProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-          <Toaster richColors position="top-right" />
+          <TenantProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+            <Toaster richColors position="top-right" />
+          </TenantProvider>
         </AuthProvider>
       </QueryClientProvider>
     </I18nProvider>
