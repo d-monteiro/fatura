@@ -706,7 +706,7 @@ CREATE POLICY "Service role bypass" ON invoices
 ---
 
 <a id="fase-3"></a>
-## FASE 3 — Onboarding Questionnaire (20 Perguntas)
+## FASE 3 — Onboarding Questionnaire (20 Perguntas) ✅
 
 ### 3.1 Wizard UX
 

@@ -14,6 +14,7 @@ import Fournisseurs from '@/pages/Fournisseurs';
 import Login from '@/pages/Login';
 import Settings from '@/pages/Settings';
 import Automations from '@/pages/Automations';
+import Onboarding from '@/pages/Onboarding';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,7 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="onboarding" element={<Onboarding />} />
       <Route element={<AppLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="inbox" element={<Inbox />} />
