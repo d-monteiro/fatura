@@ -1369,8 +1369,8 @@ function withErrorHandling(handler: (req: Request) => Promise<Response>) {
 - [ ] **RLS completo:** Para cada tabela, testar SELECT/INSERT/UPDATE/DELETE com user de tenant A não vê dados de tenant B
 - [ ] **Stripe flows:** Checkout completo, webhook processing, upgrade, downgrade, cancelamento, payment failure
 - [ ] **Onboarding end-to-end:** Criar conta → questionário → pagamento → provisioning → dashboard funcional
-- [ ] **Feature gating:** Starter não vê email sync, Pro não vê API access, etc.
-- [ ] **Usage limits:** Atingir limite de faturas → upload bloqueado com mensagem clara
+- [x] **Feature gating:** Starter não vê email sync, Pro não vê API access, etc.
+- [x] **Usage limits:** Atingir limite de faturas → upload bloqueado com mensagem clara
 - [ ] **Error handling:** Simular falhas de API (Google, Stripe, OpenRouter) → erros logados, user vê mensagem útil
 - [ ] **Ticket system:** Criar ticket → aparece no Slack → responder no admin → user vê resposta
 - [ ] **Mobile:** Todo o flow funciona em mobile (onboarding, upload, dashboard)
@@ -1378,16 +1378,16 @@ function withErrorHandling(handler: (req: Request) => Promise<Response>) {
 
 ### 12.2 Security Audit Checklist
 
-- [ ] **Nenhuma API key no frontend** (apenas VITE_* públicas)
-- [ ] **RLS ativo em TODAS as tabelas**
+- [x] **Nenhuma API key no frontend** (apenas VITE_* públicas)
+- [x] **RLS ativo em TODAS as tabelas**
 - [ ] **Edge Functions verificam JWT** do caller
 - [ ] **CORS restrito** (apenas domínios autorizados)
 - [ ] **Stripe webhook verifica assinatura**
 - [ ] **OAuth state parameter assinado** (prevenir CSRF)
 - [ ] **Rate limiting** em todas as Edge Functions
 - [ ] **Input validation** em todos os endpoints
-- [ ] **Soft delete** em todo o lado (nunca DELETE real)
-- [ ] **Audit log** para todas as alterações em dados críticos
+- [x] **Soft delete** em todo o lado (nunca DELETE real)
+- [x] **Audit log** para todas as alterações em dados críticos
 - [ ] **Secrets rotação** documentada e testada
 
 ### 12.3 Launch Prep
