@@ -1480,10 +1480,10 @@ docs: add multi-tenant architecture guide
 ## CHECKLIST DE DEPLOY
 
 ### Pré-Deploy
-- [ ] `npm run build` sem erros
-- [ ] `npm run lint` sem warnings críticos
+- [x] `npm run build` sem erros
+- [x] `npm run lint` sem warnings críticos
 - [ ] Testar localmente com `.env.local` correto
-- [ ] Verificar que nenhuma API key está hardcoded no frontend
+- [x] Verificar que nenhuma API key está hardcoded no frontend
 - [ ] Verificar que todas as Edge Functions têm CORS correto
 
 ### Deploy
