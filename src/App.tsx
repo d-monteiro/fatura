@@ -17,6 +17,8 @@ import Automations from '@/pages/Automations';
 import Onboarding from '@/pages/Onboarding';
 import Landing from '@/pages/Landing';
 import Billing from '@/pages/Billing';
+import Tickets from '@/pages/Tickets';
+import { FeedbackWidget } from '@/components/tickets/FeedbackWidget';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +62,7 @@ function AppRoutes() {
         <Route path="suppliers" element={<Fournisseurs />} />
         <Route path="automations" element={<Automations />} />
         <Route path="billing" element={<Billing />} />
+        <Route path="tickets" element={<Tickets />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -76,6 +79,7 @@ export default function App() {
             <BrowserRouter>
               <AppRoutes />
             </BrowserRouter>
+            <FeedbackWidget />
             <Toaster richColors position="top-right" />
           </TenantProvider>
         </AuthProvider>
