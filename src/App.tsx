@@ -16,6 +16,7 @@ import Settings from '@/pages/Settings';
 import Automations from '@/pages/Automations';
 import Onboarding from '@/pages/Onboarding';
 import Landing from '@/pages/Landing';
+import Billing from '@/pages/Billing';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="upload" element={<Upload />} />
         <Route path="suppliers" element={<Fournisseurs />} />
         <Route path="automations" element={<Automations />} />
+        <Route path="billing" element={<Billing />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

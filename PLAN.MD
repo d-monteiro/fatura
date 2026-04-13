@@ -889,7 +889,7 @@ _{notas do cliente}_
 ---
 
 <a id="fase-5"></a>
-## FASE 5 — Stripe Integration + Billing
+## FASE 5 — Stripe Integration + Billing ✅
 
 ### 5.1 Produtos Stripe a Criar
 
