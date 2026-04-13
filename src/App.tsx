@@ -19,6 +19,7 @@ import Landing from '@/pages/Landing';
 import Billing from '@/pages/Billing';
 import Tickets from '@/pages/Tickets';
 import { FeedbackWidget } from '@/components/tickets/FeedbackWidget';
+import { ErrorBoundary } from '@/lib/errors/errorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,9 +77,11 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TenantProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <ErrorBoundary>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </ErrorBoundary>
             <FeedbackWidget />
             <Toaster richColors position="top-right" />
           </TenantProvider>
