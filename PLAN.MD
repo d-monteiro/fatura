@@ -1019,7 +1019,7 @@ async function checkUsageLimit(tenantId: string): Promise<{ allowed: boolean; re
 ---
 
 <a id="fase-6"></a>
-## FASE 6 — AI Engine: Tenant-Aware Prompt System
+## FASE 6 — AI Engine: Tenant-Aware Prompt System ✅
 
 ### 6.1 Prompt Builder Dinâmico
 
