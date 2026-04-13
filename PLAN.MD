@@ -1361,7 +1361,7 @@ function withErrorHandling(handler: (req: Request) => Promise<Response>) {
 ---
 
 <a id="fase-12"></a>
-## FASE 12 — Testing, Security Audit, Launch Prep
+## FASE 12 — Testing, Security Audit, Launch Prep (PENDENTE)
 
 ### 12.1 Testing Checklist
 
