@@ -11,7 +11,7 @@ import { useTenant } from '@/contexts/TenantContext';
 
 export default function Upload() {
   const { t } = useI18n();
-  const { tenant } = useTenant();
+  const { tenant, isOverLimit, invoicesUsed, invoicesLimit } = useTenant();
   const { userId, companyId, accessToken, ready, noGoogle, loading } = useUploadDeps();
   const {
     files, isProcessing, currentIndex, rateLimitError,
@@ -34,6 +34,16 @@ export default function Upload() {
         onRetryToken={() => {}} onDismissRateLimit={dismissRateLimit}
       />
 
+      {isOverLimit && (
+        <div className="rounded-xl border border-destructive/50 bg-destructive/5 p-4 text-center">
+          <p className="font-medium text-destructive">Limite de factures atteint</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Vous avez utilisé {invoicesUsed} / {invoicesLimit} factures ce mois.
+            Passez au plan supérieur pour continuer.
+          </p>
+        </div>
+      )}
+
       <div className="rounded-xl border bg-white p-4 sm:p-6">
         {hasFiles ? (
           <ProcessingOverlay
@@ -44,7 +54,7 @@ export default function Upload() {
         ) : (
           <DropZone
             onFiles={handleFiles}
-            disabled={isProcessing || !ready || loading}
+            disabled={isProcessing || !ready || loading || isOverLimit}
             hasFiles={hasFiles}
           />
         )}

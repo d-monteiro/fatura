@@ -18,7 +18,8 @@ export function EmailAccounts({ userId }: { userId: string }) {
       const { data } = await supabase
         .from('email_accounts')
         .select('*, companies(name)')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('is_active', true);
       return data || [];
     },
     enabled: !!userId,
@@ -60,7 +61,7 @@ export function EmailAccounts({ userId }: { userId: string }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('email_accounts').delete().eq('id', id);
+      await supabase.from('email_accounts').update({ is_active: false }).eq('id', id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['email-accounts'] }),
   });
