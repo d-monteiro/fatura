@@ -20,6 +20,12 @@ import Billing from '@/pages/Billing';
 import Tickets from '@/pages/Tickets';
 import { FeedbackWidget } from '@/components/tickets/FeedbackWidget';
 import { ErrorBoundary } from '@/lib/errors/errorBoundary';
+import AdminLayout from '@/pages/admin/AdminLayout';
+import AdminTenants from '@/pages/admin/AdminTenants';
+import AdminTickets from '@/pages/admin/AdminTickets';
+import AdminErrors from '@/pages/admin/AdminErrors';
+import AdminUsage from '@/pages/admin/AdminUsage';
+import AdminOnboarding from '@/pages/admin/AdminOnboarding';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +61,13 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="onboarding" element={<Onboarding />} />
+      <Route path="admin" element={<AdminLayout />}>
+        <Route index element={<AdminTenants />} />
+        <Route path="tickets" element={<AdminTickets />} />
+        <Route path="errors" element={<AdminErrors />} />
+        <Route path="usage" element={<AdminUsage />} />
+        <Route path="onboarding" element={<AdminOnboarding />} />
+      </Route>
       <Route element={<AppLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="inbox" element={<Inbox />} />
