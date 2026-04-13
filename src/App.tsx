@@ -15,6 +15,7 @@ import Login from '@/pages/Login';
 import Settings from '@/pages/Settings';
 import Automations from '@/pages/Automations';
 import Onboarding from '@/pages/Onboarding';
+import Landing from '@/pages/Landing';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,7 +37,16 @@ function AppRoutes() {
     );
   }
 
-  if (!user) return <Login />;
+  if (!user) {
+    return (
+      <Routes>
+        <Route index element={<Landing />} />
+        <Route path="login" element={<Login />} />
+        <Route path="onboarding" element={<Onboarding />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   return (
     <Routes>

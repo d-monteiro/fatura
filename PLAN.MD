@@ -847,7 +847,7 @@ _{notas do cliente}_
 ---
 
 <a id="fase-4"></a>
-## FASE 4 — Landing Page + Marketing Site
+## FASE 4 — Landing Page + Marketing Site ✅
 
 ### 4.1 Secções da Landing Page
 
