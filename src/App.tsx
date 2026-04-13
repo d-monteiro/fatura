@@ -26,6 +26,7 @@ import AdminTickets from '@/pages/admin/AdminTickets';
 import AdminErrors from '@/pages/admin/AdminErrors';
 import AdminUsage from '@/pages/admin/AdminUsage';
 import AdminOnboarding from '@/pages/admin/AdminOnboarding';
+import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,7 +80,7 @@ function AppRoutes() {
         <Route path="tickets" element={<Tickets />} />
         <Route path="settings" element={<Settings />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
