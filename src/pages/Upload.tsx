@@ -7,15 +7,17 @@ import { ProcessingOverlay } from '@/components/upload/ProcessingOverlay';
 import { InstructionsCard } from '@/components/upload/InstructionsCard';
 import { useUploadDeps } from '@/hooks/useUploadDeps';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
+import { useTenant } from '@/contexts/TenantContext';
 
 export default function Upload() {
   const { t } = useI18n();
+  const { tenant } = useTenant();
   const { userId, companyId, accessToken, ready, noGoogle, loading } = useUploadDeps();
   const {
     files, isProcessing, currentIndex, rateLimitError,
     completedCount, errorCount, totalCount, progress,
     handleFiles, resetUpload, dismissRateLimit,
-  } = useUploadQueue(userId, accessToken, companyId, t);
+  } = useUploadQueue(userId, accessToken, companyId, t, tenant?.id);
 
   const hasFiles = files.length > 0;
 

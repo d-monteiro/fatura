@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 import { Mail, Trash2, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 export function EmailAccounts({ userId }: { userId: string }) {
+  const { tenant } = useTenant();
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState('');
@@ -42,6 +44,7 @@ export function EmailAccounts({ userId }: { userId: string }) {
   const addMutation = useMutation({
     mutationFn: async () => {
       await supabase.from('email_accounts').insert({
+        ...(tenant?.id ? { tenant_id: tenant.id } : {}),
         user_id: userId,
         email: newEmail,
         company_id: selectedCompany || null,

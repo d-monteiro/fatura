@@ -13,6 +13,8 @@ const translations = {
   'nav.suppliers': { fr: 'Fournisseurs', pt: 'Fornecedores' },
   'nav.settings': { fr: 'Paramètres', pt: 'Definições' },
   'nav.automations': { fr: 'Automatisations', pt: 'Automações' },
+  'nav.billing': { fr: 'Facturation', pt: 'Faturação' },
+  'nav.tickets': { fr: 'Support', pt: 'Suporte' },
 
   // Dashboard
   'dash.total_expenses': { fr: 'Total dépenses', pt: 'Total despesas' },

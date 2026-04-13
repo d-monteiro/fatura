@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Inbox, FileText, Upload,
   Users, Settings, Zap, Globe, X, LogOut,
+  CreditCard, LifeBuoy,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
@@ -28,6 +29,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { to: '/upload', icon: Upload, label: t('nav.upload') },
     { to: '/suppliers', icon: Users, label: t('nav.suppliers') },
     { to: '/automations', icon: Zap, label: t('nav.automations') },
+    { to: '/billing', icon: CreditCard, label: t('nav.billing') },
+    { to: '/tickets', icon: LifeBuoy, label: t('nav.tickets') },
     { to: '/settings', icon: Settings, label: t('nav.settings') },
   ];
 

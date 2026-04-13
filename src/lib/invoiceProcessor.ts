@@ -69,20 +69,22 @@ async function checkDuplicate(g: GeminiInvoiceData, cid: string): Promise<string
   return null;
 }
 
-async function matchOrCreateSupplier(g: GeminiInvoiceData, invId: string) {
+async function matchOrCreateSupplier(g: GeminiInvoiceData, invId: string, tenantId: string | null) {
   if (!g.supplier_name) return;
   const { data: ex } = await supabase.from('suppliers').select('id').eq('name', g.supplier_name).single();
   if (ex) { await supabase.from('invoices').update({ supplier_id: ex.id }).eq('id', invId); return; }
-  const { data: ns } = await supabase.from('suppliers').insert({
+  const insertData: Record<string, unknown> = {
     name: g.supplier_name, display_name: g.supplier_name, siret: g.supplier_siret,
     is_sous_traitant: g.autoliquidation, default_metier: g.metier,
     default_nature: g.nature_depense, default_cost_type: g.cost_type,
-  }).select('id').single();
+  };
+  if (tenantId) insertData.tenant_id = tenantId;
+  const { data: ns } = await supabase.from('suppliers').insert(insertData).select('id').single();
   if (ns) await supabase.from('invoices').update({ supplier_id: ns.id }).eq('id', invId);
 }
 
 async function processSingle(
-  g: GeminiInvoiceData, file: File, cid: string, userId: string | null, token: string,
+  g: GeminiInvoiceData, file: File, cid: string, userId: string | null, token: string, tenantId: string | null,
 ): Promise<UploadResult> {
   const w: string[] = [];
   g.supplier_name = normalizeSupplierName(g.supplier_name);
@@ -115,7 +117,7 @@ async function processSingle(
   const curYear = new Date().getFullYear();
   const CONFIDENCE_THRESHOLD = 80;
   const review = g.confidence_score < CONFIDENCE_THRESHOLD || (g.doc_year !== null && g.doc_year < curYear - 1) || !v.valid;
-  const { data: inv, error: err } = await supabase.from('invoices').insert({
+  const invoiceInsert: Record<string, unknown> = {
     user_id: userId, company_id: cid, source: 'upload',
     file_url: df.webViewLink, drive_link: df.webViewLink, drive_file_id: df.id, spreadsheet_id: sheetId,
     document_type: g.document_type, cost_type: g.cost_type, metier: g.metier, nature_depense: g.nature_depense,
@@ -126,16 +128,19 @@ async function processSingle(
     summary: g.summary, confidence_score: g.confidence_score,
     status: review ? 'review' : 'inbox', manual_review: review,
     review_reason: review ? (!v.valid ? 'Erreur validation montants' : g.confidence_score < CONFIDENCE_THRESHOLD ? 'Confiance faible' : 'Date suspecte') : null,
-  }).select().single();
+  };
+  if (tenantId) invoiceInsert.tenant_id = tenantId;
+  const { data: inv, error: err } = await supabase.from('invoices').insert(invoiceInsert).select().single();
   if (err) return { success: false, error: `Erreur sauvegarde: ${err.message}` };
 
   if (g.line_items?.length && inv) {
     await supabase.from('invoice_line_items').insert(g.line_items.map((li, i) => ({
+      ...(tenantId ? { tenant_id: tenantId } : {}),
       invoice_id: inv.id, line_number: i + 1, description: li.description,
       quantity: li.quantity, unit: li.unit, unit_price_ht: li.unit_price_ht, total_ht: li.total_ht, taux_tva: li.taux_tva,
     })));
   }
-  await matchOrCreateSupplier(g, inv!.id);
+  await matchOrCreateSupplier(g, inv!.id, tenantId);
 
   try {
     await appendInvoiceToSheet(token, sheetId, {
@@ -150,7 +155,7 @@ async function processSingle(
 }
 
 export async function processInvoiceUpload(
-  file: File, userId: string | null, accessToken: string | null, defaultCompanyId?: string | null,
+  file: File, userId: string | null, accessToken: string | null, defaultCompanyId?: string | null, tenantId?: string | null,
 ): Promise<UploadResult[]> {
   try {
     if (file.size > 10 * 1024 * 1024) return [{ success: false, error: 'Fichier trop volumineux (max 10 Mo)' }];
@@ -171,7 +176,7 @@ export async function processInvoiceUpload(
     for (const g of invoices) {
       const cid = await detectCompanyId(g.destinataire_name, defaultCompanyId ?? undefined);
       if (!cid) { results.push({ success: false, error: 'Entreprise non trouvée' }); continue; }
-      results.push(await processSingle(g, file, cid, userId, token!));
+      results.push(await processSingle(g, file, cid, userId, token!, tenantId ?? null));
     }
     return results;
   } catch (error) {

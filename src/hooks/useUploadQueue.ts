@@ -21,7 +21,7 @@ function delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 export function useUploadQueue(
   userId: string | null, accessToken: string | null, companyId: string | null,
-  t: (k: TranslationKey) => string,
+  t: (k: TranslationKey) => string, tenantId?: string | null,
 ) {
   const [files, setFiles] = useState<UploadFileState[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -53,7 +53,7 @@ export function useUploadQueue(
           idx === i ? { ...x, status: 'analyzing', progress: 50, message: t('upload.analyzing_ai') } : x));
 
         try {
-          const results = await processInvoiceUpload(f.file, userId, accessToken, companyId);
+          const results = await processInvoiceUpload(f.file, userId, accessToken, companyId, tenantId);
           uploadTimestamps.push(Date.now());
 
           if (results.length === 1) {
