@@ -25,8 +25,8 @@ export function StepAutomation({ data, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Automatisation et email</h2>
-        <p className="text-muted-foreground mt-1">Configurez l'import automatique de factures par email.</p>
+        <h2 className="text-2xl font-bold">Automação e email</h2>
+        <p className="text-muted-foreground mt-1">Configure a importação automática de faturas por email.</p>
       </div>
 
       <div className="space-y-4">
@@ -34,9 +34,9 @@ export function StepAutomation({ data, onChange }: Props) {
           <div className="flex items-center gap-3">
             <Mail className="h-5 w-5 text-primary" />
             <div>
-              <div className="font-medium text-sm">Importation automatique par email</div>
+              <div className="font-medium text-sm">Importação automática por email</div>
               <div className="text-xs text-muted-foreground">
-                Les factures reçues par email seront traitées automatiquement
+                As faturas recebidas por email serão processadas automaticamente
               </div>
             </div>
           </div>
@@ -50,7 +50,7 @@ export function StepAutomation({ data, onChange }: Props) {
 
         {data.emailSync && (
           <div className="space-y-2 pl-1">
-            <Label>Adresses email où vous recevez des factures</Label>
+          <Label>Endereços de email onde recebe faturas</Label>
             <div className="flex gap-2">
               <Input
                 type="email"

@@ -16,18 +16,18 @@ interface Props {
 }
 
 const CATEGORIES: { value: TicketCategory; label: string }[] = [
-  { value: 'general', label: 'Général' },
+  { value: 'general', label: 'Geral' },
   { value: 'bug', label: 'Bug' },
-  { value: 'feature', label: 'Demande de fonctionnalité' },
-  { value: 'billing', label: 'Facturation' },
-  { value: 'integration', label: 'Intégration' },
+  { value: 'feature', label: 'Pedido de funcionalidade' },
+  { value: 'billing', label: 'Faturação' },
+  { value: 'integration', label: 'Integração' },
 ];
 
 const PRIORITIES: { value: TicketPriority; label: string }[] = [
-  { value: 'low', label: 'Basse' },
-  { value: 'medium', label: 'Moyenne' },
-  { value: 'high', label: 'Haute' },
-  { value: 'urgent', label: 'Urgent' },
+  { value: 'low', label: 'Baixa' },
+  { value: 'medium', label: 'Média' },
+  { value: 'high', label: 'Alta' },
+  { value: 'urgent', label: 'Urgente' },
 ];
 
 export function NewTicketForm({ onCreated, onCancel }: Props) {
@@ -64,12 +64,12 @@ export function NewTicketForm({ onCreated, onCancel }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="subject">Sujet *</Label>
-        <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Décrivez brièvement le problème" />
+        <Label htmlFor="subject">Assunto *</Label>
+        <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Descreva brevemente o problema" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Catégorie</Label>
+          <Label>Categoria</Label>
           <Select value={category} onValueChange={(v) => setCategory(v as TicketCategory)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -78,7 +78,7 @@ export function NewTicketForm({ onCreated, onCancel }: Props) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Priorité</Label>
+          <Label>Prioridade</Label>
           <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -88,13 +88,13 @@ export function NewTicketForm({ onCreated, onCancel }: Props) {
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="description">Description *</Label>
-        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Décrivez le problème en détail..." rows={5} />
+        <Label htmlFor="description">Descrição *</Label>
+        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descreva o problema em detalhe..." rows={5} />
       </div>
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Annuler</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={submitting || !subject.trim() || !description.trim()} className="gap-2">
-          <Send className="h-4 w-4" /> Envoyer
+          <Send className="h-4 w-4" /> Enviar
         </Button>
       </div>
     </form>

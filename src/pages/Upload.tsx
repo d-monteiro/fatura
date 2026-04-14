@@ -36,10 +36,10 @@ export default function Upload() {
 
       {isOverLimit && (
         <div className="rounded-xl border border-destructive/50 bg-destructive/5 p-4 text-center">
-          <p className="font-medium text-destructive">Limite de factures atteint</p>
+          <p className="font-medium text-destructive">Limite de faturas atingido</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Vous avez utilisé {invoicesUsed} / {invoicesLimit} factures ce mois.
-            Passez au plan supérieur pour continuer.
+            Utilizou {invoicesUsed} / {invoicesLimit} faturas este mês.
+            Passe para o plano superior para continuar.
           </p>
         </div>
       )}

@@ -27,12 +27,12 @@ export default function Tickets() {
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Support</h1>
-          <p className="text-muted-foreground">Vos tickets et demandes d'aide.</p>
+          <h1 className="text-2xl font-bold">Suporte</h1>
+          <p className="text-muted-foreground">Os seus tickets e pedidos de ajuda.</p>
         </div>
         {view === 'list' && (
           <Button onClick={() => setView('new')} className="gap-2">
-            <Plus className="h-4 w-4" /> Nouveau ticket
+            <Plus className="h-4 w-4" /> Novo ticket
           </Button>
         )}
       </div>

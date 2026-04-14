@@ -27,9 +27,9 @@ export function Pricing() {
   return (
     <section id="pricing" className="py-20 bg-muted/30">
       <div className="mx-auto max-w-5xl px-4">
-        <h2 className="text-3xl font-bold text-center mb-4">Tarifs simples et transparents</h2>
+        <h2 className="text-3xl font-bold text-center mb-4">Preços simples e transparentes</h2>
         <p className="text-center text-muted-foreground mb-8">
-          14 jours d'essai gratuit sur tous les plans. Sans engagement.
+          14 dias de teste grátis em todos os planos. Sem compromisso.
         </p>
 
         <div className="flex justify-center gap-2 mb-10">
@@ -38,14 +38,14 @@ export function Pricing() {
             size="sm"
             onClick={() => setCycle('monthly')}
           >
-            Mensuel
+            Mensal
           </Button>
           <Button
             variant={cycle === 'yearly' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setCycle('yearly')}
           >
-            Annuel (-17%)
+            Anual (-17%)
           </Button>
         </div>
 
@@ -60,14 +60,14 @@ export function Pricing() {
                 }`}
               >
                 {plan.is_popular && (
-                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Populaire</Badge>
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Popular</Badge>
                 )}
                 <h3 className="text-xl font-bold">{plan.name}</h3>
                 <div className="mt-2 text-3xl font-bold">
                   {formatPrice(price)}
                   {price !== null && (
                     <span className="text-base font-normal text-muted-foreground">
-                      /{cycle === 'yearly' ? 'an' : 'mois'}
+                      /{cycle === 'yearly' ? 'ano' : 'mês'}
                     </span>
                   )}
                 </div>

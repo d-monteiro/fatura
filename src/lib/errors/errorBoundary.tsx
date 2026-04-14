@@ -37,15 +37,15 @@ export class ErrorBoundary extends Component<Props, State> {
 function ErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
-      <h2 className="text-xl font-semibold mb-2">Une erreur est survenue</h2>
+      <h2 className="text-xl font-semibold mb-2">Ocorreu um erro</h2>
       <p className="text-sm text-muted-foreground mb-4 max-w-md">
-        {error?.message ?? 'Une erreur inattendue s\'est produite. Veuillez réessayer.'}
+        {error?.message ?? 'Ocorreu um erro inesperado. Por favor, tente novamente.'}
       </p>
       <button
         onClick={onRetry}
         className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors"
       >
-        Réessayer
+        Tentar novamente
       </button>
     </div>
   );

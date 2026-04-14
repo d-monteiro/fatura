@@ -344,7 +344,7 @@ const translations = {
 export type TranslationKey = keyof typeof translations;
 
 // Kept for non-React code (edge cases). Prefer useI18n() hook in components.
-let currentLang: Lang = 'fr';
+let currentLang: Lang = 'pt';
 export function setLang(lang: Lang) { currentLang = lang; }
 export function getLang(): Lang { return currentLang; }
 export function t(key: TranslationKey): string {

@@ -8,22 +8,22 @@ interface Props {
 }
 
 const REPORT_OPTIONS = [
-  { value: 'never', label: 'Jamais', desc: 'Pas de rapports automatiques' },
-  { value: 'weekly', label: 'Hebdomadaire', desc: 'Rapport envoyé chaque lundi' },
-  { value: 'monthly', label: 'Mensuel', desc: 'Rapport envoyé le 1er de chaque mois' },
+  { value: 'never', label: 'Nunca', desc: 'Sem relatórios automáticos' },
+  { value: 'weekly', label: 'Semanal', desc: 'Relatório enviado todas as segundas' },
+  { value: 'monthly', label: 'Mensal', desc: 'Relatório enviado no 1.º de cada mês' },
 ] as const;
 
 export function StepDashboard({ data, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Dashboard et rapports</h2>
-        <p className="text-muted-foreground mt-1">Personnalisez votre tableau de bord.</p>
+        <h2 className="text-2xl font-bold">Dashboard e relatórios</h2>
+        <p className="text-muted-foreground mt-1">Personalize o seu painel de controlo.</p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Devise principale</Label>
+          <Label>Moeda principal</Label>
           <Select value={data.currency} onValueChange={(v) => onChange({ currency: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -35,7 +35,7 @@ export function StepDashboard({ data, onChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>Rapports automatiques</Label>
+          <Label>Relatórios automáticos</Label>
           <div className="space-y-2">
             {REPORT_OPTIONS.map((opt) => (
               <button

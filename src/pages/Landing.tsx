@@ -16,13 +16,13 @@ export default function Landing() {
           <span className="font-bold text-lg text-primary">FaturaAI</span>
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm">
-              <a href="#pricing">Tarifs</a>
+              <a href="#pricing">Preços</a>
             </Button>
             <Button asChild variant="ghost" size="sm">
-              <Link to="/login">Connexion</Link>
+              <Link to="/login">Entrar</Link>
             </Button>
             <Button asChild size="sm">
-              <Link to="/onboarding">Commencer</Link>
+              <Link to="/onboarding">Começar</Link>
             </Button>
           </div>
         </div>

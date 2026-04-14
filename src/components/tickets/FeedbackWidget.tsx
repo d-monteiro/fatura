@@ -45,24 +45,24 @@ export function FeedbackWidget() {
       {isOpen && (
         <div className="mb-2 w-80 rounded-lg border bg-card shadow-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-sm">Aide & Feedback</span>
+            <span className="font-medium text-sm">Ajuda e Feedback</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsOpen(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
 
           {sent ? (
-            <div className="text-center py-4 text-sm text-green-600">Merci pour votre retour !</div>
+            <div className="text-center py-4 text-sm text-green-600">Obrigado pelo seu feedback!</div>
           ) : !type ? (
             <div className="space-y-2">
               <Button variant="outline" className="w-full justify-start gap-2 text-sm" onClick={() => setType('bug')}>
-                Signaler un bug
+                Reportar um bug
               </Button>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm" onClick={() => setType('feature')}>
-                Demander une fonctionnalité
+                Pedir funcionalidade
               </Button>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm" onClick={() => setType('feedback')}>
-                Feedback général
+                Feedback geral
               </Button>
             </div>
           ) : (
@@ -70,13 +70,13 @@ export function FeedbackWidget() {
               <Textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Décrivez votre retour..."
+                placeholder="Descreva o seu feedback..."
                 rows={4}
               />
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setType(null)}>Retour</Button>
+                <Button variant="ghost" size="sm" onClick={() => setType(null)}>Voltar</Button>
                 <Button size="sm" onClick={handleSubmit} disabled={sending || !message.trim()} className="gap-1">
-                  <Send className="h-3 w-3" /> Envoyer
+                  <Send className="h-3 w-3" /> Enviar
                 </Button>
               </div>
             </>

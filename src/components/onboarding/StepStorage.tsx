@@ -11,13 +11,13 @@ export function StepStorage({ data, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Organisation et stockage</h2>
-        <p className="text-muted-foreground mt-1">Comment souhaitez-vous organiser vos documents ?</p>
+        <h2 className="text-2xl font-bold">Organização e armazenamento</h2>
+        <p className="text-muted-foreground mt-1">Como pretende organizar os seus documentos?</p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Fournisseur de stockage</Label>
+          <Label>Fornecedor de armazenamento</Label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -42,13 +42,13 @@ export function StepStorage({ data, onChange }: Props) {
             >
               <HardDrive className="h-8 w-8" />
               <span className="font-medium text-sm">OneDrive</span>
-              <span className="text-xs text-muted-foreground">(Bientôt)</span>
+              <span className="text-xs text-muted-foreground">(Em breve)</span>
             </button>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label>Structure de dossiers</Label>
+          <Label>Estrutura de pastas</Label>
           <div className="space-y-2">
             {FOLDER_TEMPLATES.map((t) => (
               <button
@@ -71,8 +71,8 @@ export function StepStorage({ data, onChange }: Props) {
         <div className="space-y-2">
           <label className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50">
             <div>
-              <div className="font-medium text-sm">Extrait automatique en Sheets / Excel</div>
-              <div className="text-xs text-muted-foreground">Synchronise chaque facture dans un tableur</div>
+              <div className="font-medium text-sm">Extrato automático em Sheets / Excel</div>
+              <div className="text-xs text-muted-foreground">Sincroniza cada fatura numa folha de cálculo</div>
             </div>
             <input
               type="checkbox"

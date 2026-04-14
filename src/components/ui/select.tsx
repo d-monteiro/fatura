@@ -93,7 +93,7 @@ function SelectContent({ className, children, ...props }: React.HTMLAttributes<H
     <div
       ref={ref}
       className={cn(
-        'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
+        'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-white dark:bg-neutral-900 p-1 text-foreground shadow-lg',
         className,
       )}
       {...props}

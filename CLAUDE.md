@@ -1,9 +1,11 @@
-# FaturaAI - LGM (Construction France)
+# FaturaAI
 
 ## Projeto
-Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empresa (LGM, Holding, Imobiliaria). Utilizadora principal: secretaria francesa. Idioma interface: FR com toggle PT/FR.
+
+Plataforma de faturacao com IA. Multi-empresa.
 
 ## Stack
+
 - Frontend: React 18 + Vite 8 + TypeScript 5.9 (strict) + Shadcn/UI + Tailwind CSS 4
 - Backend: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
 - State: TanStack React Query (server state) + React Context (auth, i18n)
@@ -12,12 +14,12 @@ Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empres
 - Email sync: Gmail API via Edge Function (cron 23:58)
 - Export: Excel .xlsx via SheetJS, ZIP via JSZip
 - Deploy: Vercel (frontend) + Supabase Cloud (backend)
-- Supabase ref: wvopuqyotvwgronujvrb
-- URL producao: https://faturai-lgm.vercel.app
+- Supabase ref: sxfwprydmllovnxxjhrh
 
 ## Regras de Desenvolvimento
 
 ### Codigo
+
 - Componentes max 150 linhas. Se exceder, split automaticamente. Separar UI de logica
 - TypeScript strict, zero erros no build
 - Tailwind + shadcn/ui para toda a UI
@@ -30,6 +32,7 @@ Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empres
 - Moeda: EUR
 
 ### Seguranca (CRITICO)
+
 - API keys NUNCA no frontend — so em Edge Functions (`Deno.env.get`)
 - RLS em TODAS as tabelas — usar `(select auth.uid())` em policies (NAO `auth.uid()` bare)
 - Edge Functions DEVEM verificar JWT do caller via `supabase.auth.getUser()`
@@ -42,6 +45,7 @@ Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empres
 - OAuth state parameter deve ser assinado (HMAC) para prevenir forgery
 
 ### Armadilhas Conhecidas
+
 - **AUTH DEADLOCK:** NUNCA await Supabase calls dentro de `onAuthStateChange` callback — causa `navigator.locks` deadlock
 - **Auth loading state:** Usar condicao THREE-WAY: `loading ? null : isAuthenticated ? menu : login`
 - **RLS recursion:** Policies que fazem query a mesma tabela → usar SECURITY DEFINER helpers
@@ -53,6 +57,7 @@ Plataforma de faturacao com IA para LGM (construcao civil, Franca). Multi-empres
 - **CORS placeholder:** NUNCA usar `{{CLIENT_DOMAIN}}` — sempre usar dominio real
 
 ## Comandos
+
 ```bash
 npm run dev          # Dev server (localhost:5173)
 npm run build        # Build producao (testar SEMPRE)
@@ -60,6 +65,7 @@ npm run lint         # ESLint
 ```
 
 ## Estrutura do Projeto
+
 ```
 src/
   components/
@@ -108,60 +114,21 @@ supabase/
     refresh-token/          # Google token renewal (5min buffer)
 ```
 
-## Base de Dados (Supabase)
 
-### Tabelas principais
-- `companies` — LGM, Holding, Imobiliaria (com SIRET, SIREN, TVA intra)
-- `invoices` — Faturas com campos FR (montant_ht, montant_tva, montant_ttc, taux_tva, autoliquidation)
-- `invoice_line_items` — Linhas individuais de cada fatura
-- `suppliers` — Fornecedores com SIRET, IBAN, auto-learn defaults, sous-traitant flag
-- `categories` — Categorias por empresa (metier, type_cout, nature_depense)
-- `email_accounts` — Contas Gmail para sync (2 contas activas)
-- `user_oauth_tokens` — Tokens OAuth Google (RLS por user_id)
-- `audit_log` — Historico de alteracoes (trigger automatico)
-
-### Emails configurados
-- andreribeirodefaria@gmail.com
-- bbarealestatepartners@gmail.com
-
-### Categorias LGM
-**Por metier:** Electricite, Plomberie, Chauffage, Platrerie, Autre
-**Por type cout:** Couts fixes, Couts variables
-**Por nature:** Materiaux, Sous-traitants, Location materiel, Restauration, Carburant, Atelier, Assurances, Comptabilite, Fournitures bureau, Autre
-
-### Fornecedores Principais
-LEROY MERLIN, POINT P, REXEL, YESSS (CEF SAS), WURTH, LUCIAT (ISDI), CEDEO, KILOUTOU, LOXAM, HILTI, SONEPAR, BIGMAT TOUJAS & COLL
-
-### Google Drive Structure
-```
-FACTURES/
-  {ENTREPRISE}/
-    {ANNEE}/
-      {MM} - {Mois}/
-        {Metier}/
-          YYYY-MM-DD_FOURNISSEUR_MONTANT.pdf
-```
-
-### TVA France
-- 20% (taux normal) — construcao nova, materiais
-- 10% (taux intermediaire) — renovacao edificios >2 anos
-- 5.5% (taux reduit) — renovacao energetica
-- 0% (autoliquidation) — sous-traitants (art. 283-2 nonies CGI)
-
-## Roles
-- Admin (Alvaro): acesso total, config, todas as empresas
-- Utilisateur (Secretaria): gerir faturas, dashboard, exportar
-- Comptable (futuro): read-only exportacoes
 
 ## Edge Functions
-| Funcao | Trigger | Auth | CORS | Descricao |
-|--------|---------|------|------|-----------|
-| analyze-document | POST (frontend) | JWT verify | Whitelist | OpenRouter → Gemini 2.5 Pro analise FR |
-| sync-email | POST (frontend) / cron | JWT verify | Whitelist | Gmail API 2 contas |
-| oauth-callback | GET (Google redirect) | State param | Whitelist | Guardar tokens OAuth |
-| refresh-token | POST (frontend) | JWT + ownership | Whitelist | Renovar tokens expirados |
+
+
+| Funcao           | Trigger                | Auth            | CORS      | Descricao                              |
+| ---------------- | ---------------------- | --------------- | --------- | -------------------------------------- |
+| analyze-document | POST (frontend)        | JWT verify      | Whitelist | OpenRouter → Gemini 2.5 Pro analise FR |
+| sync-email       | POST (frontend) / cron | JWT verify      | Whitelist | Gmail API 2 contas                     |
+| oauth-callback   | GET (Google redirect)  | State param     | Whitelist | Guardar tokens OAuth                   |
+| refresh-token    | POST (frontend)        | JWT + ownership | Whitelist | Renovar tokens expirados               |
+
 
 ### Edge Function Secrets (Deno.env.get)
+
 - `OPENROUTER_API_KEY` — analyze-document
 - `GOOGLE_CLIENT_ID` — sync-email, oauth-callback, refresh-token
 - `GOOGLE_CLIENT_SECRET` — sync-email, oauth-callback, refresh-token
@@ -171,30 +138,39 @@ FACTURES/
 - `FRONTEND_URL` — oauth-callback
 
 ### Frontend Env Vars (VITE_*)
+
 - `VITE_SUPABASE_URL` — Supabase API endpoint
 - `VITE_SUPABASE_ANON_KEY` — Supabase anonymous key (public)
 - `VITE_GOOGLE_CLIENT_ID` — Google OAuth client ID
 
 ## Rate Limits
-| API | Limite |
-|-----|--------|
-| Gemini | 60 req/min |
-| Google Drive | 100 req/min |
-| Google Sheets | 100 req/min |
-| Gmail API | 250 quota units/user/sec |
+
+
+| API           | Limite                   |
+| ------------- | ------------------------ |
+| Gemini        | 60 req/min               |
+| Google Drive  | 100 req/min              |
+| Google Sheets | 100 req/min              |
+| Gmail API     | 250 quota units/user/sec |
+
 
 ## Timeouts
-| API | Timeout |
-|-----|---------|
-| Gemini (Edge Function) | 120s |
-| Google Drive (upload) | 120s |
-| Google Drive (operacoes) | 30s |
-| Google Sheets | 30s |
+
+
+| API                      | Timeout |
+| ------------------------ | ------- |
+| Gemini (Edge Function)   | 120s    |
+| Google Drive (upload)    | 120s    |
+| Google Drive (operacoes) | 30s     |
+| Google Sheets            | 30s     |
+
 
 ## Security Remediations Pendentes
-- [ ] Assinar OAuth state param com HMAC (C3 — prevenir token injection)
-- [ ] Tornar storage bucket `invoices` privado (H1)
-- [ ] Encriptar OAuth tokens at rest com pgcrypto (H2)
-- [ ] Adicionar RLS por company_id em invoices (M2)
-- [ ] Restringir suppliers/categories RLS a admin (M3/M4)
-- [ ] Rate limiting server-side nas Edge Functions (L2)
+
+- Assinar OAuth state param com HMAC (C3 — prevenir token injection)
+- Tornar storage bucket `invoices` privado (H1)
+- Encriptar OAuth tokens at rest com pgcrypto (H2)
+- Adicionar RLS por company_id em invoices (M2)
+- Restringir suppliers/categories RLS a admin (M3/M4)
+- Rate limiting server-side nas Edge Functions (L2)
+

@@ -23,13 +23,13 @@ export function TicketList({ onSelect }: Props) {
   }, []);
 
   if (loading) {
-    return <div className="text-sm text-muted-foreground p-4">Chargement...</div>;
+    return <div className="text-sm text-muted-foreground p-4">A carregar...</div>;
   }
 
   if (tickets.length === 0) {
     return (
       <div className="text-center text-sm text-muted-foreground py-12">
-        Aucun ticket pour le moment.
+        Nenhum ticket de momento.
       </div>
     );
   }
@@ -48,7 +48,7 @@ export function TicketList({ onSelect }: Props) {
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <TicketPriorityBadge priority={ticket.priority} />
-            <span>{new Date(ticket.created_at).toLocaleDateString('fr-FR')}</span>
+            <span>{new Date(ticket.created_at).toLocaleDateString('pt-PT')}</span>
           </div>
         </button>
       ))}

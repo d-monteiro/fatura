@@ -3,36 +3,36 @@ import { ChevronDown } from 'lucide-react';
 
 const faqs = [
   {
-    q: 'Comment fonctionne l\'essai gratuit ?',
-    a: 'Vous bénéficiez de 14 jours d\'accès complet à toutes les fonctionnalités de votre plan. Aucune carte bancaire n\'est requise pour commencer.',
+    q: 'Como funciona o teste grátis?',
+    a: 'Tem 14 dias de acesso completo a todas as funcionalidades do seu plano. Não é necessário cartão de crédito para começar.',
   },
   {
-    q: 'Quels types de documents sont supportés ?',
-    a: 'Factures, reçus, avoirs et devis au format PDF, JPG ou PNG. Notre IA s\'adapte à tous les formats et mises en page.',
+    q: 'Que tipos de documentos são suportados?',
+    a: 'Faturas, recibos, notas de crédito e orçamentos em formato PDF, JPG ou PNG. A nossa IA adapta-se a todos os formatos e layouts.',
   },
   {
-    q: 'Mes données sont-elles sécurisées ?',
-    a: 'Oui. Chaque client dispose d\'un espace isolé avec chiffrement des données. Nous sommes conformes au RGPD et vos données restent en Europe.',
+    q: 'Os meus dados estão seguros?',
+    a: 'Sim. Cada cliente tem um espaço isolado com encriptação de dados. Somos conformes ao RGPD e os seus dados ficam na Europa.',
   },
   {
-    q: 'Puis-je gérer plusieurs entreprises ?',
-    a: 'Oui. Le plan Pro permet jusqu\'à 3 entreprises, et le plan Entreprise offre un nombre illimité de sociétés.',
+    q: 'Posso gerir várias empresas?',
+    a: 'Sim. O plano Pro permite até 3 empresas, e o plano Entreprise oferece um número ilimitado de empresas.',
   },
   {
-    q: 'Comment fonctionne l\'import par email ?',
-    a: 'Connectez votre compte Gmail et FaturaAI détecte automatiquement les factures en pièce jointe. Elles sont analysées et classées sans intervention.',
+    q: 'Como funciona a importação por email?',
+    a: 'Conecte a sua conta Gmail e o FaturaAI deteta automaticamente as faturas em anexo. São analisadas e classificadas sem intervenção.',
   },
   {
-    q: 'Puis-je exporter mes données ?',
-    a: 'Oui. Export Excel/CSV disponible à tout moment. Vos fichiers restent aussi sur votre Google Drive personnel.',
+    q: 'Posso exportar os meus dados?',
+    a: 'Sim. Exportação Excel/CSV disponível a qualquer momento. Os seus ficheiros ficam também no seu Google Drive pessoal.',
   },
   {
-    q: 'Quelle est la précision de l\'IA ?',
-    a: 'Notre IA atteint plus de 95% de précision sur l\'extraction de données. Les cas douteux sont signalés pour vérification manuelle.',
+    q: 'Qual é a precisão da IA?',
+    a: 'A nossa IA atinge mais de 95% de precisão na extração de dados. Os casos duvidosos são sinalizados para verificação manual.',
   },
   {
-    q: 'Puis-je annuler à tout moment ?',
-    a: 'Oui, sans engagement. Vous pouvez annuler votre abonnement à tout moment depuis votre espace de facturation.',
+    q: 'Posso cancelar a qualquer momento?',
+    a: 'Sim, sem compromisso. Pode cancelar a sua subscrição a qualquer momento a partir do seu espaço de faturação.',
   },
 ];
 
@@ -42,9 +42,9 @@ export function FAQ() {
   return (
     <section className="py-20">
       <div className="mx-auto max-w-3xl px-4">
-        <h2 className="text-3xl font-bold text-center mb-4">Questions fréquentes</h2>
+        <h2 className="text-3xl font-bold text-center mb-4">Perguntas frequentes</h2>
         <p className="text-center text-muted-foreground mb-12">
-          Tout ce que vous devez savoir pour commencer.
+          Tudo o que precisa de saber para começar.
         </p>
 
         <div className="space-y-2">

@@ -17,7 +17,7 @@ function Section({ title, step, onEdit, children }: {
       <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Button variant="ghost" size="sm" onClick={() => onEdit(step)} className="h-7 gap-1 text-xs">
-          <Pencil className="h-3 w-3" /> Modifier
+          <Pencil className="h-3 w-3" /> Editar
         </Button>
       </CardHeader>
       <CardContent className="px-4 pb-3 text-sm space-y-1">{children}</CardContent>
@@ -44,21 +44,21 @@ export function StepReview({ data, onGoToStep }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Résumé</h2>
-        <p className="text-muted-foreground mt-1">Vérifiez vos informations avant de choisir votre plan.</p>
+        <h2 className="text-2xl font-bold">Resumo</h2>
+        <p className="text-muted-foreground mt-1">Verifique as suas informações antes de escolher o plano.</p>
       </div>
 
       <div className="space-y-3">
-        <Section title="Entreprise" step={1} onEdit={onGoToStep}>
-          <Row label="Nom" value={data.companyName} />
+        <Section title="Empresa" step={1} onEdit={onGoToStep}>
+          <Row label="Nome" value={data.companyName} />
           <Row label="NIF" value={data.nif} />
-          <Row label="Pays" value={country} />
-          <Row label="Secteur" value={sector} />
+          <Row label="Pais" value={country} />
+          <Row label="Setor" value={sector} />
         </Section>
 
-        <Section title="Factures" step={2} onEdit={onGoToStep}>
-          <Row label="Volume / mois" value={`~${data.invoicesPerMonth}`} />
-          <Row label="Types" value={data.documentTypes.join(', ')} />
+        <Section title="Faturas" step={2} onEdit={onGoToStep}>
+          <Row label="Volume / mês" value={`~${data.invoicesPerMonth}`} />
+          <Row label="Tipos" value={data.documentTypes.join(', ')} />
           {data.categories.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {data.categories.slice(0, 8).map((c) => (
@@ -74,16 +74,16 @@ export function StepReview({ data, onGoToStep }: Props) {
         <Section title="Stockage" step={3} onEdit={onGoToStep}>
           <Row label="Provider" value={data.storageProvider === 'google_drive' ? 'Google Drive' : 'OneDrive'} />
           <Row label="Structure" value={folder} />
-          <Row label="Sheets auto" value={data.autoSheets ? 'Oui' : 'Non'} />
+          <Row label="Sheets auto" value={data.autoSheets ? 'Sim' : 'Não'} />
         </Section>
 
         <Section title="Dashboard" step={4} onEdit={onGoToStep}>
           <Row label="Devise" value={data.currency} />
-          <Row label="Rapports" value={data.autoReports === 'never' ? 'Désactivés' : data.autoReports} />
+          <Row label="Relatórios" value={data.autoReports === 'never' ? 'Desativados' : data.autoReports} />
         </Section>
 
-        <Section title="Automatisation" step={5} onEdit={onGoToStep}>
-          <Row label="Email sync" value={data.emailSync ? 'Activé' : 'Désactivé'} />
+        <Section title="Automação" step={5} onEdit={onGoToStep}>
+          <Row label="Email sync" value={data.emailSync ? 'Ativado' : 'Desativado'} />
           {data.emailAddresses.length > 0 && (
             <Row label="Emails" value={data.emailAddresses.join(', ')} />
           )}

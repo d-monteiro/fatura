@@ -4,13 +4,13 @@ interface ProgressBarProps {
 }
 
 const STEP_LABELS = [
-  'Entreprise',
-  'Factures',
-  'Stockage',
+  'Empresa',
+  'Faturas',
+  'Armazenamento',
   'Dashboard',
-  'Automation',
-  'Résumé',
-  'Plan',
+  'Automação',
+  'Resumo',
+  'Plano',
 ];
 
 export function ProgressBar({ currentStep, totalSteps }: ProgressBarProps) {
@@ -19,7 +19,7 @@ export function ProgressBar({ currentStep, totalSteps }: ProgressBarProps) {
   return (
     <div className="w-full space-y-3">
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Étape {currentStep} / {totalSteps}</span>
+        <span>Passo {currentStep} / {totalSteps}</span>
         <span>{STEP_LABELS[currentStep - 1]}</span>
       </div>
       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">

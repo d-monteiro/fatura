@@ -7,10 +7,10 @@ export function CTA() {
     <section className="py-20 bg-primary text-primary-foreground">
       <div className="mx-auto max-w-3xl px-4 text-center">
         <h2 className="text-3xl font-bold mb-4">
-          Prêt à automatiser vos factures ?
+          Pronto para automatizar as suas faturas?
         </h2>
         <p className="text-lg opacity-90 mb-8">
-          Commencez en 5 minutes. Configuration guidée, essai gratuit de 14 jours.
+          Comece em 5 minutos. Configuração guiada, teste grátis de 14 dias.
         </p>
         <Button
           asChild
@@ -19,7 +19,7 @@ export function CTA() {
           className="gap-2 text-base"
         >
           <Link to="/onboarding">
-            Commencer gratuitement
+            Começar gratuitamente
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>

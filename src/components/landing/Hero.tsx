@@ -1,44 +1,153 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, FileText, CheckCircle2, Zap } from 'lucide-react';
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-32">
-      <div className="mx-auto max-w-5xl px-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm text-primary mb-6">
-          <Sparkles className="h-4 w-4" />
-          Propulsé par l'intelligence artificielle
+    <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Decorative blobs */}
+      <div className="absolute top-20 -left-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl opacity-60 animate-pulse" />
+      <div className="absolute bottom-10 -right-20 h-80 w-80 rounded-full bg-accent/30 blur-3xl opacity-50" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+
+      {/* Grid pattern overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
+        }}
+      />
+
+      <div className="relative mx-auto max-w-6xl px-4 py-24 sm:py-32 lg:py-40">
+        <div className="flex flex-col items-center text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm px-4 py-1.5 text-xs font-medium text-primary mb-8 shadow-sm">
+            <Sparkles className="h-3.5 w-3.5" />
+            Gemini 2.5 Pro · IA de última geração
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight max-w-4xl leading-[1.05]">
+            As suas faturas,{' '}
+            <span className="relative inline-block">
+              <span className="relative z-10 bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
+                sem esforço
+              </span>
+              <svg
+                className="absolute -bottom-2 left-0 w-full"
+                viewBox="0 0 300 12"
+                fill="none"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M2 8C75 3 150 3 298 8"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  className="text-accent"
+                />
+              </svg>
+            </span>
+          </h1>
+
+          {/* Sub-headline */}
+          <p className="mt-8 text-lg sm:text-xl text-muted-foreground max-w-2xl leading-relaxed">
+            A IA lê, categoriza e organiza todas as faturas dos seus fornecedores.
+            Chega de folhas de cálculo manuais.
+          </p>
+
+          {/* Single CTA */}
+          <div className="mt-10">
+            <Button asChild size="lg" className="h-14 px-8 text-base gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
+              <Link to="/onboarding">
+                Começar grátis em 5 minutos
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </Button>
+          </div>
+
+          {/* Trust markers */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>14 dias grátis</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>Sem cartão de crédito</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>Conforme RGPD</span>
+            </div>
+          </div>
+
+          {/* Visual mock preview */}
+          <div className="relative mt-20 w-full max-w-4xl">
+            <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-3xl blur-2xl opacity-50" />
+            <div className="relative rounded-2xl border bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
+              {/* Mock header bar */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full bg-red-400" />
+                  <div className="h-3 w-3 rounded-full bg-yellow-400" />
+                  <div className="h-3 w-3 rounded-full bg-green-400" />
+                </div>
+                <div className="ml-4 text-xs text-muted-foreground font-mono">app.faturai.pt/dashboard</div>
+              </div>
+
+              {/* Mock dashboard content */}
+              <div className="grid md:grid-cols-3 gap-4 p-6">
+                <MetricCard icon={FileText} label="Faturas este mês" value="247" trend="+12%" />
+                <MetricCard icon={Zap} label="Processadas por IA" value="100%" trend="automático" />
+                <MetricCard icon={CheckCircle2} label="Tempo poupado" value="38h" trend="este mês" />
+              </div>
+
+              <div className="px-6 pb-6">
+                <div className="rounded-lg border bg-background/50 p-4 space-y-2">
+                  {[
+                    { supplier: 'EDP COMERCIAL', amount: '342,18 EUR', category: 'Eletricidade' },
+                    { supplier: 'NOS COMUNICAÇÕES', amount: '89,50 EUR', category: 'Telecomunicações' },
+                    { supplier: 'STAPLES', amount: '156,70 EUR', category: 'Escritório' },
+                  ].map((inv, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 text-sm border-b last:border-b-0">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{inv.supplier}</div>
+                          <div className="text-xs text-muted-foreground">{inv.category}</div>
+                        </div>
+                      </div>
+                      <div className="font-mono font-medium">{inv.amount}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
-          Gérez vos factures{' '}
-          <span className="text-primary">automatiquement</span>
-          <br />
-          avec l'IA
-        </h1>
-
-        <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-          FaturaAI analyse, catégorise et organise vos factures fournisseurs.
-          Google Drive, Sheets, rapports — tout est automatisé. Setup en 5 minutes.
-        </p>
-
-        <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-          <Button asChild size="lg" className="gap-2 text-base">
-            <Link to="/onboarding">
-              Commencer gratuitement
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="text-base">
-            <a href="#pricing">Voir les tarifs</a>
-          </Button>
-        </div>
-
-        <p className="mt-4 text-sm text-muted-foreground">
-          14 jours d'essai gratuit — Aucune carte bancaire requise
-        </p>
       </div>
     </section>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, trend }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  trend: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-background/50 p-4">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xs text-primary mt-1">{trend}</div>
+    </div>
   );
 }

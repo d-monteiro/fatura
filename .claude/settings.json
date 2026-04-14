@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Read(//home/up202306122/.nvm/versions/node/**)",
+      "Bash(command -v fnm)",
+      "Read(//home/up202306122/**)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
+    ]
+  }
+}

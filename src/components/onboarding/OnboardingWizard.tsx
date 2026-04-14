@@ -82,7 +82,7 @@ export function OnboardingWizard() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary">FaturaAI</h1>
-          <p className="text-sm text-muted-foreground mt-1">Configuration de votre espace</p>
+          <p className="text-sm text-muted-foreground mt-1">Configuração do seu espaço</p>
         </div>
 
         <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />
@@ -100,11 +100,13 @@ export function OnboardingWizard() {
         <div className="flex justify-between">
           <Button
             variant="outline"
-            onClick={() => goToStep(step - 1)}
-            disabled={step === 1}
+            onClick={() => {
+              if (step === 1) navigate('/');
+              else goToStep(step - 1);
+            }}
             className="gap-2"
           >
-            <ArrowLeft className="h-4 w-4" /> Précédent
+            <ArrowLeft className="h-4 w-4" /> {step === 1 ? 'Voltar' : 'Anterior'}
           </Button>
 
           {step < TOTAL_STEPS ? (
@@ -113,7 +115,7 @@ export function OnboardingWizard() {
               disabled={!canProceed()}
               className="gap-2"
             >
-              Suivant <ArrowRight className="h-4 w-4" />
+              Seguinte <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
             <Button
@@ -122,7 +124,7 @@ export function OnboardingWizard() {
               className="gap-2"
             >
               <Send className="h-4 w-4" />
-              {data.selectedPlan === 'entreprise' ? 'Nous contacter' : 'Commencer l\'essai gratuit'}
+              {data.selectedPlan === 'entreprise' ? 'Contactar-nos' : 'Começar teste grátis'}
             </Button>
           )}
         </div>

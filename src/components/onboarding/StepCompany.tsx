@@ -12,23 +12,23 @@ export function StepCompany({ data, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Votre entreprise</h2>
-        <p className="text-muted-foreground mt-1">Informations de base pour configurer votre compte.</p>
+        <h2 className="text-2xl font-bold">A sua empresa</h2>
+        <p className="text-muted-foreground mt-1">Informações básicas para configurar a sua conta.</p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="companyName">Nom légal de l'entreprise *</Label>
+          <Label htmlFor="companyName">Nome legal da empresa *</Label>
           <Input
             id="companyName"
             value={data.companyName}
             onChange={(e) => onChange({ companyName: e.target.value })}
-            placeholder="Ex: Dupont Construction SARL"
+            placeholder="Ex: Empresa Exemplo Lda"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="nif">NIF / Numéro de TVA *</Label>
+          <Label htmlFor="nif">NIF / Número de IVA *</Label>
           <Input
             id="nif"
             value={data.nif}
@@ -38,7 +38,7 @@ export function StepCompany({ data, onChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>Pays *</Label>
+          <Label>País *</Label>
           <Select value={data.country} onValueChange={(v) => onChange({ country: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -50,9 +50,9 @@ export function StepCompany({ data, onChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>Secteur / Industrie *</Label>
+          <Label>Setor / Indústria *</Label>
           <Select value={data.sector} onValueChange={(v) => onChange({ sector: v })}>
-            <SelectTrigger><SelectValue placeholder="Choisir un secteur" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Escolher um setor" /></SelectTrigger>
             <SelectContent>
               {SECTORS.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -63,7 +63,7 @@ export function StepCompany({ data, onChange }: Props) {
             <Input
               value={data.sectorCustom}
               onChange={(e) => onChange({ sectorCustom: e.target.value })}
-              placeholder="Précisez votre secteur"
+              placeholder="Especifique o seu setor"
               className="mt-2"
             />
           )}
@@ -71,7 +71,7 @@ export function StepCompany({ data, onChange }: Props) {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="primaryColor">Couleur primaire</Label>
+            <Label htmlFor="primaryColor">Cor primária</Label>
             <div className="flex gap-2 items-center">
               <input
                 type="color"
@@ -88,7 +88,7 @@ export function StepCompany({ data, onChange }: Props) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="secondaryColor">Couleur secondaire</Label>
+            <Label htmlFor="secondaryColor">Cor secundária</Label>
             <div className="flex gap-2 items-center">
               <input
                 type="color"

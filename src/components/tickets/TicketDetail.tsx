@@ -58,7 +58,7 @@ export function TicketDetail({ ticket, onBack }: Props) {
         {ticket.description}
       </div>
       <div className="text-xs text-muted-foreground">
-        Créé le {new Date(ticket.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        Criado a {new Date(ticket.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
       </div>
 
       {messages.length > 0 && (
@@ -71,7 +71,7 @@ export function TicketDetail({ ticket, onBack }: Props) {
               }`}
             >
               <div className="text-xs text-muted-foreground mb-1">
-                {msg.is_from_admin ? 'Support' : 'Vous'} — {new Date(msg.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {msg.is_from_admin ? 'Support' : 'Vous'} — {new Date(msg.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </div>
               <div className="whitespace-pre-wrap">{msg.content}</div>
             </div>
@@ -84,7 +84,7 @@ export function TicketDetail({ ticket, onBack }: Props) {
           <Textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Votre message..."
+            placeholder="A sua mensagem..."
             rows={2}
             className="flex-1"
           />

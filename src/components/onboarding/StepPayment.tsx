@@ -32,8 +32,8 @@ export function StepPayment({ data, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Choisissez votre plan</h2>
-        <p className="text-muted-foreground mt-1">14 jours d'essai gratuit, sans engagement.</p>
+        <h2 className="text-2xl font-bold">Escolha o seu plano</h2>
+        <p className="text-muted-foreground mt-1">14 dias de teste grátis, sem compromisso.</p>
       </div>
 
       <div className="flex justify-center gap-2 mb-4">
@@ -42,14 +42,14 @@ export function StepPayment({ data, onChange }: Props) {
           size="sm"
           onClick={() => onChange({ billingCycle: 'monthly' })}
         >
-          Mensuel
+          Mensal
         </Button>
         <Button
           variant={data.billingCycle === 'yearly' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onChange({ billingCycle: 'yearly' })}
         >
-          Annuel (-17%)
+          Anual (-17%)
         </Button>
       </div>
 
@@ -72,13 +72,13 @@ export function StepPayment({ data, onChange }: Props) {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  {plan.is_popular && <Badge>Populaire</Badge>}
+                  {plan.is_popular && <Badge>Popular</Badge>}
                 </div>
                 <div className="text-2xl font-bold">
                   {formatPrice(price)}
                   {price !== null && (
                     <span className="text-sm font-normal text-muted-foreground">
-                      /{data.billingCycle === 'yearly' ? 'an' : 'mois'}
+                      /{data.billingCycle === 'yearly' ? 'ano' : 'mês'}
                     </span>
                   )}
                 </div>

@@ -3,33 +3,33 @@ import { Brain, FolderOpen, Mail, BarChart3, Shield, Globe } from 'lucide-react'
 const features = [
   {
     icon: Brain,
-    title: 'IA de pointe',
-    description: 'Gemini 2.5 Pro analyse et catégorise vos factures avec une précision supérieure à 95%.',
+    title: 'IA de ponta',
+    description: 'Gemini 2.5 Pro analisa e categoriza as suas faturas com precisão superior a 95%.',
   },
   {
     icon: FolderOpen,
-    title: 'Google Drive automatique',
-    description: 'Chaque facture est classée dans votre Drive selon votre structure de dossiers personnalisée.',
+    title: 'Google Drive automático',
+    description: 'Cada fatura é classificada no seu Drive segundo a sua estrutura de pastas personalizada.',
   },
   {
     icon: Mail,
-    title: 'Sync email',
-    description: 'Vos factures reçues par email sont automatiquement détectées et traitées.',
+    title: 'Sincronização de email',
+    description: 'As faturas recebidas por email são automaticamente detetadas e processadas.',
   },
   {
     icon: BarChart3,
-    title: 'Dashboard & rapports',
-    description: 'Suivez vos dépenses en temps réel avec des graphiques et des rapports automatiques.',
+    title: 'Dashboard e relatórios',
+    description: 'Acompanhe as suas despesas em tempo real com gráficos e relatórios automáticos.',
   },
   {
     icon: Shield,
-    title: 'Sécurité entreprise',
-    description: 'Isolation des données par tenant, chiffrement, conformité RGPD. Vos données restent les vôtres.',
+    title: 'Segurança empresarial',
+    description: 'Isolamento de dados por tenant, encriptação, conformidade RGPD. Os seus dados são seus.',
   },
   {
     icon: Globe,
-    title: 'Multi-entreprise',
-    description: 'Gérez plusieurs sociétés depuis un seul espace. Idéal pour les holdings et groupes.',
+    title: 'Multi-empresa',
+    description: 'Gira várias empresas a partir de um único espaço. Ideal para holdings e grupos.',
   },
 ];
 
@@ -38,10 +38,10 @@ export function Features() {
     <section className="py-20">
       <div className="mx-auto max-w-5xl px-4">
         <h2 className="text-3xl font-bold text-center mb-4">
-          Tout ce dont vous avez besoin
+          Tudo o que precisa
         </h2>
         <p className="text-center text-muted-foreground mb-12 max-w-xl mx-auto">
-          Une solution complète pour la gestion de vos factures fournisseurs.
+          Uma solução completa para a gestão das suas faturas de fornecedores.
         </p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">

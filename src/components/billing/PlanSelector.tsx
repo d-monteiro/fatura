@@ -28,7 +28,7 @@ export function PlanSelector() {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold">Changer de plan</h3>
+      <h3 className="font-semibold">Mudar de plano</h3>
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => (
           <div
@@ -39,8 +39,8 @@ export function PlanSelector() {
           >
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold">{plan.name}</span>
-              {plan.is_popular && <Badge variant="secondary">Populaire</Badge>}
-              {isCurrentPlan(plan) && <Badge>Actuel</Badge>}
+              {plan.is_popular && <Badge variant="secondary">Popular</Badge>}
+              {isCurrentPlan(plan) && <Badge>Atual</Badge>}
             </div>
             <div className="text-xl font-bold mb-2">
               {formatPrice(plan.price_monthly)}
@@ -61,7 +61,7 @@ export function PlanSelector() {
                 className="w-full"
                 disabled={!tenant?.stripe_customer_id}
               >
-                {plan.is_custom_pricing ? 'Nous contacter' : 'Changer'}
+                {plan.is_custom_pricing ? 'Contactar-nos' : 'Mudar'}
               </Button>
             )}
           </div>

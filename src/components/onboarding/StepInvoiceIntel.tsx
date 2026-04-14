@@ -63,23 +63,23 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Intelligence de factures</h2>
-        <p className="text-muted-foreground mt-1">Aidez l'IA à mieux comprendre vos documents.</p>
+        <h2 className="text-2xl font-bold">Inteligência de faturas</h2>
+        <p className="text-muted-foreground mt-1">Ajude a IA a compreender melhor os seus documentos.</p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Nom de votre entreprise tel qu'il apparaît sur les factures</Label>
+          <Label>Nome da sua empresa como aparece nas faturas</Label>
           <TagInput
             values={data.invoiceNameVariations}
             onAdd={(v) => onChange({ invoiceNameVariations: [...data.invoiceNameVariations, v] })}
             onRemove={(i) => onChange({ invoiceNameVariations: data.invoiceNameVariations.filter((_, idx) => idx !== i) })}
-            placeholder="Ex: DUPONT CONSTRUCTION"
+            placeholder="Ex: EMPRESA EXEMPLO LDA"
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Nombre moyen de factures par mois</Label>
+          <Label>Número médio de faturas por mês</Label>
           <div className="flex gap-2 flex-wrap">
             {INVOICE_VOLUME_OPTIONS.map((v) => (
               <Button
@@ -96,7 +96,7 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>Catégories de coûts</Label>
+          <Label>Categorias de custos</Label>
           {suggestedCategories.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
               {suggestedCategories.map((cat) => (
@@ -124,22 +124,22 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
               const removed = custom[i];
               onChange({ categories: data.categories.filter((c) => c !== removed) });
             }}
-            placeholder="Ajouter une catégorie personnalisée"
+            placeholder="Adicionar categoria personalizada"
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Top fournisseurs (5 à 10)</Label>
+          <Label>Top fornecedores (5 a 10)</Label>
           <TagInput
             values={data.topSuppliers}
             onAdd={(v) => onChange({ topSuppliers: [...data.topSuppliers, v] })}
             onRemove={(i) => onChange({ topSuppliers: data.topSuppliers.filter((_, idx) => idx !== i) })}
-            placeholder="Nom du fournisseur"
+            placeholder="Nome do fornecedor"
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Types de documents</Label>
+          <Label>Tipos de documentos</Label>
           <div className="flex gap-3 flex-wrap">
             {DOCUMENT_TYPES.map((dt) => (
               <label key={dt.value} className="flex items-center gap-2 cursor-pointer">

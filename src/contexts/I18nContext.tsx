@@ -12,7 +12,7 @@ const I18nContext = createContext<I18nContextType | null>(null);
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const saved = localStorage.getItem('faturai-lang');
-    const initial = (saved === 'pt' ? 'pt' : 'fr') as Lang;
+    const initial = (saved === 'fr' ? 'fr' : 'pt') as Lang;
     setModuleLang(initial);
     return initial;
   });
