@@ -3,11 +3,15 @@ import {
   Loader2, CheckCircle, AlertTriangle, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
+import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 
 interface StatusCardsProps {
   loading: boolean;
   ready: boolean;
   noGoogle: boolean;
+  needsReauth: boolean;
+  primaryEmail: string | null;
+  userId: string | null;
   refreshError: string | null;
   rateLimitError: string | null;
   onRetryToken: () => void;
@@ -15,10 +19,15 @@ interface StatusCardsProps {
 }
 
 export function StatusCards({
-  loading, ready, noGoogle, refreshError,
-  rateLimitError, onRetryToken, onDismissRateLimit,
+  loading, ready, noGoogle, needsReauth, primaryEmail, userId,
+  refreshError, rateLimitError, onRetryToken, onDismissRateLimit,
 }: StatusCardsProps) {
   const { t } = useI18n();
+
+  const connect = (loginHint?: string) => {
+    if (!userId) return;
+    redirectToGoogleOAuth({ userId, source: 'upload', loginHint, promptSelect: !loginHint });
+  };
 
   if (loading) {
     return (
@@ -60,15 +69,36 @@ export function StatusCards({
         </Card>
       )}
 
+      {needsReauth && !refreshError && (
+        <Card color="orange" icon={<AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />}>
+          <div className="flex-1">
+            <p className="font-medium text-orange-800">Permissões em falta</p>
+            <p className="text-sm text-orange-700">
+              A conta {primaryEmail ?? 'Google'} não tem acesso ao Drive. Volte a autenticar para continuar.
+            </p>
+          </div>
+          <button
+            onClick={() => connect(primaryEmail ?? undefined)}
+            className="rounded-md border border-orange-300 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100"
+          >
+            Reautenticar
+          </button>
+        </Card>
+      )}
+
       {noGoogle && !refreshError && (
         <Card color="yellow" icon={<AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0" />}>
           <div className="flex-1">
             <p className="font-medium text-yellow-800">{t('upload.no_account')}</p>
             <p className="text-sm text-yellow-700">{t('upload.no_account_desc')}</p>
           </div>
-          <Link to="/settings" className="rounded-md border border-yellow-300 px-3 py-1.5 text-sm font-medium text-yellow-700 hover:bg-yellow-100">
+          <button
+            onClick={() => connect()}
+            disabled={!userId}
+            className="rounded-md border border-yellow-300 px-3 py-1.5 text-sm font-medium text-yellow-700 hover:bg-yellow-100 disabled:opacity-50"
+          >
             {t('upload.configure_account')}
-          </Link>
+          </button>
         </Card>
       )}
 

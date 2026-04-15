@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCompanyFilter } from '@/hooks/useCompanyFilter';
+import { useTenant } from '@/contexts/TenantContext';
 import { useBulkActions } from '@/hooks/useBulkActions';
 import { FaturasFilters, type FaturasFilterState } from '@/components/faturas/FaturasFilters';
 import { FaturasTable, type SortField, type SortDir } from '@/components/faturas/FaturasTable';
@@ -12,12 +13,15 @@ import { ZipExportButton } from '@/components/faturas/ZipExportButton';
 import { BulkActionBar } from '@/components/faturas/BulkActionBar';
 import { InvoiceDetailDrawer } from '@/components/faturas/InvoiceDetailDrawer';
 import type { Invoice } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
 const PAGE_SIZE = 20;
 
 export default function Faturas() {
   const { t } = useI18n();
   const { companyId } = useCompanyFilter();
+  const { tenant } = useTenant();
+  const tenantId = tenant?.id ?? null;
 
   const [filters, setFilters] = useState<FaturasFilterState>({
     search: '', year: '', month: '', metier: '', nature: '', costType: '',
@@ -31,7 +35,7 @@ export default function Faturas() {
   const bulk = useBulkActions();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['faturas', companyId, filters, sortField, sortDir, page],
+    queryKey: queryKeys.faturasList(companyId, filters, sortField, sortDir, page),
     queryFn: async () => {
       let query = supabase
         .from('invoices')
@@ -77,7 +81,7 @@ export default function Faturas() {
         </div>
       </div>
 
-      <FaturasFilters filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} />
+      <FaturasFilters filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} tenantId={tenantId} />
 
       {isLoading ? (
         <div className="space-y-2">

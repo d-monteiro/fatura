@@ -1,50 +1,53 @@
 import { useTenant } from '@/contexts/TenantContext';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { PlanSelector } from '@/components/billing/PlanSelector';
-import { Badge } from '@/components/ui/badge';
-
-const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  trialing: { label: 'Teste grátis', variant: 'secondary' },
-  active: { label: 'Ativo', variant: 'default' },
-  past_due: { label: 'Pagamento em atraso', variant: 'destructive' },
-  canceled: { label: 'Cancelado', variant: 'destructive' },
-  paused: { label: 'Em pausa', variant: 'outline' },
-  pending_contact: { label: 'Em espera', variant: 'outline' },
-};
+import { Sparkles, Clock, Info } from 'lucide-react';
 
 export default function Billing() {
   const { tenant, plan } = useTenant();
-
-  const status = STATUS_LABELS[tenant?.plan_status ?? ''] ?? STATUS_LABELS.active;
+  const trialEnds = tenant?.trial_ends_at ? new Date(tenant.trial_ends_at) : null;
+  const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - Date.now()) / 86_400_000)) : null;
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold">Faturação</h1>
-        <p className="text-muted-foreground">Gira a sua subscrição e utilização.</p>
-      </div>
+    <div className="max-w-6xl mx-auto p-6 md:p-8 space-y-8">
+      <header>
+        <h1 className="text-3xl font-bold tracking-tight">Faturação</h1>
+        <p className="text-muted-foreground mt-1">Gira a sua subscrição e utilização.</p>
+      </header>
 
-      <div className="rounded-lg border p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">Plano atual</h3>
-          <Badge variant={status.variant}>{status.label}</Badge>
+      <section className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 md:p-8">
+        <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Plano atual
+            </div>
+            <h2 className="text-4xl font-bold tracking-tight">{plan?.name ?? 'Sem plano'}</h2>
+            {trialEnds && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Teste grátis até {trialEnds.toLocaleDateString('pt-PT')}
+                {daysLeft !== null && daysLeft > 0 && (
+                  <span className="font-medium text-foreground">· {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'} restantes</span>
+                )}
+              </p>
+            )}
+          </div>
+          <div className="md:min-w-[280px]">
+            <UsageMeter />
+          </div>
         </div>
-        <div className="text-2xl font-bold">{plan?.name ?? 'Sem plano'}</div>
-        {tenant?.trial_ends_at && (
-          <p className="text-sm text-muted-foreground">
-            Teste grátis até {new Date(tenant.trial_ends_at).toLocaleDateString('pt-PT')}
-          </p>
-        )}
-      </div>
-
-      <UsageMeter />
+      </section>
 
       <PlanSelector />
 
       {!tenant?.stripe_customer_id && (
-        <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-          A integração Stripe será ativada em breve.
-          As alterações de plano ficarão disponíveis após a configuração do Stripe.
+        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-muted-foreground">
+            A integração com Stripe está a ser preparada. As alterações de plano ficarão disponíveis assim que a faturação online for ativada — contacte-nos entretanto se precisar de mudar de plano.
+          </p>
         </div>
       )}
     </div>

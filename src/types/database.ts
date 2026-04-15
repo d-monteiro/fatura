@@ -1,7 +1,6 @@
-/**
- * FaturaAI - Multi-Tenant SaaS
- * Types base de dados. Multi-tenant, multi-empresa, campos FR, line items.
- */
+// FaturaAI — tipos da BD. Multi-tenant, multi-empresa, line items.
+// Nota: algumas colunas SQL mantêm nomes herdados (montant_ht, taux_tva, etc.).
+// Renomear exige migration — ver CLAUDE.md dívida técnica.
 
 // ==========================================
 // COMPANIES
@@ -23,7 +22,7 @@ export interface Company {
 }
 
 // ==========================================
-// INVOICES (FACTURES)
+// INVOICES (FATURAS)
 // ==========================================
 export type DocumentType = 'facture' | 'avoir' | 'recu' | 'autre';
 export type CostType = 'cout_fixe' | 'cout_variable';
@@ -77,38 +76,37 @@ export interface Invoice {
 
   doc_date: string | null;        // YYYY-MM-DD
   doc_year: number | null;
-  date_echeance: string | null;   // Date échéance (due date)
+  date_echeance: string | null;   // data vencimento
 
-  supplier_name: string | null;   // MAJUSCULES
-  supplier_siret: string | null;
-  supplier_id: string | null;     // FK suppliers (after matching)
+  supplier_name: string | null;   // MAIÚSCULAS
+  supplier_nif: string | null;
+  supplier_id: string | null;     // FK suppliers (após matching)
 
   doc_number: string | null;
 
-  // MONTANTS (French accounting)
-  montant_ht: number | null;      // Hors Taxes
-  taux_tva: number | null;        // 20, 10, 5.5, 2.1, 0
-  montant_tva: number | null;     // TVA amount
-  montant_ttc: number | null;     // Toutes Taxes Comprises
-  autoliquidation: boolean;       // Sous-traitant reverse charge
+  // Valores monetários (colunas herdadas com nomes FR)
+  montant_ht: number | null;      // valor sem IVA
+  taux_tva: number | null;        // taxa IVA: 23, 13, 6, 0
+  montant_tva: number | null;     // montante IVA
+  montant_ttc: number | null;     // valor com IVA
+  autoliquidation: boolean;       // autoliquidação IVA (subempreiteiro)
 
-  payment_method: string | null;  // CB, virement, cheque, especes
+  payment_method: string | null;
   supplier_iban: string | null;
 
-  summary: string | null;         // Max 5 mots
+  summary: string | null;         // máx. 5 palavras
   confidence_score: number | null;
 
-  // QUALITY CONTROL
   status: InvoiceStatus;
   manual_review: boolean;
-  review_reason: string | null;   // Why flagged for review
+  review_reason: string | null;
 
   // SPREADSHEET
   spreadsheet_id: string | null;
 }
 
 // ==========================================
-// LINE ITEMS (LIGNES DE FACTURE)
+// LINHAS DE FATURA
 // ==========================================
 export interface InvoiceLineItem {
   id: string;
@@ -118,14 +116,14 @@ export interface InvoiceLineItem {
   line_number: number;
   description: string | null;
   quantity: number | null;
-  unit: string | null;           // m2, ml, u, forfait, h, kg, etc.
+  unit: string | null;           // m2, ml, un, h, kg, etc.
   unit_price_ht: number | null;
   total_ht: number | null;
   taux_tva: number | null;
 }
 
 // ==========================================
-// SUPPLIERS (FOURNISSEURS)
+// FORNECEDORES
 // ==========================================
 export interface Supplier {
   id: string;
@@ -144,7 +142,7 @@ export interface Supplier {
   default_cost_type: CostType | null;
   invoice_count: number;
   total_spent: number;
-  is_sous_traitant: boolean;      // Auto-liquidation applies
+  is_sous_traitant: boolean;      // aplica-se autoliquidação IVA
 }
 
 // ==========================================
@@ -158,8 +156,8 @@ export interface Category {
   company_id: string | null;
   axis: CategoryAxis;
   code: string;                  // electricite, cout_fixe, materiaux
-  label_fr: string;              // Électricité
-  label_pt: string;              // Eletricidade
+  label_fr: string;              // legado — preferir label_pt
+  label_pt: string;              // Eletricidade, Custo fixo, Materiais
   sort_order: number;
   is_active: boolean;
 }
@@ -233,7 +231,7 @@ export interface GeminiInvoiceData {
   date_echeance: string | null;
 
   supplier_name: string | null;
-  supplier_siret: string | null;
+  supplier_nif: string | null;
   doc_number: string | null;
   destinataire_name: string | null;
 

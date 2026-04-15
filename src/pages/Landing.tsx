@@ -22,7 +22,7 @@ export default function Landing() {
               <Link to="/login">Entrar</Link>
             </Button>
             <Button asChild size="sm">
-              <Link to="/onboarding">Começar</Link>
+              <Link to="/onboarding">Começar grátis</Link>
             </Button>
           </div>
         </div>

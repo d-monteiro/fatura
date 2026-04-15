@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import type { Company } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
 /**
  * Reads `?company=<UUID>` from the URL (set by the Sidebar).
@@ -12,7 +13,7 @@ export function useCompanyFilter() {
   const raw = searchParams.get('company');
 
   const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
+    queryKey: queryKeys.companies,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('companies')

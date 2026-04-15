@@ -44,11 +44,15 @@ export interface Plan {
   has_custom_domain: boolean;
   has_dedicated_account: boolean;
 
-  // Display
+  // Display (PT default)
   description: string | null;
   features_list: string[] | null;
-  is_popular: boolean;
   cta_label: string;
+  // Display (EN)
+  description_en: string | null;
+  features_list_en: string[] | null;
+  cta_label_en: string | null;
+  is_popular: boolean;
   sort_order: number;
   is_active: boolean;
 }

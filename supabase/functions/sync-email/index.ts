@@ -7,20 +7,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const ALLOWED_ORIGINS = [
-  "https://faturai-lgm.vercel.app",
-  "http://localhost:5173",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -32,7 +19,8 @@ Deno.serve(async (req) => {
   const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
   const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 
-  // Auth check: verify caller has valid session
+  // Auth: se houver Authorization válida, restringir às accounts do user; senão (cron) corre todas.
+  let scopedUserId: string | null = null;
   const authHeader = req.headers.get("Authorization");
   if (authHeader) {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -47,6 +35,7 @@ Deno.serve(async (req) => {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      scopedUserId = user.id;
     }
   }
 
@@ -55,11 +44,13 @@ Deno.serve(async (req) => {
   const results: { email: string; processed: number; errors: number; skipped: number }[] = [];
 
   try {
-    // Get all active email accounts
-    const { data: accounts, error: accountsErr } = await supabase
+    // Get accounts (filtra por tenants do user actual quando invocado interactivamente)
+    let query = supabase
       .from("email_accounts")
-      .select("*, user_oauth_tokens!oauth_token_id(access_token, refresh_token, token_expiry, email)")
+      .select("*, user_oauth_tokens!oauth_token_id(access_token, refresh_token, token_expiry, email), tenants!tenant_id(id, onboarding_data)")
       .eq("is_active", true);
+    if (scopedUserId) query = query.eq("user_id", scopedUserId);
+    const { data: accounts, error: accountsErr } = await query;
 
     if (accountsErr || !accounts?.length) {
       return new Response(JSON.stringify({ message: "No active email accounts", results: [] }), {
@@ -71,6 +62,13 @@ Deno.serve(async (req) => {
       let processed = 0, errors = 0, skipped = 0;
       const token = (account as any).user_oauth_tokens;
       if (!token?.access_token) { skipped++; continue; }
+
+      // Respeitar opt-in do tenant
+      const tenantRow = (account as any).tenants;
+      const tenantId: string | null = tenantRow?.id ?? account.tenant_id ?? null;
+      const obData = tenantRow?.onboarding_data ?? {};
+      if (obData?.emailSync === false) { skipped++; continue; }
+      if (!tenantId) { skipped++; continue; }
 
       let accessToken = token.access_token;
 
@@ -103,7 +101,7 @@ Deno.serve(async (req) => {
 
       // Gmail: search for new emails with attachments
       const query = encodeURIComponent(
-        "has:attachment (filename:pdf OR filename:jpg OR filename:png) -category:promotions -category:social -label:FaturaAI-Processed newer_than:2d"
+        "has:attachment (filename:pdf OR filename:jpg OR filename:png) -category:promotions -category:social newer_than:2d"
       );
 
       try {
@@ -121,6 +119,7 @@ Deno.serve(async (req) => {
           const { data: existing } = await supabase
             .from("invoices")
             .select("id")
+            .eq("tenant_id", tenantId)
             .eq("email_message_id", msg.id)
             .limit(1);
 
@@ -164,7 +163,7 @@ Deno.serve(async (req) => {
                   "Content-Type": "application/json",
                   "Authorization": `Bearer ${serviceKey}`,
                 },
-                body: JSON.stringify({ data: base64Data, mimeType: mime }),
+                body: JSON.stringify({ data: base64Data, mimeType: mime, tenantId }),
               });
 
               if (!analyzeResp.ok) { errors++; continue; }
@@ -195,6 +194,7 @@ Deno.serve(async (req) => {
                 // Insert invoice
                 const needsReview = (inv.confidence_score || 0) < 80;
                 const { error: insertErr } = await supabase.from("invoices").insert({
+                  tenant_id: tenantId,
                   user_id: account.user_id,
                   company_id: companyId,
                   source: "email",
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
                   doc_year: inv.doc_year,
                   date_echeance: inv.date_echeance,
                   supplier_name: inv.supplier_name?.toUpperCase(),
-                  supplier_siret: inv.supplier_siret,
+                  supplier_nif: inv.supplier_nif,
                   doc_number: inv.doc_number,
                   montant_ht: inv.montant_ht,
                   taux_tva: inv.taux_tva,
@@ -238,6 +238,7 @@ Deno.serve(async (req) => {
                     if (savedInv) {
                       await supabase.from("invoice_line_items").insert(
                         inv.line_items.map((li: any, idx: number) => ({
+                          tenant_id: tenantId,
                           invoice_id: savedInv.id,
                           line_number: idx + 1,
                           description: li.description,
@@ -256,42 +257,7 @@ Deno.serve(async (req) => {
             } catch { errors++; }
           }
 
-          // Label email as processed
-          try {
-            // Create label if not exists
-            const labelsResp = await fetch(
-              "https://gmail.googleapis.com/gmail/v1/users/me/labels",
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            const labelsData = await labelsResp.json();
-            let labelId = labelsData.labels?.find((l: any) => l.name === "FaturaAI-Processed")?.id;
-
-            if (!labelId) {
-              const createResp = await fetch(
-                "https://gmail.googleapis.com/gmail/v1/users/me/labels",
-                {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({ name: "FaturaAI-Processed", labelListVisibility: "labelShow", messageListVisibility: "show" }),
-                }
-              );
-              if (createResp.ok) {
-                const newLabel = await createResp.json();
-                labelId = newLabel.id;
-              }
-            }
-
-            if (labelId) {
-              await fetch(
-                `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`,
-                {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({ addLabelIds: [labelId] }),
-                }
-              );
-            }
-          } catch { /* label failed, not critical */ }
+          // Dedup via email_message_id na BD — sem labeling (evita scope gmail.modify)
         }
 
       } catch { errors++; }

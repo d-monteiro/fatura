@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, FileText, CheckCircle2, Zap } from 'lucide-react';
+import { ArrowRight, FileText, CheckCircle2, Zap } from 'lucide-react';
 
 export function Hero() {
   return (
@@ -21,12 +21,6 @@ export function Hero() {
 
       <div className="relative mx-auto max-w-6xl px-4 py-24 sm:py-32 lg:py-40">
         <div className="flex flex-col items-center text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm px-4 py-1.5 text-xs font-medium text-primary mb-8 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            Gemini 2.5 Pro · IA de última geração
-          </div>
-
           {/* Headline */}
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight max-w-4xl leading-[1.05]">
             As suas faturas,{' '}
@@ -59,28 +53,15 @@ export function Hero() {
 
           {/* Single CTA */}
           <div className="mt-10">
-            <Button asChild size="lg" className="h-14 px-8 text-base gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
-              <Link to="/onboarding">
-                Começar grátis em 5 minutos
+            <Button asChild size="lg" className="h-14 px-8 text-base shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
+              <Link to="/onboarding" className="inline-flex items-center whitespace-nowrap gap-2">
+                Começar grátis · 7 dias
                 <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
-          </div>
-
-          {/* Trust markers */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              <span>14 dias grátis</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              <span>Sem cartão de crédito</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              <span>Conforme RGPD</span>
-            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Sem cartão de crédito · Configuração em 5 minutos
+            </p>
           </div>
 
           {/* Visual mock preview */}
@@ -94,7 +75,7 @@ export function Hero() {
                   <div className="h-3 w-3 rounded-full bg-yellow-400" />
                   <div className="h-3 w-3 rounded-full bg-green-400" />
                 </div>
-                <div className="ml-4 text-xs text-muted-foreground font-mono">app.faturai.pt/dashboard</div>
+                <div className="ml-4 text-xs text-muted-foreground font-mono">faturas.flowzi.pt/dashboard</div>
               </div>
 
               {/* Mock dashboard content */}
@@ -112,16 +93,16 @@ export function Hero() {
                     { supplier: 'STAPLES', amount: '156,70 EUR', category: 'Escritório' },
                   ].map((inv, i) => (
                     <div key={i} className="flex items-center justify-between py-2 text-sm border-b last:border-b-0">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
                           <FileText className="h-4 w-4 text-primary" />
                         </div>
-                        <div>
-                          <div className="font-medium">{inv.supplier}</div>
-                          <div className="text-xs text-muted-foreground">{inv.category}</div>
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="font-medium truncate">{inv.supplier}</span>
+                          <span className="text-xs text-muted-foreground truncate">· {inv.category}</span>
                         </div>
                       </div>
-                      <div className="font-mono font-medium">{inv.amount}</div>
+                      <div className="font-mono font-medium shrink-0">{inv.amount}</div>
                     </div>
                   ))}
                 </div>

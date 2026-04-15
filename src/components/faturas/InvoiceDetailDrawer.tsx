@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
+import { invalidateInvoiceLists, queryKeys } from '@/lib/queryKeys';
 import { InvoiceReviewDialog } from './InvoiceReviewDialog';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 import { NormalDrawerContent, NormalDrawerFooter } from './InvoiceNormalDrawer';
@@ -13,8 +14,6 @@ interface Props {
   open: boolean;
   onClose: () => void;
 }
-
-const QUERY_KEYS = ['faturas', 'inbox-invoices', 'dashboard-metrics', 'recent-invoices'];
 
 export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   const { t } = useI18n();
@@ -34,7 +33,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   }, [open, onClose, isEditing]);
 
   const { data: lineItems } = useQuery({
-    queryKey: ['line-items', invoice?.id],
+    queryKey: invoice?.id ? queryKeys.lineItems(invoice.id) : ['line-items', 'none'],
     enabled: !!invoice?.id && !isReviewMode,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -46,7 +45,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   });
 
   const { data: company } = useQuery({
-    queryKey: ['company', invoice?.company_id],
+    queryKey: invoice?.company_id ? queryKeys.company(invoice.company_id) : ['company', 'none'],
     enabled: !!invoice?.company_id,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -62,7 +61,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
         .update({ status: 'processed', manual_review: false }).eq('id', invoice!.id);
       if (error) throw error;
     },
-    onSuccess: () => { QUERY_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: [k] })); onClose(); },
+    onSuccess: () => { invalidateInvoiceLists(qc); onClose(); },
   });
 
   const deleteMutation = useMutation({
@@ -72,7 +71,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
         .update({ deleted_at: new Date().toISOString() }).eq('id', invoice!.id);
       if (error) throw error;
     },
-    onSuccess: () => { QUERY_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: [k] })); onClose(); },
+    onSuccess: () => { invalidateInvoiceLists(qc); onClose(); },
     onSettled: () => setIsDeleting(false),
   });
 

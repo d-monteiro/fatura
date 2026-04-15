@@ -21,23 +21,20 @@ interface Props {
 }
 
 export function AccountRow({ account: acc, onRefresh }: Props) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const expired = isTokenExpired(acc.token_expiry);
   const hasRefresh = !!acc.refresh_token;
   const needsReauth = expired && !hasRefresh;
-  const locale = lang === 'fr' ? 'fr-FR' : 'pt-PT';
+  const locale = 'pt-PT';
 
   async function handleSetPrimary() {
     await supabase.from('user_oauth_tokens').update({ is_primary_storage: false }).eq('provider', 'google');
     const { error } = await supabase.from('user_oauth_tokens').update({ is_primary_storage: true }).eq('id', acc.id);
-    if (error) { toast.error('Erreur'); } else { toast.success(`${acc.email} ${t('auto.set_primary_ok')}`); onRefresh(); }
+    if (error) { toast.error('Erro'); } else { toast.success(`${acc.email} ${t('auto.set_primary_ok')}`); onRefresh(); }
   }
 
   async function handleRemove() {
-    const msg = lang === 'fr'
-      ? `Supprimer le compte ${acc.email} ? Cela révoque l'accès sur Google.`
-      : `Remover a conta ${acc.email}? Isto revoga o acesso no Google.`;
-    if (!confirm(msg)) return;
+    if (!confirm(`Remover a conta ${acc.email}? Isto revoga o acesso no Google.`)) return;
 
     const { data: tokenData } = await supabase.from('user_oauth_tokens').select('access_token').eq('id', acc.id).single();
     let revoked = false;
@@ -54,7 +51,7 @@ export function AccountRow({ account: acc, onRefresh }: Props) {
     }
 
     const { error } = await supabase.from('user_oauth_tokens').delete().eq('id', acc.id);
-    if (error) { toast.error('Erreur'); } else { toast.success(revoked ? t('auto.removed_revoked') : t('auto.removed')); onRefresh(); }
+    if (error) { toast.error('Erro'); } else { toast.success(revoked ? t('auto.removed_revoked') : t('auto.removed')); onRefresh(); }
   }
 
   async function handleReauth() {

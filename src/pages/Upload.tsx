@@ -1,4 +1,8 @@
+import { useEffect } from 'react';
 import { Upload as UploadIcon } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
 import { StatusCards } from '@/components/upload/StatusCards';
 import { DropZone } from '@/components/upload/DropZone';
@@ -8,11 +12,29 @@ import { InstructionsCard } from '@/components/upload/InstructionsCard';
 import { useUploadDeps } from '@/hooks/useUploadDeps';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
 import { useTenant } from '@/contexts/TenantContext';
+import { queryKeys } from '@/lib/queryKeys';
 
 export default function Upload() {
   const { t } = useI18n();
   const { tenant, isOverLimit, invoicesUsed, invoicesLimit } = useTenant();
-  const { userId, companyId, accessToken, ready, noGoogle, loading } = useUploadDeps();
+  const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const oauth = searchParams.get('oauth');
+    if (oauth === 'success') {
+      const email = searchParams.get('email');
+      toast.success(`Conta Google ligada${email ? ` (${email})` : ''}`);
+      qc.invalidateQueries({ queryKey: queryKeys.oauthTokens });
+      qc.invalidateQueries({ queryKey: ['google-token'] });
+      setSearchParams((p) => { p.delete('oauth'); p.delete('email'); p.delete('company_id'); return p; });
+    } else if (oauth === 'error') {
+      toast.error(searchParams.get('message') || 'Erro ao ligar conta Google');
+      setSearchParams((p) => { p.delete('oauth'); p.delete('message'); return p; });
+    }
+  }, [searchParams, setSearchParams, qc]);
+
+  const { userId, companyId, accessToken, ready, noGoogle, needsReauth, primaryEmail, loading } = useUploadDeps();
   const {
     files, isProcessing, currentIndex, rateLimitError,
     completedCount, errorCount, totalCount, progress,
@@ -30,6 +52,7 @@ export default function Upload() {
 
       <StatusCards
         loading={loading} ready={ready} noGoogle={noGoogle}
+        needsReauth={needsReauth} primaryEmail={primaryEmail} userId={userId}
         refreshError={null} rateLimitError={rateLimitError}
         onRetryToken={() => {}} onDismissRateLimit={dismissRateLimit}
       />

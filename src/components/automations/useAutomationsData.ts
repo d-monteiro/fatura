@@ -60,10 +60,10 @@ export function useAutomationsData() {
     if (oauthStatus) {
       window.history.replaceState({}, document.title, window.location.pathname);
       if (oauthStatus === 'success' && email) {
-        toast.success(`${email} connecté avec succès !`);
+        toast.success(`${email} ligado com sucesso!`);
         fetchAccounts();
       } else if (oauthStatus === 'error') {
-        toast.error(message || 'Erreur de connexion');
+        toast.error(message || 'Erro de ligação');
       }
     }
   }, [fetchAccounts]);

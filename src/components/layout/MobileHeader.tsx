@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import type { Company } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface MobileHeaderProps {
   onMenuToggle: () => void;
@@ -15,7 +16,7 @@ export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
   const activeCompany = searchParams.get('company') || 'all';
 
   const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
+    queryKey: queryKeys.companies,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('companies').select('*').eq('is_active', true).order('name');

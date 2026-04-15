@@ -1,10 +1,10 @@
 import type { TranslationKey } from '@/lib/i18n';
-import type { Metier, NatureDepense, CostType } from '@/types/database';
+import { METIERS, NATURES, COST_TYPES, COST_TYPE_LABELS } from '@/lib/constants';
 
 type TFn = (key: TranslationKey) => string;
 
 interface FormData {
-  supplier_name: string; supplier_siret: string; doc_number: string; doc_date: string;
+  supplier_name: string; supplier_nif: string; doc_number: string; doc_date: string;
   montant_ht: string; montant_tva: string; montant_ttc: string; taux_tva: string;
   metier: string; nature_depense: string; cost_type: string; summary: string;
 }
@@ -15,12 +15,6 @@ interface Props {
   t: TFn;
 }
 
-const METIERS: Metier[] = ['electricite', 'plomberie', 'chauffage', 'platrerie', 'autre'];
-const NATURES: NatureDepense[] = [
-  'materiaux', 'sous_traitants', 'location_materiel', 'restauration',
-  'carburant', 'atelier', 'assurances', 'comptabilite', 'fournitures_bureau', 'autre',
-];
-const COST_TYPES: CostType[] = ['cout_fixe', 'cout_variable'];
 const cls = 'w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
 
 export type { FormData as InvoiceEditFormData };
@@ -34,8 +28,8 @@ export function InvoiceEditFormFields({ form, onChange, t }: Props) {
         <input className={cls} value={form.supplier_name} onChange={(e) => set('supplier_name', e.target.value)} />
       </label>
       <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.siret')}</span>
-        <input className={cls} value={form.supplier_siret} onChange={(e) => set('supplier_siret', e.target.value)} />
+        <span className="text-xs font-medium text-gray-600">{t('inv.nif')}</span>
+        <input className={cls} value={form.supplier_nif} onChange={(e) => set('supplier_nif', e.target.value)} />
       </label>
       <label className="block space-y-1">
         <span className="text-xs font-medium text-gray-600">{t('inv.doc_number')}</span>
@@ -83,7 +77,7 @@ export function InvoiceEditFormFields({ form, onChange, t }: Props) {
         <span className="text-xs font-medium text-gray-600">{t('inv.cost_type')}</span>
         <select className={cls} value={form.cost_type} onChange={(e) => set('cost_type', e.target.value)}>
           <option value="">--</option>
-          {COST_TYPES.map((c) => <option key={c} value={c}>{c === 'cout_fixe' ? 'Fixe' : 'Variable'}</option>)}
+          {COST_TYPES.map((c) => <option key={c} value={c}>{COST_TYPE_LABELS[c]}</option>)}
         </select>
       </label>
       <label className="block space-y-1">

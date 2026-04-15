@@ -25,7 +25,7 @@ export function ZipExportButton({ invoices }: ZipExportButtonProps) {
     try {
       await exportInvoicesToZip(invoices, accessToken);
     } catch {
-      toast.error('Erreur lors de la creation du ZIP');
+      toast.error('Erro ao criar o ZIP');
     } finally {
       setLoading(false);
     }

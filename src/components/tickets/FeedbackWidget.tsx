@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { notifySlack } from '@/lib/slack/notify';
 import { MessageCircleQuestion, X, Send } from 'lucide-react';
 
 type FeedbackType = 'bug' | 'feature' | 'feedback';
@@ -21,16 +22,35 @@ export function FeedbackWidget() {
     if (!user || !tenant || !message.trim() || !type) return;
     setSending(true);
     try {
-      await supabase.from('tickets').insert({
+      const subject = type === 'bug' ? 'Bug Report' : type === 'feature' ? 'Feature Request' : 'Feedback';
+      const category = type === 'bug' ? 'bug' : type === 'feature' ? 'feature' : 'general';
+      const priority = type === 'bug' ? 'high' : 'medium';
+      const { data: ticket } = await supabase.from('tickets').insert({
         tenant_id: tenant.id,
         user_id: user.id,
-        subject: type === 'bug' ? 'Bug Report' : type === 'feature' ? 'Feature Request' : 'Feedback',
+        subject,
         description: message.trim(),
-        category: type === 'bug' ? 'bug' : type === 'feature' ? 'feature' : 'general',
-        priority: type === 'bug' ? 'high' : 'medium',
+        category,
+        priority,
         page_url: window.location.href,
         browser_info: { userAgent: navigator.userAgent },
-      });
+      }).select('id').single();
+
+      if (ticket) {
+        void notifySlack({
+          channel: 'tickets',
+          payload: {
+            tenant_name: tenant.name,
+            subject,
+            category,
+            priority,
+            email: user.email ?? '',
+            description: message.trim(),
+            ticket_id: ticket.id,
+          },
+        });
+      }
+
       setSent(true);
       setTimeout(() => { setIsOpen(false); setSent(false); setType(null); setMessage(''); }, 2000);
     } finally {

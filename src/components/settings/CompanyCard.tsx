@@ -5,6 +5,8 @@ import { Pencil, Check, X, Mail, LogIn, Star } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Company } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
+import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 
 interface CompanyCardProps {
   company: Company & { token_expiry?: string | null; refresh_token?: string | null };
@@ -28,7 +30,7 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
       }).eq('id', c.id);
       if (dbErr) throw dbErr;
     },
-    onSuccess: () => { setEditing(false); setError(''); queryClient.invalidateQueries({ queryKey: ['companies'] }); },
+    onSuccess: () => { setEditing(false); setError(''); queryClient.invalidateQueries({ queryKey: queryKeys.companies }); },
     onError: (e: Error) => setError(e.message),
   });
 
@@ -38,36 +40,19 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
   };
 
   const handleConnectGmail = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!clientId || !supabaseUrl || !user) return;
-
-    const scopes = [
-      'email', 'profile',
-      'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/spreadsheets',
-    ].join(' ');
-
-    const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
-    const state = JSON.stringify({ user_id: user.id, company_id: c.id });
-
-    // Build URL with same pattern as GoogleAccounts.tsx (which works)
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${clientId}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&response_type=code` +
-      `&scope=${encodeURIComponent(scopes)}` +
-      `&access_type=offline` +
-      `&prompt=consent` +
-      `&state=${encodeURIComponent(state)}` +
-      (c.email ? `&login_hint=${encodeURIComponent(c.email)}` : '');
-
-    window.location.href = url;
+    if (!user) return;
+    redirectToGoogleOAuth({
+      userId: user.id,
+      companyId: c.id,
+      source: 'settings',
+      promptSelect: true,
+      loginHint: c.email ?? undefined,
+    });
   };
 
   const handleDisconnect = async () => {
     await supabase.from('companies').update({ email: null, oauth_token_id: null }).eq('id', c.id);
-    queryClient.invalidateQueries({ queryKey: ['companies'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.companies });
   };
 
   const inputCls = 'w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20';
@@ -104,7 +89,7 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
             {c.is_default && <span className="inline-flex items-center gap-0.5 text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-medium"><Star className="h-3 w-3" />{t('company.default')}</span>}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            {c.siret ? `SIRET: ${c.siret}` : ''}{c.tva_intracom ? ` | TVA: ${c.tva_intracom}` : ''}
+            {c.siret ? `NIF: ${c.siret}` : ''}{c.tva_intracom ? ` | IVA: ${c.tva_intracom}` : ''}
           </p>
           {c.address && <p className="text-xs text-gray-400 mt-0.5">{c.address}</p>}
         </div>

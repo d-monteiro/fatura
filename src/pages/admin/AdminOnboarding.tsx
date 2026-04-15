@@ -26,7 +26,7 @@ export default function AdminOnboarding() {
       });
   }, []);
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) return <div className="text-muted-foreground">A carregar...</div>;
 
   return (
     <div className="space-y-4">
@@ -41,12 +41,12 @@ export default function AdminOnboarding() {
               <Badge variant={STATUS_VARIANT[sub.status] ?? 'outline'}>{sub.status}</Badge>
             </div>
             <div className="text-xs text-muted-foreground">
-              Étape {sub.current_step}/7 &middot; Plan: {sub.selected_plan ?? '—'} &middot; {new Date(sub.created_at).toLocaleDateString('fr-FR')}
+              Passo {sub.current_step}/7 &middot; Plan: {sub.selected_plan ?? '—'} &middot; {new Date(sub.created_at).toLocaleDateString('pt-PT')}
             </div>
           </div>
         ))}
         {submissions.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground text-sm">Aucune soumission.</div>
+          <div className="text-center py-12 text-muted-foreground text-sm">Nenhuma submissão.</div>
         )}
       </div>
     </div>

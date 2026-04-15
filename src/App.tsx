@@ -6,15 +6,17 @@ import { TenantProvider } from '@/contexts/TenantContext';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { RequireTenant } from '@/components/common/RequireTenant';
 import Dashboard from '@/pages/Dashboard';
 import Inbox from '@/pages/Inbox';
 import Faturas from '@/pages/Faturas';
 import Upload from '@/pages/Upload';
-import Fournisseurs from '@/pages/Fournisseurs';
+import Fornecedores from '@/pages/Fornecedores';
 import Login from '@/pages/Login';
 import Settings from '@/pages/Settings';
 import Automations from '@/pages/Automations';
 import Onboarding from '@/pages/Onboarding';
+import OnboardingThanks from '@/pages/OnboardingThanks';
 import Landing from '@/pages/Landing';
 import Billing from '@/pages/Billing';
 import Tickets from '@/pages/Tickets';
@@ -62,6 +64,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="onboarding" element={<Onboarding />} />
+      <Route path="onboarding/thanks" element={<OnboardingThanks />} />
       <Route path="admin" element={<AdminLayout />}>
         <Route index element={<AdminTenants />} />
         <Route path="tickets" element={<AdminTickets />} />
@@ -69,12 +72,12 @@ function AppRoutes() {
         <Route path="usage" element={<AdminUsage />} />
         <Route path="onboarding" element={<AdminOnboarding />} />
       </Route>
-      <Route element={<AppLayout />}>
+      <Route element={<RequireTenant><AppLayout /></RequireTenant>}>
         <Route index element={<Dashboard />} />
         <Route path="inbox" element={<Inbox />} />
         <Route path="invoices" element={<Faturas />} />
         <Route path="upload" element={<Upload />} />
-        <Route path="suppliers" element={<Fournisseurs />} />
+        <Route path="suppliers" element={<Fornecedores />} />
         <Route path="automations" element={<Automations />} />
         <Route path="billing" element={<Billing />} />
         <Route path="tickets" element={<Tickets />} />

@@ -20,17 +20,17 @@ function folderForInvoice(inv: Invoice): string {
 
 function buildSummaryWorkbook(invoices: Invoice[]): ArrayBuffer {
   const rows = invoices.map((inv) => ({
-    Date: inv.doc_date ?? '',
-    'N Facture': inv.doc_number ?? '',
-    Fournisseur: inv.supplier_name ?? '',
-    Metier: inv.metier ?? '',
-    Nature: inv.nature_depense ?? '',
-    'Type cout': inv.cost_type === 'cout_fixe' ? 'Fixe' : inv.cost_type === 'cout_variable' ? 'Variable' : '',
-    HT: inv.montant_ht ?? '',
-    TVA: inv.montant_tva ?? '',
-    TTC: inv.montant_ttc ?? '',
-    'Taux TVA': inv.taux_tva != null ? `${inv.taux_tva}%` : '',
-    Resume: inv.summary ?? '',
+    Data: inv.doc_date ?? '',
+    'Nº Fatura': inv.doc_number ?? '',
+    Fornecedor: inv.supplier_name ?? '',
+    Categoria: inv.metier ?? '',
+    Natureza: inv.nature_depense ?? '',
+    'Tipo custo': inv.cost_type === 'cout_fixe' ? 'Fixo' : inv.cost_type === 'cout_variable' ? 'Variável' : '',
+    'Valor s/IVA': inv.montant_ht ?? '',
+    IVA: inv.montant_tva ?? '',
+    'Valor c/IVA': inv.montant_ttc ?? '',
+    'Taxa IVA': inv.taux_tva != null ? `${inv.taux_tva}%` : '',
+    Resumo: inv.summary ?? '',
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();

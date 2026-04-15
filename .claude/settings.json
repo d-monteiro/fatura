@@ -6,7 +6,25 @@
       "Bash(command -v fnm)",
       "Read(//home/up202306122/**)",
       "Bash(git add:*)",
-      "Bash(git commit -m ':*)"
+      "Bash(git commit -m ':*)",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "Bash(git mv:*)",
+      "Bash(grep -r \"export.*function\" /home/up202306122/Flowzi/fatura/src/lib/google/*.ts)",
+      "Bash(find src:*)",
+      "mcp__supabase__deploy_edge_function",
+      "Bash(find /home/up202306122/Flowzi/fatura -name \"package.json\" -exec cat {} \\\\;)",
+      "Bash(python3 -c \"import sys, json; print\\(json.dumps\\(sys.stdin.read\\(\\)\\)\\)\")",
+      "Read(//tmp/**)",
+      "Bash(command -v nvm)",
+      "Read(//usr/local/bin/**)",
+      "Bash(bash -lc 'node --version')",
+      "Bash(find /home/up202306122/Flowzi/fatura/src/components -name \"*.tsx\" -exec wc -l {} \\\\;)",
+      "Bash(git -C /home/up202306122/Flowzi/fatura log --oneline)",
+      "Bash(find /home/up202306122/Flowzi/fatura/src/components -type f -name \"*.tsx\" -exec grep -l \"children\" {} \\\\;)",
+      "Bash(git -C /home/up202306122/Flowzi/fatura log --all --pretty=\"%s\")",
+      "Bash(git -C /home/up202306122/Flowzi/fatura diff HEAD~20..HEAD --stat)",
+      "Bash(git -C /home/up202306122/Flowzi/fatura status)"
     ]
   }
 }

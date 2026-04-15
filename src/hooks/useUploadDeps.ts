@@ -1,21 +1,30 @@
 /**
- * Hook that resolves Upload page dependencies:
- * - optional company UUID from the URL ?company= search param (short_name)
- * - Google access token from user_oauth_tokens
- * Company is optional: auto-detection happens in the processor.
+ * Hook que resolve dependências da página Upload:
+ * - UUID da empresa (optional, vem do `?company=` na URL)
+ * - Access token Google + scopes do token primário
+ * - Flags de estado: ready / noGoogle / needsReauth
  */
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasStorageScopes } from '@/lib/google/scopes';
 
 export interface UploadDeps {
   userId: string | null;
   companyId: string | null;
   accessToken: string | null;
-  ready: boolean;         // true once userId + token are resolved (company not required)
-  noGoogle: boolean;      // true when user has no connected Google account
+  primaryEmail: string | null;
+  ready: boolean;
+  noGoogle: boolean;
+  needsReauth: boolean;
   loading: boolean;
+}
+
+interface PrimaryToken {
+  access_token: string;
+  scopes: string[] | null;
+  email: string | null;
 }
 
 export function useUploadDeps(): UploadDeps {
@@ -24,7 +33,6 @@ export function useUploadDeps(): UploadDeps {
   const companyParam = searchParams.get('company');
   const userId = user?.id ?? null;
 
-  // Resolve company: optional, used as default fallback for auto-detection
   const { data: companyId, isLoading: companyLoading } = useQuery({
     queryKey: ['company-id', companyParam],
     queryFn: async () => {
@@ -41,29 +49,32 @@ export function useUploadDeps(): UploadDeps {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch Google access token
-  const { data: accessToken, isLoading: tokenLoading } = useQuery({
+  const { data: primary, isLoading: tokenLoading } = useQuery<PrimaryToken | null>({
     queryKey: ['google-token', userId],
     queryFn: async () => {
       const { data } = await supabase
-        .from('user_oauth_tokens').select('access_token')
+        .from('user_oauth_tokens').select('access_token, scopes, email')
         .eq('user_id', userId!).eq('provider', 'google')
         .order('is_primary_storage', { ascending: false })
         .limit(1).single();
-      return data?.access_token ?? null;
+      return (data as PrimaryToken | null) ?? null;
     },
     enabled: !!userId,
     staleTime: 2 * 60 * 1000,
   });
 
   const loading = companyLoading || tokenLoading;
+  const accessToken = primary?.access_token ?? null;
+  const hasStorage = hasStorageScopes(primary?.scopes ?? null);
 
   return {
     userId,
     companyId: companyId ?? null,
-    accessToken: accessToken ?? null,
-    ready: !loading && !!userId && !!accessToken,
+    accessToken,
+    primaryEmail: primary?.email ?? null,
+    ready: !loading && !!userId && !!accessToken && hasStorage,
     noGoogle: !tokenLoading && !accessToken,
+    needsReauth: !tokenLoading && !!accessToken && !hasStorage,
     loading,
   };
 }

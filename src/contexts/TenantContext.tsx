@@ -51,14 +51,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Get the user's tenant membership
+      // Get the user's tenant membership (maybeSingle handles 0-row case without 406)
       const { data: tenantUser, error: tuError } = await supabase
         .from('tenant_users')
         .select('tenant_id, role')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (tuError || !tenantUser) {
         setTenant(null);
@@ -74,7 +74,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         .from('tenants')
         .select('*')
         .eq('id', tenantUser.tenant_id)
-        .single();
+        .maybeSingle();
 
       if (tError || !tenantData) {
         setTenant(null);

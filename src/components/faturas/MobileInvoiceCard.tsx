@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import type { Invoice } from '@/types/database';
 
 interface MobileInvoiceCardProps {
@@ -31,7 +31,7 @@ export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) 
             )}
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>{formatDateFR(invoice.doc_date)}</span>
+            <span>{formatDatePT(invoice.doc_date)}</span>
             {costLabel && (
               <>
                 <span>&middot;</span>

@@ -1,11 +1,13 @@
 /**
- * GOOGLE SHEETS REST API - FR
- * Extrato mensal: EXTRAIT_{ANNEE} > 01_Janvier ... 12_Décembre
+ * Google Sheets REST API — extrato anual com aba por mês.
+ * Headers e nomes de meses são determinados pelo idioma do tenant.
  */
 
 import { sheetsLimiter } from '@/lib/rateLimiter';
+import { getMonthName } from '@/lib/utils/months';
 
 const SHEETS_TIMEOUT_MS = 30_000;
+const COLUMN_COUNT = 14;
 
 function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController();
@@ -13,17 +15,18 @@ function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => vo
   return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 }
 
-export const MONTH_SHEET_NAMES = [
-  '01_Janvier', '02_Février', '03_Mars', '04_Avril',
-  '05_Mai', '06_Juin', '07_Juillet', '08_Août',
-  '09_Septembre', '10_Octobre', '11_Novembre', '12_Décembre',
-];
+const HEADERS_BY_LANG: Record<string, string[]> = {
+  pt: ['Data Doc.', 'Fornecedor', 'NIF', 'Categoria', 'Natureza', 'Tipo Custo', 'Nº Documento', 'Valor s/ IVA', 'IVA', 'Valor c/ IVA', 'Taxa IVA', 'Resumo', 'Link PDF', 'Data Processamento'],
+  en: ['Doc Date', 'Supplier', 'Tax ID', 'Category', 'Nature', 'Cost Type', 'Doc Number', 'Net Amount', 'VAT', 'Gross Amount', 'VAT Rate', 'Summary', 'PDF Link', 'Processed At'],
+};
 
-const HEADERS = [
-  'Date Doc.', 'Fournisseur', 'SIRET', 'Métier', 'Nature',
-  'Type Coût', 'N° Document', 'Montant HT (€)', 'TVA (€)',
-  'Montant TTC (€)', 'Taux TVA', 'Résumé', 'Lien PDF', 'Date Traitement'
-];
+export function getSheetHeaders(language: string): string[] {
+  return HEADERS_BY_LANG[language] ?? HEADERS_BY_LANG.pt;
+}
+
+export function getMonthSheetName(monthIndex: number, language = 'pt'): string {
+  return `${String(monthIndex + 1).padStart(2, '0')}_${getMonthName(monthIndex, language)}`;
+}
 
 export async function appendInvoiceToSheet(
   accessToken: string,
@@ -31,7 +34,7 @@ export async function appendInvoiceToSheet(
   data: {
     doc_date: string | null;
     supplier_name: string | null;
-    supplier_siret: string | null;
+    supplier_nif: string | null;
     metier: string | null;
     nature_depense: string | null;
     cost_type: string | null;
@@ -42,35 +45,30 @@ export async function appendInvoiceToSheet(
     taux_tva: number | null;
     summary: string | null;
     drive_link: string | null;
-  }
+  },
+  language = 'pt',
 ): Promise<void> {
-  let sheetName = MONTH_SHEET_NAMES[0];
-
+  const headers = getSheetHeaders(language);
+  let monthIdx = 0;
   if (data.doc_date) {
-    try {
-      const date = new Date(data.doc_date);
-      if (!isNaN(date.getTime())) {
-        const month = date.getMonth();
-        if (month >= 0 && month < 12) {
-          sheetName = MONTH_SHEET_NAMES[month];
-        }
-      }
-    } catch { /* fallback */ }
+    const d = new Date(data.doc_date);
+    if (!isNaN(d.getTime())) monthIdx = d.getMonth();
   }
+  const sheetName = getMonthSheetName(monthIdx, language);
 
-  await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName);
+  await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName, headers);
 
   const row = [
     data.doc_date || '',
     data.supplier_name || '',
-    data.supplier_siret || '',
+    data.supplier_nif || '',
     data.metier || '',
     data.nature_depense || '',
     data.cost_type || '',
     data.doc_number || '',
-    data.montant_ht || 0,
-    data.montant_tva || 0,
-    data.montant_ttc || 0,
+    data.montant_ht ?? 0,
+    data.montant_tva ?? 0,
+    data.montant_ttc ?? 0,
     data.taux_tva ? `${data.taux_tva}%` : '',
     data.summary || '',
     data.drive_link || '',
@@ -85,10 +83,7 @@ export async function appendInvoiceToSheet(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`,
     {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [row] }),
       signal: t.signal,
     }
@@ -97,14 +92,15 @@ export async function appendInvoiceToSheet(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Erreur écriture Sheets: ${response.status} - ${error}`);
+    throw new Error(`Erro ao escrever no Sheets: ${response.status} - ${error}`);
   }
 }
 
 async function ensureSheetHasHeader(
   accessToken: string,
   spreadsheetId: string,
-  sheetName: string
+  sheetName: string,
+  headers: string[],
 ): Promise<void> {
   try {
     const metaResponse = await fetch(
@@ -138,7 +134,7 @@ async function ensureSheetHasHeader(
     const checkData = await checkResponse.json();
     const existingRow = checkData.values?.[0] || [];
 
-    if (existingRow.length === 0 || existingRow[0] !== HEADERS[0]) {
+    if (existingRow.length === 0 || existingRow[0] !== headers[0]) {
       const metaResponse2 = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -158,9 +154,9 @@ async function ensureSheetHasHeader(
           body: JSON.stringify({
             requests: [{
               updateCells: {
-                range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
+                range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: COLUMN_COUNT },
                 rows: [{
-                  values: HEADERS.map(h => ({
+                  values: headers.map(h => ({
                     userEnteredValue: { stringValue: h },
                     userEnteredFormat: {
                       backgroundColor: { red: 0.13, green: 0.17, blue: 0.26 },
@@ -186,9 +182,11 @@ async function ensureSheetHasHeader(
 
 export async function setupSpreadsheetHeaders(
   accessToken: string,
-  spreadsheetId: string
+  spreadsheetId: string,
+  language = 'pt',
 ): Promise<void> {
-  for (const sheetName of MONTH_SHEET_NAMES) {
-    await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName);
+  const headers = getSheetHeaders(language);
+  for (let i = 0; i < 12; i++) {
+    await ensureSheetHasHeader(accessToken, spreadsheetId, getMonthSheetName(i, language), headers);
   }
 }

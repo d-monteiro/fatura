@@ -1,3 +1,4 @@
+import { Navigate, useLocation } from 'react-router-dom';
 import { useTenant } from '@/contexts/TenantContext';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import type { ReactNode } from 'react';
@@ -6,13 +7,9 @@ interface RequireTenantProps {
   children: ReactNode;
 }
 
-/**
- * Route guard that ensures user has an active tenant.
- * Redirects to onboarding if no tenant, billing if plan expired.
- * Currently allows through if no tenant (backwards compat until onboarding exists).
- */
 export function RequireTenant({ children }: RequireTenantProps) {
-  const { tenant, loading, plan } = useTenant();
+  const { tenant, loading } = useTenant();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -22,24 +19,19 @@ export function RequireTenant({ children }: RequireTenantProps) {
     );
   }
 
-  // TODO: Uncomment when onboarding page exists (Phase 3)
-  // if (!tenant) {
-  //   return <Navigate to="/onboarding" replace />;
-  // }
+  if (!tenant) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
-  // TODO: Uncomment when billing page exists (Phase 5)
-  // if (tenant?.plan_status === 'canceled' || tenant?.plan_status === 'past_due') {
-  //   return <Navigate to="/billing" replace />;
-  // }
+  if (tenant.plan_status === 'canceled' || tenant.plan_status === 'past_due') {
+    if (location.pathname !== '/billing') {
+      return <Navigate to="/billing" replace />;
+    }
+  }
 
-  // TODO: Uncomment when onboarding status page exists (Phase 3)
-  // if (tenant && tenant.setup_status !== 'ready' && !tenant.onboarding_completed) {
-  //   return <Navigate to="/onboarding/status" replace />;
-  // }
-
-  // For now: allow through even without tenant (existing single-tenant flow)
-  void tenant;
-  void plan;
+  if (!tenant.onboarding_completed && tenant.setup_status !== 'ready') {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   return <>{children}</>;
 }

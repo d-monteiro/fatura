@@ -18,7 +18,7 @@ export default function AdminTickets() {
       });
   }, []);
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) return <div className="text-muted-foreground">A carregar...</div>;
 
   return (
     <div className="space-y-4">
@@ -36,12 +36,12 @@ export default function AdminTickets() {
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              {new Date(ticket.created_at).toLocaleDateString('fr-FR')} &middot; {ticket.category}
+              {new Date(ticket.created_at).toLocaleDateString('pt-PT')} &middot; {ticket.category}
             </div>
           </div>
         ))}
         {tickets.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground text-sm">Aucun ticket.</div>
+          <div className="text-center py-12 text-muted-foreground text-sm">Nenhum ticket.</div>
         )}
       </div>
     </div>

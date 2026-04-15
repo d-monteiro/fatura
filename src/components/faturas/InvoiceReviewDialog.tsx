@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, ExternalLink, Building2, Calendar, Hash, Tag, Wrench, FileText, CheckCircle, Pencil, Trash2 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
 import type { Invoice } from '@/types/database';
 
@@ -75,8 +75,8 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
 
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1 min-h-0">
                 <DetailRow icon={Building2} label={t('inv.supplier')} value={invoice.supplier_name || '\u2014'} />
-                {invoice.supplier_siret && <DetailRow icon={Hash} label={t('inv.siret')} value={invoice.supplier_siret} />}
-                <DetailRow icon={Calendar} label={t('inv.date')} value={formatDateFR(invoice.doc_date)} />
+                {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
+                <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
                 {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
                 {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={invoice.metier} />}
                 {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={invoice.nature_depense} />}

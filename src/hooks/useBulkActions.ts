@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
+import { invalidateInvoiceLists } from '@/lib/queryKeys';
 import type { Invoice } from '@/types/database';
 
 export function useBulkActions() {
@@ -8,8 +9,7 @@ export function useBulkActions() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['faturas'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+    invalidateInvoiceLists(queryClient);
     setSelectedIds(new Set());
   }, [queryClient]);
 

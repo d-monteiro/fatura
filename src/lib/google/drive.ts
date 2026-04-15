@@ -18,29 +18,25 @@ function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => vo
   return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 }
 
-/**
- * Verifica os scopes do token atual
- */
 export async function getTokenInfo(accessToken: string): Promise<{ scopes: string[]; email?: string } | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     const response = await fetch(
       `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessToken}`,
-      { signal: controller.signal }
+      { signal: controller.signal },
     );
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn('[getTokenInfo] tokeninfo responded', response.status);
+      return null;
+    }
     const data = await response.json();
-    return {
-      scopes: data.scope?.split(' ') || [],
-      email: data.email,
-    };
-  } catch {
+    return { scopes: data.scope?.split(' ') ?? [], email: data.email };
+  } catch (err) {
+    console.warn('[getTokenInfo] failed:', err);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -241,17 +237,18 @@ export async function copyFile(
   }
 }
 
-import { setupSpreadsheetHeaders, MONTH_SHEET_NAMES } from './sheets';
+import { setupSpreadsheetHeaders, getMonthSheetName } from './sheets';
 
 /**
- * Cria um novo Google Sheet com 12 abas mensais
+ * Cria um novo Google Sheet com 12 abas mensais.
  */
 export async function createNewSpreadsheet(
   accessToken: string,
   title: string,
-  parentFolderId: string
+  parentFolderId: string,
+  language = 'pt',
 ): Promise<{ id: string; webViewLink: string }> {
-  const sheets = MONTH_SHEET_NAMES;
+  const sheets = Array.from({ length: 12 }, (_, i) => getMonthSheetName(i, language));
 
 
   await driveLimiter.waitForSlot();
@@ -281,7 +278,7 @@ export async function createNewSpreadsheet(
   const createData = await createResponse.json();
   const spreadsheetId = createData.spreadsheetId;
 
-  await setupSpreadsheetHeaders(accessToken, spreadsheetId);
+  await setupSpreadsheetHeaders(accessToken, spreadsheetId, language);
 
   // Mover para a pasta correta
   try {
@@ -316,14 +313,15 @@ export async function createNewSpreadsheet(
 export async function getOrCreateYearlySheet(
   accessToken: string,
   year: number,
-  parentFolderId: string
+  parentFolderId: string,
+  language = 'pt',
 ): Promise<string> {
   const extractoName = `EXTRATO_${year}`;
   const existingId = await checkFileExists(accessToken, extractoName, parentFolderId);
 
   if (existingId) return existingId;
 
-  const newSheet = await createNewSpreadsheet(accessToken, extractoName, parentFolderId);
+  const newSheet = await createNewSpreadsheet(accessToken, extractoName, parentFolderId, language);
   return newSheet.id;
 }
 

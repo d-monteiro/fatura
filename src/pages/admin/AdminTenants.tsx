@@ -20,7 +20,7 @@ export default function AdminTenants() {
       });
   }, []);
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) return <div className="text-muted-foreground">A carregar...</div>;
 
   return (
     <div className="space-y-4">
@@ -28,7 +28,7 @@ export default function AdminTenants() {
       <p className="text-muted-foreground">{tenants.length} tenant(s) enregistré(s)</p>
 
       {tenants.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Aucun tenant pour le moment.</div>
+        <div className="text-center py-12 text-muted-foreground text-sm">Nenhum tenant de momento.</div>
       ) : (
         <div className="rounded-lg border divide-y">
           {tenants.map((t) => (

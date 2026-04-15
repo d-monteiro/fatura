@@ -1,5 +1,5 @@
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { MobileInvoiceCard } from './MobileInvoiceCard';
@@ -85,7 +85,7 @@ export function FaturasTable({
                   onChange={() => onToggleSelect(inv.id)}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               </td>
-              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{formatDateFR(inv.doc_date)}</td>
+              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{formatDatePT(inv.doc_date)}</td>
               <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>{inv.supplier_name ?? '\u2014'}</td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{inv.metier ?? '\u2014'}</td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{inv.nature_depense ?? '\u2014'}</td>

@@ -24,7 +24,7 @@ export default function AdminUsage() {
       });
   }, []);
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) return <div className="text-muted-foreground">A carregar...</div>;
 
   const totalInvoices = tenants.reduce((sum, t) => sum + (t.invoices_this_month ?? 0), 0);
 
@@ -33,15 +33,15 @@ export default function AdminUsage() {
       <h1 className="text-2xl font-bold">Usage</h1>
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground">Tenants actifs</div>
+          <div className="text-sm text-muted-foreground">Tenants ativos</div>
           <div className="text-2xl font-bold">{tenants.length}</div>
         </div>
         <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground">Factures ce mois</div>
+          <div className="text-sm text-muted-foreground">Faturas este mês</div>
           <div className="text-2xl font-bold">{totalInvoices}</div>
         </div>
         <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground">Moyenne / tenant</div>
+          <div className="text-sm text-muted-foreground">Média / tenant</div>
           <div className="text-2xl font-bold">{tenants.length > 0 ? Math.round(totalInvoices / tenants.length) : 0}</div>
         </div>
       </div>
@@ -54,7 +54,7 @@ export default function AdminUsage() {
           </div>
         ))}
         {tenants.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground text-sm">Aucun tenant actif.</div>
+          <div className="text-center py-12 text-muted-foreground text-sm">Nenhum tenant ativo.</div>
         )}
       </div>
     </div>

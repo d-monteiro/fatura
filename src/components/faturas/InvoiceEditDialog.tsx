@@ -3,6 +3,7 @@ import { X, ExternalLink, Save, XCircle } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
+import { invalidateInvoiceLists } from '@/lib/queryKeys';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
 import { InvoiceEditFormFields } from './InvoiceEditForm';
 import type { Invoice } from '@/types/database';
@@ -15,7 +16,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    supplier_name: invoice.supplier_name ?? '', supplier_siret: invoice.supplier_siret ?? '',
+    supplier_name: invoice.supplier_name ?? '', supplier_nif: invoice.supplier_nif ?? '',
     doc_number: invoice.doc_number ?? '', doc_date: invoice.doc_date ?? '',
     montant_ht: n(invoice.montant_ht), montant_tva: n(invoice.montant_tva),
     montant_ttc: n(invoice.montant_ttc), taux_tva: n(invoice.taux_tva),
@@ -31,7 +32,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
     mutationFn: async () => {
       const pf = (v: string) => (v ? parseFloat(v) : null);
       const updates: Record<string, unknown> = {
-        supplier_name: form.supplier_name || null, supplier_siret: form.supplier_siret || null,
+        supplier_name: form.supplier_name || null, supplier_nif: form.supplier_nif || null,
         doc_number: form.doc_number || null, doc_date: form.doc_date || null,
         montant_ht: pf(form.montant_ht), montant_tva: pf(form.montant_tva),
         montant_ttc: pf(form.montant_ttc), taux_tva: pf(form.taux_tva),
@@ -43,8 +44,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
       if (error) throw error;
     },
     onSuccess: () => {
-      ['faturas', 'inbox-invoices', 'dashboard-metrics', 'recent-invoices'].forEach(
-        (k) => qc.invalidateQueries({ queryKey: [k] }));
+      invalidateInvoiceLists(qc);
       onClose();
     },
   });

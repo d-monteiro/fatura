@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 const faqs = [
   {
     q: 'Como funciona o teste grátis?',
-    a: 'Tem 14 dias de acesso completo a todas as funcionalidades do seu plano. Não é necessário cartão de crédito para começar.',
+    a: 'Tem 7 dias de acesso completo a todas as funcionalidades do seu plano. Não é necessário cartão de crédito para começar.',
   },
   {
     q: 'Que tipos de documentos são suportados?',
@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: 'Posso gerir várias empresas?',
-    a: 'Sim. O plano Pro permite até 3 empresas, e o plano Entreprise oferece um número ilimitado de empresas.',
+    a: 'Sim. O plano Pro permite até 3 empresas, e o plano Empresarial oferece um número ilimitado de empresas.',
   },
   {
     q: 'Como funciona a importação por email?',

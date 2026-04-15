@@ -1,5 +1,5 @@
 import { ExternalLink, Building2, Calendar, Hash, Tag, Wrench, FileText, Table2, Pencil, Trash2 } from 'lucide-react';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { LineItemsTable } from './LineItemsTable';
 import type { TranslationKey } from '@/lib/i18n';
 import type { Invoice, InvoiceLineItem } from '@/types/database';
@@ -32,8 +32,8 @@ export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
       <DetailRow icon={Building2} label={t('inv.supplier')} value={invoice.supplier_name || '\u2014'} />
-      {invoice.supplier_siret && <DetailRow icon={Hash} label={t('inv.siret')} value={invoice.supplier_siret} />}
-      <DetailRow icon={Calendar} label={t('inv.date')} value={formatDateFR(invoice.doc_date)} />
+      {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
+      <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
       {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
       {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={invoice.metier} />}
       {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={invoice.nature_depense} />}
@@ -77,7 +77,7 @@ export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
       {invoice.created_at && (
         <div className="mt-4 rounded-lg bg-gray-50 p-3">
           <p className="text-xs text-gray-400">
-            {t('drawer.added_at')} {formatDateFR(invoice.created_at)}
+            {t('drawer.added_at')} {formatDatePT(invoice.created_at)}
           </p>
         </div>
       )}

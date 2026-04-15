@@ -1,156 +1,17 @@
 // ============================================
 // Edge Function: analyze-document
-// OpenRouter → Gemini 2.5 Pro — Multi-invoice extraction + auto-detect company
-// Deploy: supabase functions deploy analyze-document --project-ref wvopuqyotvwgronujvrb
+// OpenRouter → Gemini 2.5 Pro — Tenant-aware multi-invoice extraction
+// Deploy: supabase functions deploy analyze-document
 // Secret: OPENROUTER_API_KEY
 // ============================================
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildTenantPrompt, getVatRatesForCountry, type TenantAIConfig } from "../_shared/promptBuilder.ts";
+import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const API_TIMEOUT_MS = 120_000;
-
-const ALLOWED_ORIGINS = [
-  "https://faturai-lgm.vercel.app",
-  "http://localhost:5173",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
-
-const GEMINI_PROMPT = `# RÔLE
-Tu es un COMPTABLE SENIOR spécialisé dans le secteur du BÂTIMENT et de la CONSTRUCTION en France.
-
-# OBJECTIF
-Traiter des images/PDFs de factures et renvoyer un JSON structuré.
-Si le PDF contient PLUSIEURS factures (numéros différents), extraire CHAQUE facture séparément.
-
-# VALIDATION INITIALE (CRITIQUE)
-Vérifie si l'image/document est réellement une FACTURE, REÇU ou document financier valide.
-- Photo de personne, selfie, paysage, objet aléatoire, mème → is_valid_document = false
-- Document financier lisible (facture, reçu, avoir) → is_valid_document = true
-- Document mais illisible/très flou → is_valid_document = false, rejection_reason = "document_illisible"
-
-# RÈGLES DE CLASSIFICATION
-
-1. TYPE DE DOCUMENT (document_type):
-   - "facture" | "avoir" | "recu" | "autre"
-
-2. TYPE DE COÛT (cost_type):
-   - "cout_fixe": Dépenses récurrentes/structurelles (loyers, assurances, télécom, logiciels, énergie)
-   - "cout_variable": Dépenses ponctuelles/opérationnelles (matériaux, sous-traitance, location matériel, repas)
-   - null: Si ce n'est pas une dépense
-
-3. MÉTIER (metier):
-   - "electricite" | "plomberie" | "chauffage" | "platrerie" | "autre"
-
-4. NATURE DE LA DÉPENSE (nature_depense):
-   - "materiaux" | "sous_traitants" | "location_materiel" | "restauration" | "carburant" | "atelier" | "assurances" | "comptabilite" | "fournitures_bureau" | "autre"
-
-# EXTRACTION DE DONNÉES
-
-- doc_date: Format YYYY-MM-DD. Si jour/mois ambigu, format FR (JJ/MM/AAAA → YYYY-MM-DD)
-- date_echeance: Date d'échéance si présente, format YYYY-MM-DD
-- supplier_name: Nom court en MAJUSCULES du FOURNISSEUR (celui qui ÉMET la facture). Ex: "POINT P", "CEDEO"
-- destinataire_name: Nom du destinataire/client de la facture (celui qui REÇOIT la facture, pas le fournisseur). Ex: "SARL LGM", "HOLDING XYZ". Extraire tel quel depuis le document.
-- supplier_siret: SIRET 14 chiffres si visible
-- montant_ht: Montant Hors Taxes. Point pour décimales (ex: 1234.56)
-- taux_tva: Taux de TVA en % (20, 10, 5.5, 2.1, ou 0)
-- montant_tva: Montant TVA. Point pour décimales
-- montant_ttc: Montant TTC. Point pour décimales
-- autoliquidation: true si mention "autoliquidation" ou article 283-2 nonies du CGI
-- payment_method: "CB", "virement", "chèque", "espèces", ou null
-- supplier_iban: IBAN si visible
-- summary: Résumé télégraphique (max 5 mots)
-
-# CLASSIFICATION SPECIFIQUE PAR FOURNISSEUR
-- Orange, SFR, Bouygues Telecom, Free → cout_fixe, nature: autre (télécom) UNIQUEMENT pour abonnements/forfaits. Si achat ponctuel en boutique (accessoire, téléphone, produit physique) → cout_variable, nature: fournitures_bureau
-- EDF, Engie, TotalEnergies → cout_fixe, nature: autre (énergie)
-- Leroy Merlin, Point P, BigMat → cout_variable, nature: materiaux
-- Rexel, Yesss, Sonepar → cout_variable, nature: materiaux, metier: electricite
-- Würth, Hilti → cout_variable, nature: materiaux
-- Kiloutou, Loxam → cout_variable, nature: location_materiel
-- ISDI, Luciat, déchetterie, gravats → cout_variable, nature: autre
-
-# NORMALISATIONS FOURNISSEURS
-- "Leroy Merlin" → "LEROY MERLIN"
-- "Point.P" ou "Point P Distribution" → "POINT P"
-- "Cedeo" → "CEDEO"
-- "Rexel" → "REXEL"
-- "Yesss" ou "YESSS" → "YESSS"
-- "Würth" ou "Wurth" → "WURTH"
-- "EDF" ou "Electricité de France" → "EDF"
-- "Engie" ou "GDF Suez" → "ENGIE"
-- "TotalEnergies" ou "Total" → "TOTALENERGIES"
-- "Kiloutou" → "KILOUTOU"
-- "Loxam" → "LOXAM"
-- "Orange" ou "France Telecom" → "ORANGE"
-- "BigMat" ou "Toujas" → "BIGMAT TOUJAS & COLL"
-- "ISDI Luciat" ou "Luciat" → "LUCIAT"
-
-# AUTOLIQUIDATION TVA (CONSTRUCTION)
-Si sous-traitant BTP avec mention "Autoliquidation" ou "Art. 283-2 nonies du CGI":
-- montant_tva = 0, taux_tva = 0, autoliquidation = true
-- montant_ht = montant_ttc
-
-# LIGNES DE FACTURE (line_items)
-Extraire chaque ligne de détail si visible (max 30 par facture):
-- description, quantity, unit, unit_price_ht, total_ht, taux_tva
-- IGNORER les lignes de contribution REP PMCB et ABJ (eco-contribution/eco-participation)
-- Si les lignes ne sont pas clairement identifiables, renvoyer un tableau vide.
-
-# FORMAT DE SORTIE (JSON UNIQUEMENT)
-Réponds UNIQUEMENT avec cet objet JSON, sans markdown, sans texte avant ou après.
-TOUJOURS renvoyer un objet avec une clé "invoices" contenant un TABLEAU de factures.
-Même si une seule facture, renvoyer { "invoices": [{ ... }] }.
-
-{
-  "invoices": [
-    {
-      "is_valid_document": boolean,
-      "rejection_reason": "pas_un_document" | "document_illisible" | "pas_une_facture" | null,
-      "document_type": "facture" | "avoir" | "recu" | "autre" | null,
-      "cost_type": "cout_fixe" | "cout_variable" | null,
-      "metier": "electricite" | "plomberie" | "chauffage" | "platrerie" | "autre" | null,
-      "nature_depense": "materiaux" | "sous_traitants" | "location_materiel" | "restauration" | "carburant" | "atelier" | "assurances" | "comptabilite" | "fournitures_bureau" | "autre" | null,
-      "doc_year": number | null,
-      "doc_date": "YYYY-MM-DD" | null,
-      "date_echeance": "YYYY-MM-DD" | null,
-      "supplier_name": "string" | null,
-      "destinataire_name": "string" | null,
-      "supplier_siret": "string" | null,
-      "doc_number": "string" | null,
-      "montant_ht": number | null,
-      "taux_tva": number | null,
-      "montant_tva": number | null,
-      "montant_ttc": number | null,
-      "autoliquidation": boolean,
-      "payment_method": "CB" | "virement" | "chèque" | "espèces" | null,
-      "supplier_iban": "string" | null,
-      "summary": "string" | null,
-      "confidence_score": number,
-      "line_items": [
-        {
-          "description": "string" | null,
-          "quantity": number | null,
-          "unit": "string" | null,
-          "unit_price_ht": number | null,
-          "total_ht": number | null,
-          "taux_tva": number | null
-        }
-      ]
-    }
-  ]
-}
-
-Si is_valid_document = false, les autres champs peuvent être null.`;
 
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -158,61 +19,117 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number):
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
 }
 
-/** Try to repair truncated JSON and parse it. */
 function tryParseJSON(text: string): unknown {
-  // 1. Direct parse
   try { return JSON.parse(text); } catch { /* continue */ }
-
-  // 2. Fix truncated JSON: find last complete object, close open brackets
   let fixed = text;
   const lastBrace = fixed.lastIndexOf('}');
   if (lastBrace > 0) {
     fixed = fixed.substring(0, lastBrace + 1);
-    // Count open vs close brackets/braces to close them
     const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
     const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
     fixed += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
     try { return JSON.parse(fixed); } catch { /* continue */ }
   }
-
-  // 3. Last resort: strip line_items if they cause the truncation
   const lineItemsIdx = text.indexOf('"line_items"');
   if (lineItemsIdx > 0) {
     const before = text.substring(0, lineItemsIdx) + '"line_items": []}';
-    // If inside invoices array, close it too
     const invoicesClose = before.includes('"invoices"') ? ']}' : '}';
     try { return JSON.parse(before); } catch { /* continue */ }
     try { return JSON.parse(before + invoicesClose); } catch { /* continue */ }
   }
-
   throw new Error("Could not parse Gemini response as JSON");
 }
 
-/** Normalize the parsed result to always return { invoices: [...] } */
 function normalizeResult(parsed: unknown): { invoices: unknown[] } {
   if (parsed && typeof parsed === 'object') {
-    // Already in { invoices: [...] } format
     if ('invoices' in parsed && Array.isArray((parsed as Record<string, unknown>).invoices)) {
       return parsed as { invoices: unknown[] };
     }
-    // Single invoice object returned (backward compat)
-    if ('is_valid_document' in parsed) {
-      return { invoices: [parsed] };
-    }
-    // Array of invoices returned directly
-    if (Array.isArray(parsed)) {
-      return { invoices: parsed };
-    }
+    if ('is_valid_document' in parsed) return { invoices: [parsed] };
+    if (Array.isArray(parsed)) return { invoices: parsed };
   }
   return { invoices: [parsed] };
 }
 
+interface OnboardingData {
+  categories?: string[];
+  topSuppliers?: string[];
+  documentTypes?: string[];
+}
+
+async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenantId: string): Promise<TenantAIConfig | null> {
+  const { data: tenant } = await supabase.from("tenants")
+    .select("name, nif, sector, country, language, currency, invoice_name_variations, onboarding_data")
+    .eq("id", tenantId).is("deleted_at", null).single();
+  if (!tenant) return null;
+
+  const { data: cats } = await supabase.from("categories")
+    .select("axis, code, label, sort_order")
+    .eq("tenant_id", tenantId).eq("is_active", true).order("sort_order");
+
+  const { data: suppliers } = await supabase.from("suppliers")
+    .select("name, name_variations").eq("tenant_id", tenantId).limit(100);
+
+  const ob = (tenant.onboarding_data ?? {}) as OnboardingData;
+  const language = (tenant.language as 'pt' | 'fr' | 'en') ?? 'pt';
+
+  const costTypes = (cats ?? []).filter((c) => c.axis === 'cost_type')
+    .map((c) => ({ code: c.code as string, label: c.label as string }));
+  const metiers = (cats ?? []).filter((c) => c.axis === 'metier')
+    .map((c) => ({ code: c.code as string, label: c.label as string }));
+  const natures = (cats ?? []).filter((c) => c.axis === 'nature_depense')
+    .map((c) => ({ code: c.code as string, label: c.label as string }));
+
+  // Fallback: se nenhuma categoria está seedada, usar topSuppliers/categories do onboarding como labels brutas
+  if (costTypes.length === 0) {
+    costTypes.push({ code: 'cout_fixe', label: 'Custos fixos' }, { code: 'cout_variable', label: 'Custos variáveis' });
+  }
+  if (natures.length === 0 && Array.isArray(ob.categories)) {
+    ob.categories.forEach((cat, i) => natures.push({
+      code: cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `nat_${i}`,
+      label: cat,
+    }));
+  }
+
+  const knownSuppliers = (suppliers ?? []).map((s) => ({
+    normalized: s.name as string,
+    variations: ((s.name_variations as string[]) ?? []).concat([s.name as string]),
+  }));
+  // Topar com topSuppliers do onboarding caso suppliers ainda esteja vazia
+  if (knownSuppliers.length === 0 && Array.isArray(ob.topSuppliers)) {
+    ob.topSuppliers.forEach((s) => knownSuppliers.push({ normalized: s.toUpperCase(), variations: [s] }));
+  }
+
+  return {
+    companyName: tenant.name as string,
+    nif: (tenant.nif as string) ?? '',
+    sector: (tenant.sector as string) ?? 'geral',
+    language,
+    country: (tenant.country as string) ?? 'PT',
+    currency: (tenant.currency as string) ?? 'EUR',
+    nameVariations: ((tenant.invoice_name_variations as string[]) ?? []).length
+      ? (tenant.invoice_name_variations as string[])
+      : [(tenant.name as string).toUpperCase()],
+    vatRates: getVatRatesForCountry((tenant.country as string) ?? 'PT'),
+    costTypes,
+    metiers,
+    natures,
+    knownSuppliers,
+    documentTypes: Array.isArray(ob.documentTypes) && ob.documentTypes.length
+      ? ob.documentTypes : ['factures', 'recus'],
+  };
+}
+
+const FALLBACK_PROMPT = `# RÔLE
+Tu es un comptable senior. Analyse cette facture et renvoie un JSON structuré.
+
+# FORMAT DE SORTIE (JSON UNIQUEMENT)
+{ "invoices": [{ "is_valid_document": boolean, "rejection_reason": string|null, "document_type": string|null, "cost_type": string|null, "metier": string|null, "nature_depense": string|null, "doc_year": number|null, "doc_date": string|null, "date_echeance": string|null, "supplier_name": string|null, "destinataire_name": string|null, "supplier_nif": string|null, "doc_number": string|null, "montant_ht": number|null, "taux_tva": number|null, "montant_tva": number|null, "montant_ttc": number|null, "autoliquidation": boolean, "payment_method": string|null, "supplier_iban": string|null, "summary": string|null, "confidence_score": number, "line_items": [] }] }`;
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -221,31 +138,39 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check: verify caller has valid session
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+    // Auth check
     const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-      if (supabaseUrl && supabaseAnonKey) {
-        const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-          auth: { persistSession: false },
-          global: { headers: { Authorization: authHeader } },
+    if (authHeader && supabaseUrl && supabaseAnonKey) {
+      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-        const { data: { user } } = await userClient.auth.getUser();
-        if (!user) {
-          return new Response(JSON.stringify({ error: "Unauthorized" }), {
-            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
       }
     }
 
-    const { data, mimeType } = await req.json();
+    const { data, mimeType, tenantId } = await req.json();
 
     if (!data || !mimeType) {
       return new Response(JSON.stringify({ error: "data and mimeType are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Build prompt: tenant-aware se possível, senão fallback
+    let prompt = FALLBACK_PROMPT;
+    if (tenantId && supabaseUrl && serviceKey) {
+      const adminClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      const cfg = await loadTenantConfig(adminClient, tenantId);
+      if (cfg) prompt = buildTenantPrompt(cfg);
     }
 
     const response = await fetchWithTimeout(
@@ -255,21 +180,19 @@ Deno.serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "https://faturai-lgm.vercel.app",
-          "X-Title": "FaturaAI LGM",
+          "HTTP-Referer": getFrontendUrl(),
+          "X-Title": "FaturaAI",
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-pro",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: GEMINI_PROMPT },
-                { type: "image_url", image_url: { url: `data:${mimeType};base64,${data}` } },
-                { type: "text", text: "Analyse ce document et renvoie le JSON selon le format spécifié. Si plusieurs factures, extrais-les toutes." },
-              ],
-            },
-          ],
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${data}` } },
+              { type: "text", text: "Analisa este documento e devolve o JSON conforme o formato. Se houver várias faturas, extrai todas." },
+            ],
+          }],
           max_tokens: 16384,
           temperature: 0.1,
         }),

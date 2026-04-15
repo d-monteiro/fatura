@@ -27,14 +27,14 @@ export default function AdminErrors() {
       });
   }, []);
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) return <div className="text-muted-foreground">A carregar...</div>;
 
   const unresolved = errors.filter((e) => !e.resolved).length;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Erreurs</h1>
-      <p className="text-muted-foreground">{unresolved} erreur(s) non résolue(s)</p>
+      <h1 className="text-2xl font-bold">Erros</h1>
+      <p className="text-muted-foreground">{unresolved} erro(s) por resolver</p>
 
       <div className="rounded-lg border divide-y">
         {errors.map((err) => (
@@ -44,12 +44,12 @@ export default function AdminErrors() {
               <Badge variant={LEVEL_VARIANT[err.level] ?? 'outline'}>{err.level}</Badge>
             </div>
             <div className="text-xs text-muted-foreground">
-              {err.source} &middot; {err.function_name ?? '—'} &middot; {new Date(err.created_at).toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              {err.source} &middot; {err.function_name ?? '—'} &middot; {new Date(err.created_at).toLocaleDateString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
         ))}
         {errors.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground text-sm">Aucune erreur enregistrée.</div>
+          <div className="text-center py-12 text-muted-foreground text-sm">Nenhum erro registado.</div>
         )}
       </div>
     </div>

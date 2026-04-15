@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { X, BadgeCheck, Pencil } from 'lucide-react';
 import { SupplierEditForm } from './SupplierEditForm';
 import type { Supplier, Invoice } from '@/types/database';
@@ -52,7 +52,7 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
   };
 
   const fields = [
-    { label: t('inv.siret'), value: supplier.siret, mono: true },
+    { label: t('inv.nif'), value: supplier.siret, mono: true },
     { label: t('sup.tva_intracom'), value: supplier.tva_intracom, mono: true },
     { label: t('sup.iban'), value: supplier.iban, mono: true },
     { label: t('sup.address'), value: supplier.address },
@@ -125,7 +125,7 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
                   <tbody>
                     {invoices.map((inv) => (
                       <tr key={inv.id} className="border-b border-gray-50">
-                        <td className="px-3 py-2 text-gray-600">{formatDateFR(inv.doc_date)}</td>
+                        <td className="px-3 py-2 text-gray-600">{formatDatePT(inv.doc_date)}</td>
                         <td className="px-3 py-2 font-mono text-xs text-gray-600">{inv.doc_number ?? '---'}</td>
                         <td className="px-3 py-2 text-right font-medium">{formatEUR(inv.montant_ttc)}</td>
                         <td className="px-3 py-2">

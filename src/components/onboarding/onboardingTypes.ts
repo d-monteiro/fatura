@@ -1,77 +1,76 @@
 export const SECTORS = [
-  { value: 'construction', label: 'Construction / BTP' },
-  { value: 'commerce', label: 'Commerce / Retail' },
-  { value: 'services', label: 'Services / Consulting' },
-  { value: 'restauration', label: 'Restauration / Hôtellerie' },
-  { value: 'transport', label: 'Transport / Logistique' },
-  { value: 'sante', label: 'Santé / Médical' },
-  { value: 'technologie', label: 'Technologie / IT' },
-  { value: 'immobilier', label: 'Immobilier' },
-  { value: 'agriculture', label: 'Agriculture' },
-  { value: 'autre', label: 'Autre' },
+  { value: 'construction', label: 'Construção Civil' },
+  { value: 'commerce', label: 'Comércio / Retalho' },
+  { value: 'services', label: 'Serviços / Consultoria' },
+  { value: 'restauration', label: 'Restauração / Hotelaria' },
+  { value: 'transport', label: 'Transporte / Logística' },
+  { value: 'sante', label: 'Saúde / Médico' },
+  { value: 'technologie', label: 'Tecnologia / TI' },
+  { value: 'immobilier', label: 'Imobiliário' },
+  { value: 'agriculture', label: 'Agricultura' },
+  { value: 'autre', label: 'Outro' },
 ] as const;
 
 export const EU_COUNTRIES = [
-  { value: 'FR', label: 'France' },
   { value: 'PT', label: 'Portugal' },
-  { value: 'DE', label: 'Allemagne' },
-  { value: 'ES', label: 'Espagne' },
-  { value: 'IT', label: 'Italie' },
-  { value: 'BE', label: 'Belgique' },
-  { value: 'NL', label: 'Pays-Bas' },
-  { value: 'LU', label: 'Luxembourg' },
-  { value: 'CH', label: 'Suisse' },
-  { value: 'AT', label: 'Autriche' },
-  { value: 'IE', label: 'Irlande' },
-  { value: 'PL', label: 'Pologne' },
-  { value: 'RO', label: 'Roumanie' },
-  { value: 'GR', label: 'Grèce' },
+  { value: 'ES', label: 'Espanha' },
+  { value: 'DE', label: 'Alemanha' },
+  { value: 'IT', label: 'Itália' },
+  { value: 'BE', label: 'Bélgica' },
+  { value: 'NL', label: 'Países Baixos' },
+  { value: 'LU', label: 'Luxemburgo' },
+  { value: 'CH', label: 'Suíça' },
+  { value: 'AT', label: 'Áustria' },
+  { value: 'IE', label: 'Irlanda' },
+  { value: 'PL', label: 'Polónia' },
+  { value: 'RO', label: 'Roménia' },
+  { value: 'GR', label: 'Grécia' },
 ] as const;
 
 export const CATEGORY_TEMPLATES: Record<string, { metiers: string[]; natures: string[]; cost_types: string[] }> = {
   construction: {
-    metiers: ['Électricité', 'Plomberie', 'Chauffage', 'Plâtrerie', 'Maçonnerie', 'Peinture', 'Menuiserie'],
-    natures: ['Matériaux', 'Sous-traitants', 'Location matériel', 'Carburant', 'Restauration', 'Assurances'],
-    cost_types: ['Coûts fixes', 'Coûts variables'],
+    metiers: ['Eletricidade', 'Canalização', 'Aquecimento', 'Estuque', 'Alvenaria', 'Pintura', 'Carpintaria'],
+    natures: ['Materiais', 'Subempreiteiros', 'Aluguer de equipamento', 'Combustível', 'Alimentação', 'Seguros'],
+    cost_types: ['Custos fixos', 'Custos variáveis'],
   },
   commerce: {
     metiers: [],
-    natures: ['Marchandises', 'Emballage', 'Transport', 'Marketing', 'Loyer', 'Assurances'],
-    cost_types: ['Coûts fixes', 'Coûts variables'],
+    natures: ['Mercadorias', 'Embalagem', 'Transporte', 'Marketing', 'Renda', 'Seguros'],
+    cost_types: ['Custos fixos', 'Custos variáveis'],
   },
   services: {
     metiers: [],
-    natures: ['Sous-traitance', 'Logiciels/SaaS', 'Déplacements', 'Formation', 'Loyer', 'Assurances'],
-    cost_types: ['Coûts fixes', 'Coûts variables'],
+    natures: ['Subcontratação', 'Software/SaaS', 'Deslocações', 'Formação', 'Renda', 'Seguros'],
+    cost_types: ['Custos fixos', 'Custos variáveis'],
   },
   restauration: {
     metiers: [],
-    natures: ['Alimentation', 'Boissons', 'Équipement cuisine', 'Énergie', 'Loyer', 'Assurances'],
-    cost_types: ['Coûts fixes', 'Coûts variables'],
+    natures: ['Alimentação', 'Bebidas', 'Equipamento de cozinha', 'Energia', 'Renda', 'Seguros'],
+    cost_types: ['Custos fixos', 'Custos variáveis'],
   },
   transport: {
     metiers: [],
-    natures: ['Carburant', 'Entretien véhicules', 'Péages', 'Assurances', 'Leasing', 'Pièces détachées'],
-    cost_types: ['Coûts fixes', 'Coûts variables'],
+    natures: ['Combustível', 'Manutenção de veículos', 'Portagens', 'Seguros', 'Leasing', 'Peças'],
+    cost_types: ['Custos fixos', 'Custos variáveis'],
   },
   technologie: {
     metiers: [],
-    natures: ['Logiciels/SaaS', 'Hébergement', 'Matériel informatique', 'Sous-traitance', 'Formation', 'Assurances'],
-    cost_types: ['Coûts fixes', 'Coûts variables'],
+    natures: ['Software/SaaS', 'Alojamento', 'Hardware', 'Subcontratação', 'Formação', 'Seguros'],
+    cost_types: ['Custos fixos', 'Custos variáveis'],
   },
 };
 
 export const DOCUMENT_TYPES = [
-  { value: 'factures', label: 'Factures' },
-  { value: 'recus', label: 'Reçus' },
-  { value: 'avoirs', label: 'Avoirs' },
-  { value: 'devis', label: 'Devis' },
+  { value: 'factures', label: 'Faturas' },
+  { value: 'recus', label: 'Recibos' },
+  { value: 'avoirs', label: 'Notas de crédito' },
+  { value: 'devis', label: 'Orçamentos' },
 ] as const;
 
 export const FOLDER_TEMPLATES = [
-  { value: 'year_type', label: 'Année > Type de coût', example: 'FACTURES/2026/Coûts fixes/...' },
-  { value: 'year_month', label: 'Année > Mois', example: 'FACTURES/2026/01 - Janvier/...' },
-  { value: 'year_supplier', label: 'Année > Fournisseur', example: 'FACTURES/2026/FOURNISSEUR/...' },
+  { value: 'year_type', label: 'Ano > Tipo de custo', example: 'FATURAS/2026/Custos fixos/...' },
+  { value: 'year_month', label: 'Ano > Mês', example: 'FATURAS/2026/01 - Janeiro/...' },
+  { value: 'year_supplier', label: 'Ano > Fornecedor', example: 'FATURAS/2026/FORNECEDOR/...' },
 ] as const;
 
 export const CURRENCIES = [
@@ -92,6 +91,7 @@ export interface OnboardingData {
   sectorCustom: string;
   primaryColor: string;
   secondaryColor: string;
+  logoDataUrl: string | null; // base64 data URL stored in localStorage during onboarding
 
   // Block 2: Invoice Intelligence
   invoiceNameVariations: string[];
@@ -121,11 +121,12 @@ export interface OnboardingData {
 export const DEFAULT_ONBOARDING_DATA: OnboardingData = {
   companyName: '',
   nif: '',
-  country: 'FR',
+  country: 'PT',
   sector: '',
   sectorCustom: '',
   primaryColor: '#0E2435',
   secondaryColor: '#BBB388',
+  logoDataUrl: null,
 
   invoiceNameVariations: [],
   invoicesPerMonth: 100,
@@ -134,7 +135,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingData = {
   documentTypes: ['factures'],
 
   storageProvider: 'google_drive',
-  folderStructure: 'year_type',
+  folderStructure: 'year_month',
   autoSheets: true,
 
   currency: 'EUR',

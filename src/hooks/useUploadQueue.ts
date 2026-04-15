@@ -81,7 +81,7 @@ export function useUploadQueue(
             }
           }
         } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Erreur';
+          const msg = err instanceof Error ? err.message : 'Erro';
           setFiles(prev => prev.map((x, idx) =>
             idx === i ? { ...x, status: 'error', progress: 100, error: msg, message: msg } : x));
         }

@@ -8,20 +8,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const ALLOWED_ORIGINS = [
-  "https://faturai-lgm.vercel.app",
-  "http://localhost:5173",
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
+import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -36,27 +23,33 @@ Deno.serve(async (req) => {
     const stateParam = url.searchParams.get("state");
     const error = url.searchParams.get("error");
 
-    // Parse state para obter user_id e company_id
+    // Parse state para obter user_id, company_id e source
     let userId: string | null = null;
     let companyId: string | null = null;
+    let source: string | null = null;
     try {
       if (stateParam) {
         const stateData = JSON.parse(stateParam);
         if (stateData.user_id) userId = stateData.user_id;
         if (stateData.company_id) companyId = stateData.company_id;
+        if (stateData.source) source = stateData.source;
       }
     } catch {
       // Invalid state JSON
     }
 
     const oauthTable = "user_oauth_tokens";
-    const redirectPath = companyId ? "/settings" : "/automations";
+    const redirectPath =
+      source === "onboarding" ? "/onboarding" :
+      source === "upload" ? "/upload" :
+      source === "settings" ? "/settings" :
+      companyId ? "/settings" : "/automations";
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || ALLOWED_ORIGINS[0];
+    const frontendUrl = getFrontendUrl();
 
     if (!clientId || !clientSecret) {
       return redirectWithError(frontendUrl, redirectPath, "Configuração OAuth em falta");
@@ -152,7 +145,8 @@ Deno.serve(async (req) => {
         .eq("id", existing.id);
 
       if (updateError) {
-        return redirectWithError(frontendUrl, redirectPath, "Erro ao atualizar conta");
+        console.error("[oauth-callback] update error", updateError);
+        return redirectWithError(frontendUrl, redirectPath, `BD update: ${updateError.message}`);
       }
     } else {
       const { count } = await supabase
@@ -175,7 +169,8 @@ Deno.serve(async (req) => {
       });
 
       if (insertError) {
-        return redirectWithError(frontendUrl, redirectPath, "Erro ao guardar conta");
+        console.error("[oauth-callback] insert error", insertError);
+        return redirectWithError(frontendUrl, redirectPath, `BD insert: ${insertError.message}`);
       }
     }
 
@@ -229,8 +224,9 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error) {
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || ALLOWED_ORIGINS[0];
-    return redirectWithError(frontendUrl, "/automations", "Erro interno");
+    console.error("[oauth-callback] unexpected error", error);
+    const msg = error instanceof Error ? error.message : "Erro interno";
+    return redirectWithError(getFrontendUrl(), "/automations", msg);
   }
 });
 

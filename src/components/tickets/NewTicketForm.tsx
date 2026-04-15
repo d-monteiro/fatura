@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { notifySlack } from '@/lib/slack/notify';
 import { Send } from 'lucide-react';
 import type { TicketCategory, TicketPriority } from '@/types/tickets';
 
@@ -45,7 +46,7 @@ export function NewTicketForm({ onCreated, onCancel }: Props) {
 
     setSubmitting(true);
     try {
-      await supabase.from('tickets').insert({
+      const { data: ticket } = await supabase.from('tickets').insert({
         tenant_id: tenant.id,
         user_id: user.id,
         subject: subject.trim(),
@@ -54,7 +55,24 @@ export function NewTicketForm({ onCreated, onCancel }: Props) {
         priority,
         page_url: window.location.href,
         browser_info: { userAgent: navigator.userAgent },
-      });
+      }).select('id').single();
+
+      if (ticket) {
+        void notifySlack({
+          channel: 'tickets',
+          payload: {
+            tenant_name: tenant.name,
+            plan_name: tenant.plan_id ? 'Plano ativo' : undefined,
+            subject: subject.trim(),
+            category,
+            priority,
+            email: user.email ?? '',
+            description: description.trim(),
+            ticket_id: ticket.id,
+          },
+        });
+      }
+
       onCreated();
     } finally {
       setSubmitting(false);

@@ -6,6 +6,7 @@ import { Inbox as InboxIcon } from 'lucide-react';
 import { useCompanyFilter } from '@/hooks/useCompanyFilter';
 import { InboxCard } from '@/components/inbox/InboxCard';
 import { InvoiceDetailDrawer } from '@/components/faturas/InvoiceDetailDrawer';
+import { invalidateInvoiceLists, queryKeys } from '@/lib/queryKeys';
 import type { Invoice } from '@/types/database';
 
 export default function Inbox() {
@@ -16,7 +17,7 @@ export default function Inbox() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ['inbox-invoices', companyId],
+    queryKey: queryKeys.inboxByCompany(companyId),
     queryFn: async () => {
       let query = supabase
         .from('invoices')
@@ -43,11 +44,7 @@ export default function Inbox() {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inbox-invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['recent-invoices'] });
-    },
+    onSuccess: () => invalidateInvoiceLists(queryClient),
   });
 
   const handleApprove = (id: string) => {

@@ -4,17 +4,18 @@ import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { formatEUR } from '@/lib/utils/validation';
 import { Search, BadgeCheck } from 'lucide-react';
-import { SupplierDetailModal } from '@/components/fournisseurs/SupplierDetailModal';
+import { SupplierDetailModal } from '@/components/fornecedores/SupplierDetailModal';
 import type { Supplier } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
-export default function Fournisseurs() {
+export default function Fornecedores() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   const { data: suppliers, isLoading } = useQuery({
-    queryKey: ['suppliers', search],
+    queryKey: queryKeys.suppliersSearch(search),
     queryFn: async () => {
       let query = supabase
         .from('suppliers')
@@ -36,7 +37,7 @@ export default function Fournisseurs() {
   };
 
   const handleUpdated = () => {
-    queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.suppliers });
     // Refresh modal with updated data
     if (selectedSupplier) {
       const fresh = suppliers?.find((s) => s.id === selectedSupplier.id);
@@ -72,7 +73,7 @@ export default function Fournisseurs() {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">{t('sup.name')}</th>
-                <th className="px-4 py-3 font-medium text-gray-500">{t('inv.siret')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('inv.nif')}</th>
                 <th className="px-4 py-3 font-medium text-gray-500">{t('inv.metier')}</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-500">{t('sup.total_spent')}</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-500">{t('sup.invoice_count')}</th>

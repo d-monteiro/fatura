@@ -36,7 +36,7 @@ export default function Login() {
             Fatura<span className="text-accent">AI</span>
           </h1>
           <p className="mt-1 text-sm text-white/60">
-            Gestion intelligente de factures
+            Gestão inteligente de faturas
           </p>
         </div>
 
@@ -54,13 +54,13 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="email@exemple.fr"
+                placeholder="email@exemplo.pt"
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Mot de passe
+                Palavra-passe
               </label>
               <input
                 id="password"
@@ -85,7 +85,7 @@ export default function Login() {
               className="flex w-full items-center justify-center gap-2 rounded-xl gradient-primary px-4 py-3 text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Se connecter
+              Entrar
             </button>
           </form>
         </div>

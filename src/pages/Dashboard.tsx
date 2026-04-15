@@ -8,6 +8,8 @@ import { MetricCard } from '@/components/dashboard/MetricCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { CategoryDonut } from '@/components/dashboard/CategoryDonut';
 import { RecentInvoicesTable } from '@/components/dashboard/RecentInvoicesTable';
+import { queryKeys } from '@/lib/queryKeys';
+import { ConnectGoogleBanner } from '@/components/common/ConnectGoogleBanner';
 
 export default function Dashboard() {
   const { t } = useI18n();
@@ -15,7 +17,7 @@ export default function Dashboard() {
   const { companyId } = useCompanyFilter();
 
   const { data: metrics } = useQuery({
-    queryKey: ['dashboard-metrics', companyId],
+    queryKey: queryKeys.dashboardByCompany(companyId),
     queryFn: async () => {
       let query = supabase
         .from('invoices')
@@ -48,6 +50,8 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in space-y-4 sm:space-y-6">
       <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.dashboard')}</h1>
+
+      <ConnectGoogleBanner />
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

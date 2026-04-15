@@ -6,21 +6,21 @@ export function CTA() {
   return (
     <section className="py-20 bg-primary text-primary-foreground">
       <div className="mx-auto max-w-3xl px-4 text-center">
-        <h2 className="text-3xl font-bold mb-4">
-          Pronto para automatizar as suas faturas?
+        <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+          Pronto para começar?
         </h2>
-        <p className="text-lg opacity-90 mb-8">
-          Comece em 5 minutos. Configuração guiada, teste grátis de 14 dias.
+        <p className="text-lg opacity-90 mb-8 max-w-xl mx-auto">
+          Configuração em 5 minutos. Cancele a qualquer momento.
         </p>
         <Button
           asChild
           size="lg"
           variant="secondary"
-          className="gap-2 text-base"
+          className="h-14 px-8 text-base"
         >
-          <Link to="/onboarding">
-            Começar gratuitamente
-            <ArrowRight className="h-4 w-4" />
+          <Link to="/onboarding" className="inline-flex items-center whitespace-nowrap gap-2">
+            Começar grátis · 7 dias
+            <ArrowRight className="h-5 w-5" />
           </Link>
         </Button>
       </div>

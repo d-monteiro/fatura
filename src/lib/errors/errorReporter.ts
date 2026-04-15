@@ -4,9 +4,12 @@
  */
 
 import { supabase } from '@/lib/supabase/client';
+import { notifySlack } from '@/lib/slack/notify';
 import type { ErrorContext } from './errorTypes';
 
 export async function reportError(error: Error, context?: ErrorContext): Promise<void> {
+  const level = context?.level ?? 'error';
+
   // 1. Always log to console
   console.error('[FaturaAI Error]', error.message, context);
 
@@ -15,7 +18,7 @@ export async function reportError(error: Error, context?: ErrorContext): Promise
     await supabase.from('error_logs').insert({
       tenant_id: context?.tenantId ?? null,
       user_id: context?.userId ?? null,
-      level: context?.level ?? 'error',
+      level,
       source: 'frontend',
       function_name: context?.component ?? context?.function ?? null,
       message: error.message,
@@ -28,6 +31,19 @@ export async function reportError(error: Error, context?: ErrorContext): Promise
     });
   } catch {
     // Silently fail — don't error on error reporting
+  }
+
+  // 3. Notify Slack for critical errors only
+  if (level === 'error' || level === 'fatal') {
+    void notifySlack({
+      channel: 'alerts',
+      payload: {
+        level,
+        source: 'frontend',
+        function_name: context?.component ?? context?.function,
+        message: error.message,
+      },
+    });
   }
 }
 

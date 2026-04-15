@@ -6,6 +6,8 @@ interface SelectContextValue {
   onValueChange: (value: string) => void;
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  registerItem: (value: string, label: React.ReactNode) => void;
+  labels: Map<string, React.ReactNode>;
 }
 
 const SelectContext = React.createContext<SelectContextValue>({
@@ -13,6 +15,8 @@ const SelectContext = React.createContext<SelectContextValue>({
   onValueChange: () => {},
   open: false,
   setOpen: () => {},
+  registerItem: () => {},
+  labels: new Map(),
 });
 
 function Select({
@@ -28,11 +32,23 @@ function Select({
 }) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const [open, setOpen] = React.useState(false);
+  const [labels, setLabels] = React.useState<Map<string, React.ReactNode>>(new Map());
   const value = controlledValue ?? internalValue;
   const handleChange = onValueChange ?? setInternalValue;
 
+  const registerItem = React.useCallback((v: string, label: React.ReactNode) => {
+    setLabels((prev) => {
+      if (prev.get(v) === label) return prev;
+      const next = new Map(prev);
+      next.set(v, label);
+      return next;
+    });
+  }, []);
+
   return (
-    <SelectContext.Provider value={{ value, onValueChange: handleChange, open, setOpen }}>
+    <SelectContext.Provider
+      value={{ value, onValueChange: handleChange, open, setOpen, registerItem, labels }}
+    >
       <div className="relative">
         {children}
       </div>
@@ -68,8 +84,10 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttrib
 SelectTrigger.displayName = 'SelectTrigger';
 
 function SelectValue({ placeholder }: { placeholder?: string }) {
-  const { value } = React.useContext(SelectContext);
-  return <span>{value || placeholder}</span>;
+  const { value, labels } = React.useContext(SelectContext);
+  if (!value) return <span className="text-muted-foreground">{placeholder}</span>;
+  const label = labels.get(value);
+  return <span>{label ?? value}</span>;
 }
 
 function SelectContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -87,13 +105,14 @@ function SelectContent({ className, children, ...props }: React.HTMLAttributes<H
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open, setOpen]);
 
-  if (!open) return null;
-
+  // Always render children so SelectItem components can register their labels
+  // in the context. Hide visually when closed.
   return (
     <div
       ref={ref}
       className={cn(
-        'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-white dark:bg-neutral-900 p-1 text-foreground shadow-lg',
+        'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-white p-1 text-black shadow-lg',
+        !open && 'hidden',
         className,
       )}
       {...props}
@@ -109,15 +128,19 @@ function SelectItem({
   children,
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { value: string }) {
-  const { value: selectedValue, onValueChange, setOpen } = React.useContext(SelectContext);
+  const { value: selectedValue, onValueChange, setOpen, registerItem } = React.useContext(SelectContext);
+
+  React.useEffect(() => {
+    registerItem(value, children);
+  }, [value, children, registerItem]);
 
   return (
     <div
       role="option"
       aria-selected={selectedValue === value}
       className={cn(
-        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-        selectedValue === value && 'bg-accent text-accent-foreground',
+        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm text-black outline-none hover:bg-gray-100',
+        selectedValue === value && 'bg-gray-100 font-medium',
         className,
       )}
       onClick={() => {

@@ -3,14 +3,16 @@ import { NavLink, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Inbox, FileText, Upload,
-  Users, Settings, Zap, Globe, X, LogOut,
-  CreditCard, LifeBuoy,
+  Users, Settings, Zap, X, LogOut,
+  CreditCard, LifeBuoy, ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { cn } from '@/lib/cn';
 import { CompanySelector } from './CompanySelector';
 import type { Company } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -20,7 +22,8 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [companyOpen, setCompanyOpen] = useState(false);
-  const { lang, setLang, t } = useI18n();
+  const { t } = useI18n();
+  const { isAdmin } = useIsAdmin();
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: t('nav.dashboard') },
@@ -32,10 +35,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { to: '/billing', icon: CreditCard, label: t('nav.billing') },
     { to: '/tickets', icon: LifeBuoy, label: t('nav.tickets') },
     { to: '/settings', icon: Settings, label: t('nav.settings') },
+    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 
   const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
+    queryKey: queryKeys.companies,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('companies').select('*').eq('is_active', true).order('name');
@@ -106,14 +110,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Footer */}
         <div className="border-t border-white/10 p-3 space-y-1">
-          <button onClick={() => setLang(lang === 'fr' ? 'pt' : 'fr')}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors">
-            <Globe size={18} />
-            <span>{lang === 'fr' ? 'FR' : 'PT'}</span>
-            <span className="ml-auto text-xs text-white/40">
-              {lang === 'fr' ? 'Portugais' : 'Fran\u00e7ais'}
-            </span>
-          </button>
           <button onClick={handleLogout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-white/10 hover:text-red-300 transition-colors">
             <LogOut size={18} />

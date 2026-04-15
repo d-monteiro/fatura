@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 import type { Invoice } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface RecentInvoicesTableProps {
   companyId: string | null;
@@ -14,7 +15,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
   const navigate = useNavigate();
 
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ['recent-invoices', companyId],
+    queryKey: queryKeys.recentByCompany(companyId),
     queryFn: async () => {
       let query = supabase
         .from('invoices')
@@ -71,7 +72,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
                 onClick={() => handleRowClick(inv.id)}
                 className="cursor-pointer border-b border-gray-50 transition-all duration-150 hover:bg-blue-50/60 hover:shadow-sm"
               >
-                <td className="px-4 py-3 text-gray-600 sm:px-0">{formatDateFR(inv.doc_date)}</td>
+                <td className="px-4 py-3 text-gray-600 sm:px-0">{formatDatePT(inv.doc_date)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900 sm:px-0">{inv.supplier_name ?? '\u2014'}</td>
                 <td className="hidden py-3 text-gray-600 sm:table-cell">{inv.metier ?? '\u2014'}</td>
                 <td className="px-4 py-3 text-right font-medium text-gray-900 sm:px-0">

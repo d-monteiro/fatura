@@ -1,176 +1,158 @@
 # FaturaAI
 
-## Projeto
+SaaS de faturação multi-empresa com IA (OCR + extração). Mercado: PT. Dev único.
 
-Plataforma de faturacao com IA. Multi-empresa.
+## Stack real (verificar sempre em `package.json`)
 
-## Stack
+- React 19 + Vite 8 + TypeScript 5.9 (strict, zero erros no build)
+- Shadcn/UI + Tailwind 4
+- TanStack React Query 5 (server state) + React Context (auth, i18n, tenant, errors)
+- React Router 7
+- Supabase (Postgres + Auth + Storage + Edge Functions) — ref `sxfwprydmllovnxxjhrh`
+- IA: OpenRouter → Gemini 2.5 Pro (visão directa, sem OCR separado)
+- Google APIs: Drive (hierarquia de pastas), Sheets (export), Gmail (sync cron 23:58)
+- Export: SheetJS (.xlsx) + JSZip
+- Deploy: Vercel (FE) + Supabase Cloud (BE)
+- **Sem** react-hook-form, sem zod, sem lib de i18n (Context caseiro).
 
-- Frontend: React 18 + Vite 8 + TypeScript 5.9 (strict) + Shadcn/UI + Tailwind CSS 4
-- Backend: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
-- State: TanStack React Query (server state) + React Context (auth, i18n)
-- AI/OCR: OpenRouter → Gemini 2.5 Pro (visao direta, sem OCR separado)
-- Storage ficheiros: Google Drive API (hierarquia de pastas)
-- Email sync: Gmail API via Edge Function (cron 23:58)
-- Export: Excel .xlsx via SheetJS, ZIP via JSZip
-- Deploy: Vercel (frontend) + Supabase Cloud (backend)
-- Supabase ref: sxfwprydmllovnxxjhrh
+## Idioma
 
-## Regras de Desenvolvimento
+- UI e código (identifiers, comentários, commits) em **PT-PT** com acordo ortográfico.
+- Codebase nasceu em francês — ver memory `project_fr_to_pt.md`. Rename `fournisseurs/` → `fornecedores/` em curso. Terminologia: fornecedor, IVA, NIF, autoliquidação IVA (nunca TVA/SIRET em código novo).
 
-### Codigo
+## Regras não negociáveis (anti-slop)
 
-- Componentes max 150 linhas. Se exceder, split automaticamente. Separar UI de logica
-- TypeScript strict, zero erros no build
-- Tailwind + shadcn/ui para toda a UI
-- Testar com `npm run build` antes de considerar tarefa feita
-- Preferir editar ficheiros existentes a criar novos
-- Nao adicionar features, refactoring, ou melhorias alem do pedido
-- Seguir patterns existentes no codebase
-- Formatar valores: `1 234,56 EUR` (espacos milhares, virgula decimais)
-- Formatar datas: `DD/MM/AAAA`
-- Moeda: EUR
+Esta codebase foi marcada pelo dono como "AI slop". Antes de escrever qualquer linha:
 
-### Seguranca (CRITICO)
+1. **Grep primeiro, escrever depois.** Se existe algo parecido, consolidar em vez de duplicar. Alvos: `src/types/database.ts` (enums), `src/lib/utils/`, `src/components/ui/`.
+2. **Componentes ≤150 linhas.** Se o ficheiro existente já viola, split ao tocar. Não agravar.
+3. **Sem comentários decorativos.** Nada de JSDoc a repetir o nome da função. Só comentários para *porquê* não óbvio.
+4. **Sem `try/catch { return null }` silencioso.** Logar ou propagar.
+5. **Sem `any` nem `Record<string, unknown>`** como escape hatch. Definir o tipo.
+6. **Sem abstracções preventivas.** YAGNI. Três linhas repetidas > factory prematura.
+7. **Sem ficheiros `.md` novos** (planos, análises, READMEs) sem pedido explícito.
+8. **Não inventar features.** Só o que foi pedido.
+9. Formatar EUR: `1 234,56 EUR`. Datas: `DD/MM/AAAA`.
 
-- API keys NUNCA no frontend — so em Edge Functions (`Deno.env.get`)
-- RLS em TODAS as tabelas — usar `(select auth.uid())` em policies (NAO `auth.uid()` bare)
-- Edge Functions DEVEM verificar JWT do caller via `supabase.auth.getUser()`
-- CORS: apenas dominios autorizados (`faturai-lgm.vercel.app` + `localhost:5173`)
-- NUNCA usar `Access-Control-Allow-Origin: "*"` em Edge Functions
-- Soft delete SEMPRE (deleted_at em vez de DELETE real)
-- Audit log para alteracoes em faturas (quem mudou o que, quando)
-- Dados sensiveis (tokens OAuth, SIRET) protegidos por RLS
-- Nunca expor SUPABASE_SERVICE_ROLE_KEY no frontend
-- OAuth state parameter deve ser assinado (HMAC) para prevenir forgery
+## Segurança (crítico)
 
-### Armadilhas Conhecidas
+- API keys **nunca** no frontend — só Edge Functions via `Deno.env.get`.
+- RLS em todas as tabelas, usando `(select auth.uid())` (não `auth.uid()` bare).
+- Edge Functions verificam JWT via `supabase.auth.getUser()`.
+- CORS whitelist via env `ALLOWED_ORIGINS` (ver [supabase/functions/_shared/cors.ts](supabase/functions/_shared/cors.ts)). Default: `faturas.flowzi.pt` + `localhost:5173`. Nunca `*`.
+- Soft delete (`deleted_at`). Nunca DELETE real em faturas.
+- Audit log em mutações de faturas.
+- OAuth state parameter deve ser HMAC-assinado (pendente — C3).
+- Bucket `invoices` deve ser privado (pendente — H1).
+- Tokens OAuth encriptados at rest com pgcrypto (pendente — H2).
 
-- **AUTH DEADLOCK:** NUNCA await Supabase calls dentro de `onAuthStateChange` callback — causa `navigator.locks` deadlock
-- **Auth loading state:** Usar condicao THREE-WAY: `loading ? null : isAuthenticated ? menu : login`
-- **RLS recursion:** Policies que fazem query a mesma tabela → usar SECURITY DEFINER helpers
-- **Edge function secrets:** Apos adicionar secrets no Dashboard, pode precisar REDEPLOY
-- **Gemini markdown wrapping:** Gemini por vezes devolve JSON com ```json wrapping — sempre limpar
-- **French number parsing:** Virgula e decimal, espaco e milhares. NUNCA confundir com formato US
-- **TVA autoliquidation:** Faturas de sous-traitants tem 0% TVA — campo especifico obrigatorio
-- **HEIC fotos iPhone:** Converter para JPEG server-side antes de enviar ao Gemini
-- **CORS placeholder:** NUNCA usar `{{CLIENT_DOMAIN}}` — sempre usar dominio real
+## Setup Google Cloud Console (manual)
+
+OAuth Google usa scopes sensíveis (`gmail.readonly`, `gmail.modify`) que exigem Google Verification para produção aberta. Enquanto em Testing:
+
+1. `console.cloud.google.com` → APIs & Services → OAuth consent screen
+2. User type: **External**, Publishing status: **Testing**
+3. **Test users**: adicionar cada email que vai ligar-se via OAuth (até 100). Obrigatório — senão Google bloqueia com `access_denied`.
+4. Scopes centralizados em [src/lib/google/scopes.ts](src/lib/google/scopes.ts). Helper único de redirect: [src/lib/google/oauth.ts](src/lib/google/oauth.ts) (`redirectToGoogleOAuth`). Nunca construir URLs OAuth à mão.
+5. Scope Gmail: **só** `gmail.readonly` (sensitive, sem CASA). Não usar `gmail.modify` (restricted, exige CASA $$). Dedup de emails feito em BD via `email_message_id`, sem labels.
+6. Ir a prod aberto: submeter para Google Verification (demo-video + justificação dos scopes).
+
+## Armadilhas conhecidas
+
+- **Auth deadlock:** nunca `await` Supabase dentro de `onAuthStateChange` — `navigator.locks` deadlock.
+- **Auth loading:** usar three-way `loading ? null : isAuthenticated ? x : y`.
+- **RLS recursion:** policies que re-query a mesma tabela exigem helpers `SECURITY DEFINER`.
+- **Edge secrets:** adicionar secret no dashboard exige REDEPLOY da função.
+- **Gemini wrapping:** às vezes devolve ```json envolvido; limpar antes de `JSON.parse`.
+- **Parsing números PT/FR:** vírgula decimal, espaço milhares. Nunca assumir formato US.
+- **HEIC iPhone:** converter para JPEG server-side antes do Gemini.
 
 ## Comandos
 
 ```bash
-npm run dev          # Dev server (localhost:5173)
-npm run build        # Build producao (testar SEMPRE)
-npm run lint         # ESLint
+npm run dev      # localhost:5173
+npm run build    # tsc -b && vite build — correr SEMPRE antes de terminar
+npm run lint     # ESLint 9 (passa clean; mantê-lo assim)
 ```
 
-## Estrutura do Projeto
+## Estrutura real
 
 ```
 src/
   components/
-    ui/                    # Shadcn UI (13 components)
-    common/                # LoadingSpinner
-    layout/                # AppLayout, Sidebar, MobileHeader, CompanySelector
-    dashboard/             # MetricCard, TrendChart, CategoryDonut, RecentInvoicesTable
-    faturas/               # FaturasTable, Filters, Drawers, EditModal, Export (14 components)
-    upload/                # DropZone, ProcessingOverlay, StatusCards (6 components)
-    inbox/                 # InboxCard
-    settings/              # CompanyList, EmailAccounts, GoogleAccounts
-    automations/           # ConnectedAccounts, CheckEmails, AccountRow (6 components)
-    fournisseurs/          # SupplierDetailModal, SupplierEditForm
-  contexts/
-    AuthContext.tsx         # Supabase auth state (user, session)
-    I18nContext.tsx          # Language switching FR/PT
-  hooks/
-    useUploadDeps.ts        # Upload dependencies (OAuth tokens, companies)
+    ui/              shadcn (15)
+    common/          LoadingSpinner
+    layout/          AppLayout, Sidebar, MobileHeader, CompanySelector
+    dashboard/       MetricCard, TrendChart, CategoryDonut, RecentInvoicesTable
+    faturas/         Table, Filters, Drawers, Edit* (DUPLICADOS — ver tech_debt)
+    upload/          DropZone, ProcessingOverlay, StatusCards
+    inbox/           InboxCard
+    settings/        CompanyList, EmailAccounts, GoogleAccounts
+    automations/     ConnectedAccounts, CheckEmails, AccountRow
+    fornecedores/    SupplierDetailModal, SupplierEditForm (rename em curso)
+    onboarding/      Wizard + Steps (vários >150 LOC)
+    billing/         PlanSelector
+    landing/         Hero, Pricing, FAQ, CTA
+    tickets/         FeedbackWidget, NewTicketForm
+  contexts/          Auth, I18n, Tenant, Errors
+  hooks/             useUploadDeps
   lib/
-    supabase/client.ts      # Supabase client (anon key only)
-    google/drive.ts         # Google Drive API (folder hierarchy, upload)
-    google/sheets.ts        # Google Sheets API
-    gemini.ts               # Frontend → Edge Function analyze-document
-    invoiceProcessor.ts     # Pipeline completo upload → analyze → save → drive
-    rateLimiter.ts          # Rate limiting APIs (client-side)
-    utils/validation.ts     # formatEUR, formatDate, validation helpers
-    utils/suppliers.ts      # normalizeSupplierName (60+ suppliers)
-    cn.ts                   # Tailwind class merger
-    i18n.ts                 # Traducoes FR/PT
-  pages/
-    Dashboard.tsx           # Metrics, charts, recent invoices
-    Inbox.tsx               # New invoices awaiting review
-    Faturas.tsx             # Invoice management, filtering, bulk actions
-    Upload.tsx              # Document upload & AI processing
-    Fournisseurs.tsx        # Supplier management
-    Settings.tsx            # Company & email settings
-    Automations.tsx         # Email sync, Google account config
-    Login.tsx               # Supabase email/password auth
-  types/
-    database.ts             # Invoice, Company, Supplier, Category, enums
+    supabase/client.ts
+    google/drive.ts       (402 LOC — split ao tocar)
+    google/sheets.ts
+    gemini.ts             frontend → Edge Function
+    invoiceProcessor.ts   pipeline upload→analyze→save→drive (242 LOC)
+    errors/errorReporter.ts
+    utils/validation.ts, utils/suppliers.ts
+    i18n.ts               pares FR/PT (decidir futuro)
+  pages/             Dashboard, Inbox, Faturas, Upload, Fornecedores, Settings,
+                     Automations, Login, Billing, Tickets, Onboarding, Landing,
+                     NotFound, admin/{Errors,Onboarding,Tenants,Tickets}
+  types/             database.ts (260 LOC), tenant.ts (163 LOC)
+
+database/            SCHEMA.sql, RLS_POLICIES.sql, CRON.sql (manual, não CLI)
 supabase/
+  migrations/        VAZIO — sem versionamento de DB (dívida)
   functions/
-    analyze-document/       # OpenRouter → Gemini 2.5 Pro (prompt FR construction)
-    sync-email/             # Gmail API sync (cron 23:58, 2 contas)
-    oauth-callback/         # Google OAuth token exchange
-    refresh-token/          # Google token renewal (5min buffer)
+    analyze-document/    OpenRouter → Gemini 2.5 Pro
+    sync-email/          Gmail cron 23:58
+    oauth-callback/      Google OAuth redirect
+    refresh-token/       renova tokens (5min buffer)
+    slack-notify/        notificações enterprise
+    _shared/             promptBuilder tenant-aware
 ```
 
+## Edge Function secrets (`Deno.env.get`)
 
+`OPENROUTER_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `FRONTEND_URL`.
 
-## Edge Functions
+## Frontend env (`VITE_*`)
 
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GOOGLE_CLIENT_ID`.
 
-| Funcao           | Trigger                | Auth            | CORS      | Descricao                              |
-| ---------------- | ---------------------- | --------------- | --------- | -------------------------------------- |
-| analyze-document | POST (frontend)        | JWT verify      | Whitelist | OpenRouter → Gemini 2.5 Pro analise FR |
-| sync-email       | POST (frontend) / cron | JWT verify      | Whitelist | Gmail API 2 contas                     |
-| oauth-callback   | GET (Google redirect)  | State param     | Whitelist | Guardar tokens OAuth                   |
-| refresh-token    | POST (frontend)        | JWT + ownership | Whitelist | Renovar tokens expirados               |
+## Rate limits / timeouts
 
+- Gemini: 60 req/min, timeout 120s.
+- Drive: 100 req/min, upload 120s / ops 30s.
+- Sheets: 100 req/min, 30s.
+- Gmail: 250 quota units/user/sec.
 
-### Edge Function Secrets (Deno.env.get)
+## Dívida técnica ativa (atacar antes de features novas)
 
-- `OPENROUTER_API_KEY` — analyze-document
-- `GOOGLE_CLIENT_ID` — sync-email, oauth-callback, refresh-token
-- `GOOGLE_CLIENT_SECRET` — sync-email, oauth-callback, refresh-token
-- `SUPABASE_URL` — all except analyze-document
-- `SUPABASE_SERVICE_ROLE_KEY` — sync-email, oauth-callback, refresh-token
-- `SUPABASE_ANON_KEY` — refresh-token, analyze-document, sync-email
-- `FRONTEND_URL` — oauth-callback
+Detalhe em memory `project_tech_debt.md`. Resumo:
 
-### Frontend Env Vars (VITE_*)
+- Duplicados: `InvoiceEditDialog` vs `InvoiceEditModal`; 8× redefinição de `METIERS`/`NATURES`/`COST_TYPES`.
+- Falta factory de query keys (4 padrões inconsistentes de invalidation).
+- God components: OnboardingWizard 271 LOC, drive.ts 402 LOC, invoiceProcessor 242 LOC.
+- `supabase/migrations/` vazio — DDL manual em `database/SCHEMA.sql` com DROP no topo.
+- `any` em 31 ficheiros apesar de `strict: true`.
+- `i18n.ts` ainda bilingue FR/PT — decidir.
+- Rename `fournisseurs/` → `fornecedores/` incompleto.
 
-- `VITE_SUPABASE_URL` — Supabase API endpoint
-- `VITE_SUPABASE_ANON_KEY` — Supabase anonymous key (public)
-- `VITE_GOOGLE_CLIENT_ID` — Google OAuth client ID
+## Fluxo
 
-## Rate Limits
-
-
-| API           | Limite                   |
-| ------------- | ------------------------ |
-| Gemini        | 60 req/min               |
-| Google Drive  | 100 req/min              |
-| Google Sheets | 100 req/min              |
-| Gmail API     | 250 quota units/user/sec |
-
-
-## Timeouts
-
-
-| API                      | Timeout |
-| ------------------------ | ------- |
-| Gemini (Edge Function)   | 120s    |
-| Google Drive (upload)    | 120s    |
-| Google Drive (operacoes) | 30s     |
-| Google Sheets            | 30s     |
-
-
-## Security Remediations Pendentes
-
-- Assinar OAuth state param com HMAC (C3 — prevenir token injection)
-- Tornar storage bucket `invoices` privado (H1)
-- Encriptar OAuth tokens at rest com pgcrypto (H2)
-- Adicionar RLS por company_id em invoices (M2)
-- Restringir suppliers/categories RLS a admin (M3/M4)
-- Rate limiting server-side nas Edge Functions (L2)
-
+- Explorações >3 queries → `Agent` com `subagent_type=Explore`.
+- Antes de commits importantes → `Agent` com `subagent_type=code-reviewer` (em `.claude/agents/`).
+- Antes de deploy → `Agent` com `subagent_type=security-auditor` (em `.claude/agents/`).
+- Skill global `simplify` para review de código alterado.
+- Memory em `~/.claude/projects/-home-up202306122-Flowzi-fatura/memory/` — `MEMORY.md` é o índice.

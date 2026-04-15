@@ -1,5 +1,5 @@
 import { Label } from '@/components/ui/label';
-import { FOLDER_TEMPLATES, type OnboardingData } from './onboardingTypes';
+import { type OnboardingData } from './onboardingTypes';
 import { HardDrive, Cloud } from 'lucide-react';
 
 interface Props {
@@ -12,7 +12,7 @@ export function StepStorage({ data, onChange }: Props) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Organização e armazenamento</h2>
-        <p className="text-muted-foreground mt-1">Como pretende organizar os seus documentos?</p>
+        <p className="text-muted-foreground mt-1">Onde pretende guardar os seus ficheiros de faturas?</p>
       </div>
 
       <div className="space-y-4">
@@ -48,27 +48,6 @@ export function StepStorage({ data, onChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>Estrutura de pastas</Label>
-          <div className="space-y-2">
-            {FOLDER_TEMPLATES.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => onChange({ folderStructure: t.value })}
-                className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
-                  data.folderStructure === t.value
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted hover:border-primary/50'
-                }`}
-              >
-                <div className="font-medium text-sm">{t.label}</div>
-                <div className="text-xs text-muted-foreground font-mono mt-1">{t.example}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
           <label className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50">
             <div>
               <div className="font-medium text-sm">Extrato automático em Sheets / Excel</div>
@@ -81,6 +60,15 @@ export function StepStorage({ data, onChange }: Props) {
               className="rounded h-5 w-5"
             />
           </label>
+        </div>
+
+        <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-1">
+          <p className="text-xs text-primary">
+            As pastas serão organizadas automaticamente por ano e mês. Pode personalizar a estrutura nas Definições depois da configuração.
+          </p>
+          <p className="text-xs text-primary">
+            A ligação à tua conta Google (autenticação Drive/Gmail) é feita depois de criares o acesso.
+          </p>
         </div>
       </div>
     </div>

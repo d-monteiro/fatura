@@ -3,16 +3,13 @@ import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import type { Supplier, Metier, NatureDepense, CostType } from '@/types/database';
+import { METIERS, NATURES, COST_TYPES } from '@/lib/constants';
 
 interface Props {
   supplier: Supplier;
   onCancel: () => void;
   onSaved: () => void;
 }
-
-const METIERS: Metier[] = ['electricite', 'plomberie', 'chauffage', 'platrerie', 'autre'];
-const NATURES: NatureDepense[] = ['materiaux', 'sous_traitants', 'location_materiel', 'restauration', 'carburant', 'atelier', 'assurances', 'comptabilite', 'fournitures_bureau', 'autre'];
-const COSTS: CostType[] = ['cout_fixe', 'cout_variable'];
 
 export function SupplierEditForm({ supplier, onCancel, onSaved }: Props) {
   const { t } = useI18n();
@@ -82,13 +79,13 @@ export function SupplierEditForm({ supplier, onCancel, onSaved }: Props) {
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('sup.name')} field="name" />
-        <Field label={t('inv.siret')} field="siret" mono />
+        <Field label={t('inv.nif')} field="siret" mono />
         <Field label={t('sup.tva_intracom')} field="tva_intracom" mono />
         <Field label={t('sup.iban')} field="iban" mono />
         <div className="col-span-2"><Field label={t('sup.address')} field="address" /></div>
-        <Sel label={t('inv.metier')} field="default_metier" opts={METIERS} />
-        <Sel label={t('inv.nature')} field="default_nature" opts={NATURES} />
-        <Sel label={t('inv.cost_type')} field="default_cost_type" opts={COSTS} />
+        <Sel label={t('inv.metier')} field="default_metier" opts={[...METIERS]} />
+        <Sel label={t('inv.nature')} field="default_nature" opts={[...NATURES]} />
+        <Sel label={t('inv.cost_type')} field="default_cost_type" opts={[...COST_TYPES]} />
         <div className="flex items-end pb-1">
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={form.is_sous_traitant} onChange={(e) => update('is_sous_traitant', e.target.checked)} className="rounded" />

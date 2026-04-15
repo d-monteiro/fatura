@@ -1,5 +1,5 @@
 import { Check, Pencil, X } from 'lucide-react';
-import { formatEUR, formatDateFR } from '@/lib/utils/validation';
+import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 import type { Invoice } from '@/types/database';
 
@@ -26,7 +26,7 @@ export function InboxCard({ invoice, onApprove, onEdit, onReject }: InboxCardPro
             {invoice.supplier_name ?? t('sup.unknown')}
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            {formatDateFR(invoice.doc_date)} &middot; {invoice.doc_number ?? '—'}
+            {formatDatePT(invoice.doc_date)} &middot; {invoice.doc_number ?? '—'}
           </p>
         </div>
         <p className="ml-4 text-lg font-bold text-gray-900">

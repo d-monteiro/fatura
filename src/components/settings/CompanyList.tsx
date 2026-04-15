@@ -1,22 +1,18 @@
-import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { Building2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
 import { CompanyCard } from './CompanyCard';
 import type { Company } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
 
 type CompanyWithToken = Company & { token_expiry?: string | null; refresh_token?: string | null };
 
 export function CompanyList() {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
+    queryKey: queryKeys.companies,
     queryFn: async () => {
       const { data } = await supabase
         .from('companies')
@@ -35,21 +31,6 @@ export function CompanyList() {
       }) as CompanyWithToken[];
     },
   });
-
-  // Handle OAuth callback
-  useEffect(() => {
-    const oauthStatus = searchParams.get('oauth');
-    if (oauthStatus === 'success') {
-      const email = searchParams.get('email');
-      toast.success(t('company.oauth_success') + (email ? ` (${email})` : ''));
-      queryClient.invalidateQueries({ queryKey: ['companies'] });
-      setSearchParams((p) => { p.delete('oauth'); p.delete('email'); p.delete('company_id'); return p; });
-    } else if (oauthStatus === 'error') {
-      const msg = searchParams.get('message');
-      toast.error(msg || t('company.oauth_error'));
-      setSearchParams((p) => { p.delete('oauth'); p.delete('message'); return p; });
-    }
-  }, [searchParams, setSearchParams, queryClient, t]);
 
   return (
     <div className="border border-border rounded-xl p-6">

@@ -11,9 +11,9 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const GEMINI_TIMEOUT_MS = 120_000;
 
 const REJECTION_MESSAGES: Record<string, string> = {
-  'pas_un_document': "Ce n'est pas une facture ou document financier. Veuillez envoyer une image de facture, reçu ou avoir.",
-  'document_illisible': 'Le document est illisible ou trop flou. Veuillez envoyer une image de meilleure qualité.',
-  'pas_une_facture': "Ce document n'est pas une facture de dépense.",
+  'pas_un_document': 'Isto não é uma fatura ou documento financeiro. Por favor envie uma imagem de fatura, recibo ou nota de crédito.',
+  'document_illisible': 'O documento está ilegível ou demasiado desfocado. Por favor envie uma imagem de melhor qualidade.',
+  'pas_une_facture': 'Este documento não é uma fatura de despesa.',
 };
 
 function validateInvoice(inv: GeminiInvoiceData): void {
@@ -22,17 +22,18 @@ function validateInvoice(inv: GeminiInvoiceData): void {
     throw new Error(REJECTION_MESSAGES[reason] || REJECTION_MESSAGES['pas_un_document']);
   }
   if (!inv.supplier_name || !inv.doc_date || inv.montant_ttc === null) {
-    throw new Error("Impossible d'extraire toutes les données. Vérifiez que l'image est complète et lisible.");
+    throw new Error('Não foi possível extrair todos os dados. Verifique se a imagem está completa e legível.');
   }
 }
 
 export async function analyzeInvoiceWithGemini(
   fileData: string,
   mimeType: string,
+  tenantId?: string | null,
 ): Promise<GeminiInvoiceData[]> {
   try {
     await geminiLimiter.waitForSlot();
-    if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL non configurée');
+    if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL não configurada');
 
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
     const controller = new AbortController();
@@ -45,7 +46,7 @@ export async function analyzeInvoiceWithGemini(
         'apikey': anonKey,
         'Authorization': `Bearer ${anonKey}`,
       },
-      body: JSON.stringify({ data: fileData, mimeType }),
+      body: JSON.stringify({ data: fileData, mimeType, tenantId: tenantId ?? null }),
       signal: controller.signal,
     });
 
@@ -53,7 +54,7 @@ export async function analyzeInvoiceWithGemini(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-      throw new Error(errorData.error || `Erreur serveur: ${response.status}`);
+      throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
     }
 
     const data = await response.json();
@@ -68,8 +69,8 @@ export async function analyzeInvoiceWithGemini(
   } catch (error) {
     throw new Error(
       error instanceof Error
-        ? `Échec de l'analyse: ${error.message}`
-        : 'Erreur inconnue lors du traitement'
+        ? `Falha na análise: ${error.message}`
+        : 'Erro desconhecido ao processar'
     );
   }
 }
