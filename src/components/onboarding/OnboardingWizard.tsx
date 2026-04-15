@@ -13,7 +13,7 @@ import { StepReview } from './StepReview';
 import { StepPayment } from './StepPayment';
 import { EnterpriseContactForm } from './EnterpriseContactForm';
 import { AccountInlinePanel } from './AccountInlinePanel';
-import { DEFAULT_ONBOARDING_DATA, type OnboardingData } from './onboardingTypes';
+import { type OnboardingData } from './onboardingTypes';
 import {
   loadStoredOnboarding,
   clearStoredOnboarding,
