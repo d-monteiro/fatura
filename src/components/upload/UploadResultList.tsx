@@ -40,7 +40,7 @@ export function UploadResultList({ files, isProcessing, onClear }: Props) {
     <div className="rounded-xl border bg-white">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h3 className="text-sm font-semibold text-gray-700">
-          {t('upload.files_count').replace('fichier(s)', `${files.length} fichier(s)`)}
+          {files.length} {t('upload.files_count')}
         </h3>
         {!isProcessing && (
           <button onClick={onClear} className="text-xs text-gray-500 hover:text-gray-700">

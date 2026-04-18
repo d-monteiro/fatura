@@ -47,12 +47,29 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
 
   const deleteToken = useMutation({
     mutationFn: async (tokenId: string) => {
-      await supabase.from('user_oauth_tokens').delete().eq('id', tokenId);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!supabaseUrl || !session) throw new Error('Sessão em falta');
+      const resp = await fetch(`${supabaseUrl}/functions/v1/revoke-oauth-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ token_id: tokenId }),
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        throw new Error(`Falha a revogar: ${detail.slice(0, 160)}`);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.oauthTokens });
+      qc.invalidateQueries({ queryKey: queryKeys.emailAccounts });
       qc.invalidateQueries({ queryKey: queryKeys.companies });
+      toast.success('Conta Google desligada e revogada');
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const linkToCompany = useMutation({

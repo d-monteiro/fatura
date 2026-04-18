@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Inbox } from 'lucide-react';
+import { LayoutDashboard, FileText } from 'lucide-react';
 
 interface Props {
   logo: string | null;
@@ -41,7 +41,6 @@ export function BrandPreview({ logo, primary, secondary, name }: Props) {
         <div className="p-3 space-y-1.5 bg-background/80">
           <PreviewItem icon={<LayoutDashboard className="h-3.5 w-3.5" />} label="Dashboard" active color={primary} />
           <PreviewItem icon={<FileText className="h-3.5 w-3.5" />} label="Faturas" />
-          <PreviewItem icon={<Inbox className="h-3.5 w-3.5" />} label="Inbox" />
           <div className="pt-2 mt-2 border-t flex items-center gap-2">
             <div
               className="h-6 w-6 rounded-full border-2 border-white shadow flex items-center justify-center overflow-hidden"

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { NavLink, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  LayoutDashboard, Inbox, FileText, Upload,
-  Users, Settings, Zap, X, LogOut,
+  LayoutDashboard, FileText, Upload,
+  Users, Settings, X, LogOut,
   CreditCard, LifeBuoy, ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useTenant } from '@/contexts/TenantContext';
 import { cn } from '@/lib/cn';
 import { CompanySelector } from './CompanySelector';
 import type { Company } from '@/types/database';
@@ -24,14 +25,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [companyOpen, setCompanyOpen] = useState(false);
   const { t } = useI18n();
   const { isAdmin } = useIsAdmin();
+  const { tenant } = useTenant();
+  const tenantId = tenant?.id ?? null;
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: t('nav.dashboard') },
-    { to: '/inbox', icon: Inbox, label: t('nav.inbox') },
     { to: '/invoices', icon: FileText, label: t('nav.invoices') },
     { to: '/upload', icon: Upload, label: t('nav.upload') },
     { to: '/suppliers', icon: Users, label: t('nav.suppliers') },
-    { to: '/automations', icon: Zap, label: t('nav.automations') },
     { to: '/billing', icon: CreditCard, label: t('nav.billing') },
     { to: '/tickets', icon: LifeBuoy, label: t('nav.tickets') },
     { to: '/settings', icon: Settings, label: t('nav.settings') },
@@ -39,13 +40,18 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   ];
 
   const { data: companies = [] } = useQuery({
-    queryKey: queryKeys.companies,
+    queryKey: [...queryKeys.companies, tenantId],
     queryFn: async () => {
+      if (!tenantId) return [];
       const { data, error } = await supabase
-        .from('companies').select('*').eq('is_active', true).order('name');
+        .from('companies').select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
       if (error) throw error;
       return data as Company[];
     },
+    enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
   });
 

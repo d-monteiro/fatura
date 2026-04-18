@@ -2,34 +2,41 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { formatEUR } from '@/lib/utils/validation';
 import { Search, BadgeCheck } from 'lucide-react';
 import { SupplierDetailModal } from '@/components/fornecedores/SupplierDetailModal';
 import type { Supplier } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
+import { escapeLike } from '@/lib/utils/queries';
 
 export default function Fornecedores() {
   const { t } = useI18n();
+  const { tenant } = useTenant();
+  const tenantId = tenant?.id ?? null;
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   const { data: suppliers, isLoading } = useQuery({
-    queryKey: queryKeys.suppliersSearch(search),
+    queryKey: [...queryKeys.suppliersSearch(search), tenantId],
     queryFn: async () => {
+      if (!tenantId) return [];
       let query = supabase
         .from('suppliers')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('total_spent', { ascending: false });
 
       if (search) {
-        query = query.ilike('name', `%${search}%`);
+        query = query.ilike('name', `%${escapeLike(search)}%`);
       }
 
       const { data, error } = await query;
       if (error) throw error;
       return data as Supplier[];
     },
+    enabled: !!tenantId,
   });
 
   const handleRowClick = (sup: Supplier) => {
@@ -91,7 +98,7 @@ export default function Fornecedores() {
                     {sup.display_name ?? sup.name}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                    {sup.siret ?? '---'}
+                    {sup.nif ?? '---'}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{sup.default_metier ?? '---'}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -99,9 +106,9 @@ export default function Fornecedores() {
                   </td>
                   <td className="px-4 py-3 text-right text-gray-600">{sup.invoice_count}</td>
                   <td className="px-4 py-3">
-                    {sup.is_sous_traitant && (
+                    {sup.is_subcontractor && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
-                        <BadgeCheck className="h-3.5 w-3.5" /> {t('sup.sous_traitant')}
+                        <BadgeCheck className="h-3.5 w-3.5" /> {t('sup.subcontractor')}
                       </span>
                     )}
                   </td>

@@ -5,6 +5,7 @@
  */
 
 import { geminiLimiter } from '@/lib/rateLimiter';
+import { supabase } from '@/lib/supabase/client';
 import type { GeminiInvoiceData } from '@/types/database';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -36,6 +37,9 @@ export async function analyzeInvoiceWithGemini(
     if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL não configurada');
 
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token ?? anonKey;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
@@ -44,7 +48,7 @@ export async function analyzeInvoiceWithGemini(
       headers: {
         'Content-Type': 'application/json',
         'apikey': anonKey,
-        'Authorization': `Bearer ${anonKey}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ data: fileData, mimeType, tenantId: tenantId ?? null }),
       signal: controller.signal,
@@ -83,7 +87,7 @@ export async function fileToBase64(file: File): Promise<string> {
       const result = reader.result as string;
       const parts = result.split(',');
       if (parts.length < 2 || !parts[1]) {
-        reject(new Error('Format de fichier invalide'));
+        reject(new Error('Formato de ficheiro inválido'));
         return;
       }
       resolve(parts[1]);

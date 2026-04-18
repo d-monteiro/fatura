@@ -80,17 +80,17 @@ export async function exportInvoicesToZip(
   zip.file('resume_factures.xlsx', xlsxBuf);
 
   if (ok === 0 && fail > 0) {
-    toast.error('Impossible de telecharger les fichiers.');
+    toast.error('Não foi possível descarregar os ficheiros.');
     return;
   }
 
   const content = await zip.generateAsync({ type: 'blob' });
   const today = new Date().toISOString().slice(0, 10);
-  saveAs(content, `factures_export_${today}.zip`);
+  saveAs(content, `faturas_export_${today}.zip`);
 
   if (fail > 0) {
-    toast.warning(`Export: ${ok} OK, ${fail} echoue(s).`);
+    toast.warning(`Exportação: ${ok} OK, ${fail} falhada(s).`);
   } else {
-    toast.success(`${ok} factures exportees avec succes!`);
+    toast.success(`${ok} fatura(s) exportada(s) com sucesso!`);
   }
 }

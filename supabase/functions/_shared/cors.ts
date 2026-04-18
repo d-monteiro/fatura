@@ -2,7 +2,7 @@
 // (lista separada por vírgulas). Fallback para dev + prod conhecidos.
 
 const FALLBACK_ORIGINS = [
-  "https://faturas.flowzi.pt",
+  "https://fatura.flowzi.pt",
   "http://localhost:5173",
 ];
 
@@ -12,14 +12,35 @@ export function getAllowedOrigins(): string[] {
   return fromEnv.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+const LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+function isOriginAllowed(origin: string): boolean {
+  if (!origin) return false;
+  const allowed = getAllowedOrigins();
+  if (allowed.includes(origin)) return true;
+  if (LOCALHOST_RE.test(origin) && Deno.env.get("DENO_DEPLOYMENT_ID") === undefined) {
+    // Localhost only in dev (no DENO_DEPLOYMENT_ID set locally)
+    return true;
+  }
+  if (LOCALHOST_RE.test(origin) && allowed.some((o) => LOCALHOST_RE.test(o))) {
+    // Localhost in env whitelist
+    return true;
+  }
+  return false;
+}
+
 export function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") || "";
-  const allowed = getAllowedOrigins();
-  const match = allowed.includes(origin) ? origin : allowed[0];
-  return {
-    "Access-Control-Allow-Origin": match,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  const headers: Record<string, string> = {
+    "Vary": "Origin",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret, x-internal-secret",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age": "600",
   };
+  if (isOriginAllowed(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
 }
 
 export function getFrontendUrl(): string {

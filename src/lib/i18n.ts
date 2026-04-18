@@ -3,14 +3,19 @@ export type Lang = 'pt' | 'en';
 const translations = {
   // Navigation
   'nav.dashboard': { pt: 'Dashboard' },
-  'nav.inbox': { pt: 'Inbox' },
-  'nav.invoices': { pt: 'Todas as faturas' },
+  'nav.invoices': { pt: 'Faturas' },
   'nav.upload': { pt: 'Upload' },
   'nav.suppliers': { pt: 'Fornecedores' },
   'nav.settings': { pt: 'Definições' },
-  'nav.automations': { pt: 'Automações' },
   'nav.billing': { pt: 'Faturação' },
   'nav.tickets': { pt: 'Suporte' },
+
+  // Faturas tabs
+  'fat.tab_review': { pt: 'A rever' },
+  'fat.tab_all': { pt: 'Todas' },
+  'fat.tab_processed': { pt: 'Arquivadas' },
+  'pag.prev': { pt: 'Anterior' },
+  'pag.next': { pt: 'Seguinte' },
 
   // Dashboard
   'dash.total_expenses': { pt: 'Total despesas' },
@@ -61,7 +66,7 @@ const translations = {
   'upload.checking_auth': { pt: 'A verificar autenticação...' },
   'upload.checking_auth_desc': { pt: 'A renovar tokens automaticamente se necessário.' },
   'upload.ready': { pt: 'Pronto para upload!' },
-  'upload.ready_desc': { pt: 'Conta Google conectada. Token válido.' },
+  'upload.ready_desc': { pt: 'Conta Google conectada.' },
   'upload.no_account': { pt: 'Nenhuma conta configurada' },
   'upload.no_account_desc': { pt: 'Adicione uma conta Google em Definições para fazer upload de faturas.' },
   'upload.configure_account': { pt: 'Configurar conta' },
@@ -113,11 +118,10 @@ const translations = {
   'sup.recent_invoices': { pt: 'Faturas recentes' },
   'sup.address': { pt: 'Morada' },
   'sup.iban': { pt: 'IBAN' },
-  'sup.tva_intracom': { pt: 'IVA Intracom' },
   'sup.edit': { pt: 'Editar' },
   'sup.no_invoices': { pt: 'Sem faturas' },
   'sup.saved': { pt: 'Fornecedor guardado' },
-  'sup.siret_invalid': { pt: 'NIF deve ter 9 dígitos' },
+  'sup.nif_invalid': { pt: 'NIF deve ter 9 dígitos' },
 
   // Settings
   'set.companies': { pt: 'Empresas' },
@@ -191,8 +195,7 @@ const translations = {
   // Companies
   'company.all': { pt: 'Todas as empresas' },
   'company.name': { pt: 'Nome' },
-  'company.siret': { pt: 'NIF' },
-  'company.tva_intracom': { pt: 'IVA Intracom' },
+  'company.nif': { pt: 'NIF' },
   'company.address': { pt: 'Morada' },
   'company.saved': { pt: 'Empresa guardada' },
 
@@ -247,7 +250,6 @@ const translations = {
   'company.connect_gmail': { pt: 'Conectar Gmail' },
   'company.disconnect_gmail': { pt: 'Desconectar' },
   'company.gmail_connected': { pt: 'Gmail conectado' },
-  'company.default': { pt: 'Predefinida' },
   'company.oauth_success': { pt: 'Conta Gmail conectada com sucesso!' },
   'company.oauth_error': { pt: 'Erro ao conectar Gmail' },
 
