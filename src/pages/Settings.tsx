@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CompanyList } from '@/components/settings/CompanyList';
+import { BusinessProfileCard } from '@/components/settings/BusinessProfileCard';
+import { CategoriesCard } from '@/components/settings/CategoriesCard';
 import { GoogleAccountsUnified } from '@/components/settings/GoogleAccountsUnified';
 import { useI18n } from '@/contexts/I18nContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +34,8 @@ export default function Settings() {
   return (
     <div className="space-y-6 sm:space-y-8 max-w-4xl">
       <h1 className="text-xl font-bold sm:text-2xl">{t('nav.settings')}</h1>
+      <BusinessProfileCard />
+      <CategoriesCard />
       {user && <GoogleAccountsUnified userId={user.id} />}
       <CompanyList />
     </div>

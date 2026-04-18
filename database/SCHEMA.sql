@@ -63,6 +63,7 @@ CREATE TABLE tenants (
   invoice_name_variations TEXT[] DEFAULT ARRAY[]::TEXT[],
   drive_root_folder_id TEXT,
   drive_root_folder_name TEXT DEFAULT 'FATURAS',
+  logo_url TEXT,
   -- Catch-all para extras do onboarding (categories, topSuppliers, documentTypes, emailSync, emailAddresses)
   onboarding_data JSONB DEFAULT '{}'::jsonb
 );
@@ -135,9 +136,6 @@ CREATE TABLE suppliers (
   vat_number TEXT,
   address TEXT,
   iban TEXT,
-  default_metier TEXT,
-  default_nature TEXT,
-  default_cost_type TEXT,
   invoice_count INTEGER DEFAULT 0,
   total_spent NUMERIC(14,2) DEFAULT 0,
   is_subcontractor BOOLEAN DEFAULT false,
@@ -212,8 +210,12 @@ CREATE TABLE invoices (
   manual_review BOOLEAN DEFAULT false,
   review_reason TEXT,
 
-  UNIQUE(tenant_id, email_message_id)
+  email_attachment_id TEXT
 );
+
+CREATE UNIQUE INDEX invoices_email_unique
+  ON invoices (tenant_id, email_message_id, email_attachment_id)
+  WHERE email_message_id IS NOT NULL;
 
 CREATE INDEX idx_invoices_tenant ON invoices(tenant_id);
 CREATE INDEX idx_invoices_company ON invoices(company_id);
@@ -247,20 +249,20 @@ CREATE TABLE invoice_line_items (
 CREATE INDEX idx_line_items_invoice ON invoice_line_items(invoice_id);
 CREATE INDEX idx_line_items_tenant ON invoice_line_items(tenant_id);
 
--- 10. OAUTH TOKENS (por user; partilhado entre tenants do mesmo user)
+-- 10. OAUTH TOKENS (por tenant — cada tenant tem os seus tokens)
 CREATE TABLE user_oauth_tokens (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  provider TEXT DEFAULT 'google' NOT NULL,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  provider TEXT NOT NULL,
   access_token TEXT NOT NULL,
   refresh_token TEXT,
   token_expiry TIMESTAMPTZ,
   scopes TEXT[],
   email TEXT,
-  is_primary_storage BOOLEAN DEFAULT false,
-  UNIQUE(email, provider)
+  is_primary_storage BOOLEAN DEFAULT false
 );
 
 CREATE INDEX idx_oauth_user ON user_oauth_tokens(user_id);

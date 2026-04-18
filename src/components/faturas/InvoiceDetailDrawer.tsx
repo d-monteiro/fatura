@@ -7,6 +7,8 @@ import { invalidateInvoiceLists, queryKeys } from '@/lib/queryKeys';
 import { InvoiceReviewDialog } from './InvoiceReviewDialog';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 import { NormalDrawerContent, NormalDrawerFooter } from './InvoiceNormalDrawer';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 import type { Invoice, InvoiceLineItem } from '@/types/database';
 
 interface Props {
@@ -17,14 +19,15 @@ interface Props {
 
 export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   const { t } = useI18n();
+  const { tenant } = useTenant();
+  const { labelFor } = useCategories(tenant?.id);
   const qc = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
+  const [internalEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isReviewMode = invoice?.status === 'review' || invoice?.status === 'inbox';
-
-  useEffect(() => { if (!open) setIsEditing(false); }, [open]);
+  const isEditing = open && internalEditing;
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -94,7 +97,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   }
 
   // MODE 1 - Normal drawer
-  const costLabel = invoice.cost_type === 'cout_fixe' ? 'Fixe' : invoice.cost_type === 'cout_variable' ? 'Variable' : null;
+  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
 
   return (
     <>
@@ -116,7 +119,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
               <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{costLabel}</span>
             )}
             {invoice.metier && (
-              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{invoice.metier}</span>
+              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{labelFor('metier', invoice.metier)}</span>
             )}
             {invoice.autoliquidation && (
               <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">{t('inv.autoliquidation')}</span>

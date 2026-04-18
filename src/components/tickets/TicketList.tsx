@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 import { TicketStatusBadge, TicketPriorityBadge } from './StatusBadge';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Ticket } from '@/types/tickets';
 
 interface Props {
@@ -13,7 +14,7 @@ export function TicketList({ onSelect }: Props) {
   const tenantId = tenant?.id ?? null;
 
   const { data: tickets = [], isLoading: loading } = useQuery<Ticket[]>({
-    queryKey: ['tickets', tenantId],
+    queryKey: [...queryKeys.tickets, tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       const { data } = await supabase

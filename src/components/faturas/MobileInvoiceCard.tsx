@@ -1,5 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 import type { Invoice } from '@/types/database';
 
 interface MobileInvoiceCardProps {
@@ -8,9 +10,9 @@ interface MobileInvoiceCardProps {
 }
 
 export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) {
-  const costLabel =
-    invoice.cost_type === 'cout_fixe' ? 'Fixe' :
-    invoice.cost_type === 'cout_variable' ? 'Variable' : null;
+  const { tenant } = useTenant();
+  const { labelFor } = useCategories(tenant?.id);
+  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
 
   return (
     <div
@@ -26,7 +28,7 @@ export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) 
             </span>
             {invoice.status === 'review' && (
               <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                A verifier
+                A rever
               </span>
             )}
           </div>

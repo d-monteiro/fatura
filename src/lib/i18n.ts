@@ -1,4 +1,4 @@
-export type Lang = 'pt' | 'en';
+export type Lang = 'pt';
 
 const translations = {
   // Navigation
@@ -14,6 +14,10 @@ const translations = {
   'fat.tab_review': { pt: 'A rever' },
   'fat.tab_all': { pt: 'Todas' },
   'fat.tab_processed': { pt: 'Arquivadas' },
+  'fat.analyzing': { pt: 'A analisar' },
+  'fat.failed': { pt: 'Falhou' },
+  'fat.reprocess': { pt: 'Reprocessar' },
+  'fat.reprocess_started': { pt: 'Análise reiniciada' },
   'pag.prev': { pt: 'Anterior' },
   'pag.next': { pt: 'Seguinte' },
 
@@ -103,10 +107,6 @@ const translations = {
   'upload.formats_detail': { pt: 'Formatos aceites: JPG, PNG, PDF (max 10MB, máximo {max} ficheiros)' },
 
   // Inbox
-  'inbox.title': { pt: 'Faturas a verificar' },
-  'inbox.approve': { pt: 'Aprovar' },
-  'inbox.reject': { pt: 'Rejeitar' },
-  'inbox.edit': { pt: 'Editar' },
   'inbox.empty': { pt: 'Nenhuma fatura a verificar' },
 
   // Suppliers
@@ -129,47 +129,11 @@ const translations = {
   'set.email_accounts': { pt: 'Contas email' },
   'set.language': { pt: 'Idioma' },
 
-  // Automations
-  'auto.title': { pt: 'Automações' },
-  'auto.subtitle': { pt: 'Sincronização automática de faturas do Gmail' },
-  'auto.connected_accounts': { pt: 'Contas conectadas' },
-  'auto.connected_desc': { pt: 'Contas Gmail verificadas. A conta com estrela guarda os ficheiros.' },
-  'auto.add_account': { pt: 'Adicionar conta' },
-  'auto.no_accounts': { pt: 'Nenhuma conta conectada' },
-  'auto.no_accounts_desc': { pt: 'Adicione uma conta Gmail para ativar a sincronização automática.' },
-  'auto.token_expired': { pt: 'Token expirado!' },
-  'auto.token_expired_desc': { pt: 'A conta de armazenamento não tem refresh token. Re-autentique para continuar.' },
-  'auto.storage': { pt: 'Armazenamento' },
-  'auto.reauth': { pt: 'Re-autenticar' },
-  'auto.auto_renew': { pt: 'Auto' },
-  'auto.token_auto_renew': { pt: 'Token renova automaticamente' },
-  'auto.token_expired_at': { pt: 'Expirou em' },
-  'auto.token_expires_at': { pt: 'Expira em' },
-  'auto.set_primary': { pt: 'Definir como armazenamento principal' },
-  'auto.removed_revoked': { pt: 'Conta removida e acesso revogado no Google.' },
-  'auto.removed': { pt: 'Conta removida.' },
-  'auto.set_primary_ok': { pt: 'definida como conta de armazenamento' },
+  // Automations (sync email card)
   'auto.check_emails': { pt: 'Verificar emails' },
   'auto.check_emails_desc': { pt: 'Verifica emails das últimas 24h com faturas PDF, processa com IA e guarda no Drive' },
   'auto.check_now': { pt: 'Verificar emails agora' },
   'auto.checking': { pt: 'A verificar emails...' },
-  'auto.result_processed': { pt: 'Processadas' },
-  'auto.result_duplicates': { pt: 'Duplicadas' },
-  'auto.result_skipped': { pt: 'Ignoradas' },
-  'auto.result_errors': { pt: 'Erros' },
-  'auto.step_read': { pt: 'Lê emails com PDFs anexados' },
-  'auto.step_analyze': { pt: 'Analisa com Gemini AI e extrai dados' },
-  'auto.step_store': { pt: 'Guarda no Google Drive e regista na base' },
-  'auto.step_mark': { pt: 'Marca emails como lidos após processar' },
-  'auto.sync_title': { pt: 'Sincronização automática' },
-  'auto.sync_desc': { pt: 'Todos os dias às 23:58, verifica emails das últimas 24h com anexos PDF' },
-  'auto.how_it_works': { pt: 'Como funciona' },
-  'auto.step_scan': { pt: 'Verifica emails das últimas 24h com anexos PDF' },
-  'auto.step_ai': { pt: 'Analisa com Gemini AI — só processa faturas/recibos' },
-  'auto.step_drive': { pt: 'Organiza no Google Drive por ano e tipo de custo' },
-  'auto.step_db': { pt: 'Regista no Supabase e Google Sheets' },
-  'auto.step_dedup': { pt: 'Ignora duplicados automaticamente' },
-  'auto.errors_webhook': { pt: 'Os erros são enviados automaticamente para o webhook de monitorização.' },
 
   // Actions
   'action.save': { pt: 'Guardar' },
@@ -301,7 +265,6 @@ const translations = {
   'filter.all_months': { pt: 'Todos os meses' },
 
   // Inbox extras
-  'inbox.confidence': { pt: 'confiança' },
   'inbox.no_invoices': { pt: 'Sem faturas' },
 
   // Sync toasts
@@ -342,22 +305,19 @@ const translations = {
 export type TranslationKey = keyof typeof translations;
 
 // Kept for non-React code (edge cases). Prefer useI18n() hook in components.
-let currentLang: Lang = 'pt';
-export function setLang(lang: Lang) { currentLang = lang; }
-export function getLang(): Lang { return currentLang; }
+export function setLang(_lang: Lang) { /* no-op: só PT */ }
+export function getLang(): Lang { return 'pt'; }
 
-function resolve(key: TranslationKey, lang: Lang): string {
+function resolve(key: TranslationKey): string {
   const entry = translations[key];
-  if (!entry) return key;
-  const value = (entry as Record<string, string>)[lang] ?? entry.pt;
-  return value || key;
+  return entry?.pt ?? key;
 }
 
 export function t(key: TranslationKey): string {
-  return resolve(key, currentLang);
+  return resolve(key);
 }
 
-// React-aware translation
-export function translate(key: TranslationKey, lang: Lang): string {
-  return resolve(key, lang);
+// React-aware translation (lang ignorado — só PT por agora)
+export function translate(key: TranslationKey, _lang: Lang): string {
+  return resolve(key);
 }

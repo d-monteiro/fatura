@@ -13,8 +13,9 @@ export async function reportError(error: Error, context?: ErrorContext): Promise
   // 1. Always log to console
   console.error('[FaturaAI Error]', error.message, context);
 
-  // 2. Log to Supabase error_logs
+  // 2. Log to Supabase error_logs — strip PII do URL (tokens/emails em query params)
   try {
+    const cleanUrl = window.location.pathname;
     await supabase.from('error_logs').insert({
       tenant_id: context?.tenantId ?? null,
       user_id: context?.userId ?? null,
@@ -24,8 +25,7 @@ export async function reportError(error: Error, context?: ErrorContext): Promise
       message: error.message,
       stack_trace: error.stack ?? null,
       metadata: {
-        url: window.location.href,
-        userAgent: navigator.userAgent,
+        path: cleanUrl,
         ...context?.extra,
       },
     });

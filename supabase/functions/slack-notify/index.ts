@@ -2,12 +2,12 @@
 // Edge Function: slack-notify
 // Single Slack channel — uses Block Kit for clean rendering.
 // Topics: 'lead' | 'ticket' | 'alert' | 'signup'
-// Secrets: SLACK_WEBHOOK_URL, ADMIN_URL
+// Secrets: SLACK_WEBHOOK_URL
 // ============================================
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { getAllowedOrigins, getFrontendUrl } from "../_shared/cors.ts";
+import { getAllowedOrigins } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -24,11 +24,11 @@ function cors(req: Request) {
   };
 }
 
-function adminUrlFromRequest(req: Request): string {
+function appUrlFromRequest(req: Request): string {
   const origin = req.headers.get("origin") ?? "";
   const allowed = getAllowedOrigins();
   if (allowed.includes(origin)) return origin;
-  return Deno.env.get("ADMIN_URL") ?? getFrontendUrl();
+  return allowed[0];
 }
 
 interface LeadPayload {
@@ -113,7 +113,7 @@ function linkButton(text: string, url: string, primary = false): Block {
   };
 }
 
-function buildLead(p: LeadPayload, adminUrl: string): { text: string; blocks: Block[] } {
+function buildLead(p: LeadPayload, appUrl: string): { text: string; blocks: Block[] } {
   const lines = [line("Empresa", p.company_name)];
   const contact = [p.contact_name, p.email, p.phone].filter(Boolean).join(" · ");
   lines.push(line("Contacto", contact));
@@ -127,7 +127,7 @@ function buildLead(p: LeadPayload, adminUrl: string): { text: string; blocks: Bl
     blocks: [
       { type: "header", text: { type: "plain_text", text: "Novo lead empresarial", emoji: false } },
       { type: "section", text: { type: "mrkdwn", text: lines.join("\n") } },
-      linkButton("Abrir no admin", `${adminUrl}/admin/onboarding`, true),
+      linkButton("Abrir no admin", `${appUrl}/admin/onboarding`, true),
     ],
   };
 }
@@ -147,7 +147,7 @@ function buildSignup(p: SignupPayload): { text: string; blocks: Block[] } {
   };
 }
 
-function buildTicket(p: TicketPayload, adminUrl: string): { text: string; blocks: Block[] } {
+function buildTicket(p: TicketPayload, appUrl: string): { text: string; blocks: Block[] } {
   const lines = [
     line("Cliente", p.plan_name ? `${p.tenant_name} · ${p.plan_name}` : p.tenant_name),
     line("Utilizador", p.email),
@@ -160,7 +160,7 @@ function buildTicket(p: TicketPayload, adminUrl: string): { text: string; blocks
       { type: "section", text: { type: "mrkdwn", text: `*${p.subject}*\n${lines.join("\n")}` } },
       { type: "section", text: { type: "mrkdwn", text: truncate(p.description, 800) } },
       { type: "context", elements: [{ type: "mrkdwn", text: `ID \`${p.ticket_id}\`` }] },
-      linkButton("Abrir no admin", `${adminUrl}/admin/tickets`),
+      linkButton("Abrir no admin", `${appUrl}/admin/tickets`),
     ],
   };
 }
@@ -209,13 +209,13 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json() as Body;
     const topic = normalizeTopic(body.channel);
-    const adminUrl = adminUrlFromRequest(req);
+    const appUrl = appUrlFromRequest(req);
 
     let message: { text: string; blocks: Block[] };
     switch (topic) {
-      case "lead": message = buildLead(body.payload as LeadPayload, adminUrl); break;
+      case "lead": message = buildLead(body.payload as LeadPayload, appUrl); break;
       case "signup": message = buildSignup(body.payload as SignupPayload); break;
-      case "ticket": message = buildTicket(body.payload as TicketPayload, adminUrl); break;
+      case "ticket": message = buildTicket(body.payload as TicketPayload, appUrl); break;
       case "alert": message = buildAlert(body.payload as AlertPayload); break;
       default: {
         return new Response(JSON.stringify({ ok: false, error: "unknown topic" }), {

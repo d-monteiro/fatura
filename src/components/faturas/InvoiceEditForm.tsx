@@ -1,5 +1,7 @@
 import type { TranslationKey } from '@/lib/i18n';
-import { METIERS, NATURES, COST_TYPES, COST_TYPE_LABELS } from '@/lib/constants';
+import { COST_TYPES, COST_TYPE_LABELS } from '@/lib/constants';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 
 type TFn = (key: TranslationKey) => string;
 
@@ -21,6 +23,10 @@ export type { FormData as InvoiceEditFormData };
 
 export function InvoiceEditFormFields({ form, onChange, t }: Props) {
   const set = onChange;
+  const { tenant } = useTenant();
+  const { categories } = useCategories(tenant?.id);
+  const metierOptions = categories.metier;
+  const natureOptions = categories.nature_depense;
   return (
     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
       <label className="block space-y-1">
@@ -63,14 +69,14 @@ export function InvoiceEditFormFields({ form, onChange, t }: Props) {
         <span className="text-xs font-medium text-gray-600">{t('inv.metier')}</span>
         <select className={cls} value={form.metier} onChange={(e) => set('metier', e.target.value)}>
           <option value="">--</option>
-          {METIERS.map((m) => <option key={m} value={m}>{m}</option>)}
+          {metierOptions.map((c) => <option key={c.id} value={c.code}>{c.label}</option>)}
         </select>
       </label>
       <label className="block space-y-1">
         <span className="text-xs font-medium text-gray-600">{t('inv.nature')}</span>
         <select className={cls} value={form.nature_depense} onChange={(e) => set('nature_depense', e.target.value)}>
           <option value="">--</option>
-          {NATURES.map((v) => <option key={v} value={v}>{v}</option>)}
+          {natureOptions.map((c) => <option key={c.id} value={c.code}>{c.label}</option>)}
         </select>
       </label>
       <label className="block space-y-1">

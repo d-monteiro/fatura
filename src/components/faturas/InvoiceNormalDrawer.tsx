@@ -1,6 +1,8 @@
 import { ExternalLink, Building2, Calendar, Hash, Tag, Wrench, FileText, Table2, Pencil, Trash2 } from 'lucide-react';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { LineItemsTable } from './LineItemsTable';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 import type { TranslationKey } from '@/lib/i18n';
 import type { Invoice, InvoiceLineItem } from '@/types/database';
 
@@ -27,7 +29,9 @@ interface ContentProps {
 }
 
 export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
-  const costLabel = invoice.cost_type === 'cout_fixe' ? 'Fixe' : invoice.cost_type === 'cout_variable' ? 'Variable' : null;
+  const { tenant } = useTenant();
+  const { labelFor } = useCategories(tenant?.id);
+  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
 
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
@@ -35,8 +39,8 @@ export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
       {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
       <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
       {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
-      {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={invoice.metier} />}
-      {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={invoice.nature_depense} />}
+      {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={labelFor('metier', invoice.metier)} />}
+      {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={labelFor('nature_depense', invoice.nature_depense)} />}
       {costLabel && <DetailRow icon={Tag} label={t('inv.cost_type')} value={costLabel} />}
       {invoice.taux_tva != null && (
         <DetailRow icon={Hash} label={t('inv.tva_rate')} value={`${invoice.taux_tva}%`} />

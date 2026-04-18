@@ -3,8 +3,9 @@ import type { QueryClient } from '@tanstack/react-query';
 export const queryKeys = {
   faturas: ['faturas'] as const,
   faturasList: (...args: unknown[]) => ['faturas', ...args] as const,
-  inboxInvoices: ['inbox-invoices'] as const,
-  inboxByCompany: (companyId: string | null) => ['inbox-invoices', companyId] as const,
+  invoiceTabCounts: (tenantId: string | null, companyId: string | null) =>
+    ['faturas', 'tab-counts', tenantId, companyId] as const,
+  invoicesUsage: (tenantId: string | null) => ['faturas', 'usage', tenantId] as const,
   dashboardMetrics: ['dashboard-metrics'] as const,
   dashboardByCompany: (companyId: string | null) => ['dashboard-metrics', companyId] as const,
   recentInvoices: ['recent-invoices'] as const,
@@ -14,13 +15,13 @@ export const queryKeys = {
   companies: ['companies'] as const,
   emailAccounts: ['email-accounts'] as const,
   oauthTokens: ['oauth-tokens'] as const,
+  tickets: ['tickets'] as const,
   lineItems: (invoiceId: string) => ['line-items', invoiceId] as const,
   company: (companyId: string) => ['company', companyId] as const,
 };
 
 const INVOICE_LIST_KEYS = [
   queryKeys.faturas,
-  queryKeys.inboxInvoices,
   queryKeys.dashboardMetrics,
   queryKeys.recentInvoices,
 ];

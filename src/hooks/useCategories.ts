@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
+import { COST_TYPE_LABELS, METIER_LABELS, NATURE_LABELS } from '@/lib/constants';
+import type { Metier, NatureDepense, CostType } from '@/types/database';
 
 export interface Category {
   id: string;
@@ -18,35 +20,36 @@ export interface CategoriesByAxis {
 const EMPTY: CategoriesByAxis = { cost_type: [], metier: [], nature_depense: [] };
 
 export function useCategories(tenantId: string | null | undefined) {
-  const [categories, setCategories] = useState<CategoriesByAxis>(EMPTY);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!tenantId) { setCategories(EMPTY); return; }
-    let cancelled = false;
-    setLoading(true);
-    supabase.from('categories')
-      .select('id, axis, code, label, sort_order')
-      .eq('tenant_id', tenantId)
-      .eq('is_active', true)
-      .order('sort_order')
-      .then(({ data }) => {
-        if (cancelled) return;
-        const grouped: CategoriesByAxis = { cost_type: [], metier: [], nature_depense: [] };
-        (data ?? []).forEach((row) => {
-          const axis = row.axis as Category['axis'];
-          if (axis in grouped) grouped[axis].push(row as Category);
-        });
-        setCategories(grouped);
-        setLoading(false);
+  const { data = EMPTY, isLoading } = useQuery({
+    queryKey: ['categories', tenantId],
+    enabled: !!tenantId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('categories')
+        .select('id, axis, code, label, sort_order')
+        .eq('tenant_id', tenantId!)
+        .eq('is_active', true)
+        .order('sort_order');
+      if (error) throw error;
+      const grouped: CategoriesByAxis = { cost_type: [], metier: [], nature_depense: [] };
+      (rows ?? []).forEach((row) => {
+        const axis = row.axis as Category['axis'];
+        if (axis in grouped) grouped[axis].push(row as Category);
       });
-    return () => { cancelled = true; };
-  }, [tenantId]);
+      return grouped;
+    },
+  });
 
   const labelFor = (axis: Category['axis'], code: string | null | undefined): string => {
     if (!code) return '';
-    return categories[axis].find((c) => c.code === code)?.label ?? code;
+    const dynamic = data[axis].find((c) => c.code === code)?.label;
+    if (dynamic) return dynamic;
+    if (axis === 'metier') return METIER_LABELS[code as Metier] ?? code;
+    if (axis === 'nature_depense') return NATURE_LABELS[code as NatureDepense] ?? code;
+    if (axis === 'cost_type') return COST_TYPE_LABELS[code as CostType] ?? code;
+    return code;
   };
 
-  return { categories, loading, labelFor };
+  return { categories: data, loading: isLoading, labelFor };
 }

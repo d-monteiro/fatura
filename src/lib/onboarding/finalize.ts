@@ -45,15 +45,18 @@ async function seedSuppliers(tenantId: string, topSuppliers: string[]) {
 }
 
 async function seedDefaultCompany(tenantId: string, companyName: string, nif: string) {
+  if (!companyName) return;
   const short = companyName.split(/\s+/)[0]?.toUpperCase() ?? 'EMPRESA';
-  await supabase.from('companies').insert({
+  const nifClean = nif.trim() || null;
+  const { error } = await supabase.from('companies').insert({
     tenant_id: tenantId,
     name: companyName,
     short_name: short.substring(0, 16),
-    nif: nif || null,
+    nif: nifClean,
     is_default: true,
     is_active: true,
   });
+  if (error) console.error('[onboarding] seedDefaultCompany failed:', error);
 }
 
 async function bootstrapDriveRoot(tenantId: string, userId: string, rootName: string) {
@@ -74,6 +77,14 @@ async function bootstrapDriveRoot(tenantId: string, userId: string, rootName: st
   }
 }
 
+async function persistLogo(tenantId: string, logoDataUrl: string | null) {
+  if (!logoDataUrl || !logoDataUrl.startsWith('data:image/')) return;
+  const { error } = await supabase.from('tenants')
+    .update({ logo_url: logoDataUrl })
+    .eq('id', tenantId);
+  if (error) console.error('[onboarding] persistLogo failed:', error);
+}
+
 export async function finalizeOnboarding(opts: {
   tenantId: string;
   userId: string;
@@ -83,11 +94,15 @@ export async function finalizeOnboarding(opts: {
   const sector = data.sector === 'autre' ? 'services' : data.sector;
   const rootName = 'FATURAS';
 
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     seedCategories(tenantId, sector, data.categories),
     seedSuppliers(tenantId, data.topSuppliers),
     seedDefaultCompany(tenantId, data.companyName, data.nif),
     supabase.from('tenants').update({ drive_root_folder_name: rootName }).eq('id', tenantId),
     bootstrapDriveRoot(tenantId, userId, rootName),
+    persistLogo(tenantId, data.logoDataUrl),
   ]);
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.error(`[onboarding] step ${i} rejected:`, r.reason);
+  });
 }

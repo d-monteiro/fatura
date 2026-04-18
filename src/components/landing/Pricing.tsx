@@ -2,13 +2,11 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase/client';
-import { useI18n } from '@/contexts/I18nContext';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import type { Plan } from '@/types/tenant';
 
 export function Pricing() {
-  const { lang } = useI18n();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly');
 
@@ -22,7 +20,7 @@ export function Pricing() {
   }, []);
 
   const formatPrice = (cents: number | null) => {
-    if (cents === null) return lang === 'en' ? 'Custom' : 'Sob orçamento';
+    if (cents === null) return 'Sob orçamento';
     return `${(cents / 100).toFixed(0)}€`;
   };
 
@@ -54,11 +52,11 @@ export function Pricing() {
         <div className="grid md:grid-cols-3 gap-6">
           {plans.map((plan) => {
             const price = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-            const description = lang === 'en' && plan.description_en ? plan.description_en : plan.description;
-            const features = lang === 'en' && plan.features_list_en ? plan.features_list_en : plan.features_list;
-            const ctaLabel = lang === 'en' && plan.cta_label_en ? plan.cta_label_en : plan.cta_label;
-            const perYear = lang === 'en' ? 'yr' : 'ano';
-            const perMonth = lang === 'en' ? 'mo' : 'mês';
+            const description = plan.description;
+            const features = plan.features_list;
+            const ctaLabel = plan.cta_label;
+            const perYear = 'ano';
+            const perMonth = 'mês';
             return (
               <div
                 key={plan.id}
@@ -95,9 +93,7 @@ export function Pricing() {
                   variant={plan.is_popular ? 'default' : 'outline'}
                 >
                   <Link to="/onboarding">
-                    {plan.is_custom_pricing
-                      ? ctaLabel
-                      : (lang === 'en' ? 'Start free' : 'Começar grátis')}
+                    {plan.is_custom_pricing ? ctaLabel : 'Começar grátis'}
                   </Link>
                 </Button>
               </div>

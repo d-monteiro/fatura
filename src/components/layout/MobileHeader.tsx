@@ -3,6 +3,7 @@ import { useI18n } from '@/contexts/I18nContext';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Company } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -12,6 +13,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
   const { t } = useI18n();
+  const { tenant } = useTenant();
   const [searchParams] = useSearchParams();
   const activeCompany = searchParams.get('company') || 'all';
 
@@ -35,9 +37,22 @@ export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
       <button onClick={onMenuToggle} className="min-h-[44px] min-w-[44px] flex items-center justify-center -ml-2 rounded-lg hover:bg-gray-100">
         <Menu className="h-5 w-5 text-gray-700" />
       </button>
-      <span className="text-lg font-bold tracking-tight text-primary">
-        Fatura<span className="text-accent">AI</span>
-      </span>
+      {tenant?.logo_url ? (
+        <div className="flex min-w-0 items-center gap-2">
+          <img
+            src={tenant.logo_url}
+            alt=""
+            className="h-7 w-7 rounded-md border border-gray-200 bg-white object-contain p-0.5 shrink-0"
+          />
+          <span className="truncate text-sm font-semibold text-gray-900">
+            {tenant.name}
+          </span>
+        </div>
+      ) : (
+        <span className="text-lg font-bold tracking-tight text-primary">
+          Fatura<span className="text-accent">AI</span>
+        </span>
+      )}
       <span className="ml-auto truncate text-xs text-gray-500">{label}</span>
     </header>
   );

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { type Lang, type TranslationKey, translate, setLang as setModuleLang } from '@/lib/i18n';
+import { createContext, useContext, useCallback, type ReactNode } from 'react';
+import { type Lang, type TranslationKey, translate } from '@/lib/i18n';
 
 interface I18nContextType {
   lang: Lang;
@@ -10,23 +10,12 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => {
-    const saved = localStorage.getItem('faturai-lang');
-    const initial: Lang = saved === 'en' ? 'en' : 'pt';
-    setModuleLang(initial);
-    return initial;
-  });
-
-  const changeLang = useCallback((newLang: Lang) => {
-    setLangState(newLang);
-    setModuleLang(newLang);
-    localStorage.setItem('faturai-lang', newLang);
-  }, []);
-
+  const lang: Lang = 'pt';
+  const setLang = useCallback((_next: Lang) => { /* só PT */ }, []);
   const t = useCallback((key: TranslationKey) => translate(key, lang), [lang]);
 
   return (
-    <I18nContext.Provider value={{ lang, setLang: changeLang, t }}>
+    <I18nContext.Provider value={{ lang, setLang, t }}>
       {children}
     </I18nContext.Provider>
   );

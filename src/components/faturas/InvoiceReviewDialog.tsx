@@ -3,6 +3,8 @@ import { X, ExternalLink, Building2, Calendar, Hash, Tag, Wrench, FileText, Chec
 import { useI18n } from '@/contexts/I18nContext';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 import type { Invoice } from '@/types/database';
 
 interface Props {
@@ -31,11 +33,13 @@ function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; labe
 
 export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit, onDelete, isDeleting }: Props) {
   const { t } = useI18n();
+  const { tenant } = useTenant();
+  const { labelFor } = useCategories(tenant?.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const drivePreviewUrl = invoice.drive_file_id
     ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview`
     : null;
-  const costLabel = invoice.cost_type === 'cout_fixe' ? 'Fixe' : invoice.cost_type === 'cout_variable' ? 'Variable' : null;
+  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
 
   if (!open) return null;
 
@@ -78,8 +82,8 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
                 {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
                 <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
                 {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
-                {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={invoice.metier} />}
-                {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={invoice.nature_depense} />}
+                {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={labelFor('metier', invoice.metier)} />}
+                {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={labelFor('nature_depense', invoice.nature_depense)} />}
                 {costLabel && <DetailRow icon={Tag} label={t('inv.cost_type')} value={costLabel} />}
                 {invoice.taux_tva != null && (
                   <DetailRow icon={Hash} label={t('inv.tva_rate')} value={`${invoice.taux_tva}%`} />

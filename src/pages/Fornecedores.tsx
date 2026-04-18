@@ -81,7 +81,6 @@ export default function Fornecedores() {
               <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">{t('sup.name')}</th>
                 <th className="px-4 py-3 font-medium text-gray-500">{t('inv.nif')}</th>
-                <th className="px-4 py-3 font-medium text-gray-500">{t('inv.metier')}</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-500">{t('sup.total_spent')}</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-500">{t('sup.invoice_count')}</th>
                 <th className="px-4 py-3 font-medium text-gray-500">{t('sup.subcontractor')}</th>
@@ -100,7 +99,6 @@ export default function Fornecedores() {
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">
                     {sup.nif ?? '---'}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{sup.default_metier ?? '---'}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
                     {formatEUR(sup.total_spent)}
                   </td>
@@ -116,7 +114,7 @@ export default function Fornecedores() {
               ))}
               {(!suppliers || suppliers.length === 0) && (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                  <td colSpan={5} className="py-12 text-center text-gray-400">
                     {t('sup.none')}
                   </td>
                 </tr>

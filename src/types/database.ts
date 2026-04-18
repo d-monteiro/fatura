@@ -11,10 +11,8 @@ export interface Company {
   tenant_id: string;
   name: string;
   short_name: string;
-  siret: string | null;
-  siren: string | null;
+  nif: string | null;
   address: string | null;
-  tva_intracom: string | null;
   is_active: boolean;
   email: string | null;
   oauth_token_id: string | null;
@@ -26,7 +24,7 @@ export interface Company {
 // ==========================================
 export type DocumentType = 'facture' | 'avoir' | 'recu' | 'autre';
 export type CostType = 'cout_fixe' | 'cout_variable';
-export type InvoiceStatus = 'pending' | 'inbox' | 'processed' | 'review';
+export type InvoiceStatus = 'pending' | 'analyzing' | 'inbox' | 'processed' | 'review' | 'failed';
 
 export type Metier =
   | 'electricite'
@@ -59,6 +57,7 @@ export interface Invoice {
   // SOURCE
   source: 'upload' | 'email' | 'photo';
   email_message_id: string | null;  // Gmail message ID (dedup)
+  email_attachment_id: string | null; // Gmail attachment ID (dedup por anexo)
 
   // STORAGE
   file_url: string;
@@ -129,35 +128,30 @@ export interface Supplier {
   id: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
   tenant_id: string;
   name: string;
-  display_name: string | null;    // Original name
-  siret: string | null;
-  siren: string | null;
-  tva_intracom: string | null;
+  display_name: string | null;
+  nif: string | null;
+  name_variations: string[];
   address: string | null;
   iban: string | null;
-  default_metier: Metier | null;
-  default_nature: NatureDepense | null;
-  default_cost_type: CostType | null;
   invoice_count: number;
   total_spent: number;
-  is_sous_traitant: boolean;      // aplica-se autoliquidação IVA
+  is_subcontractor: boolean;
 }
 
 // ==========================================
 // CATEGORIES
 // ==========================================
-export type CategoryAxis = 'metier' | 'type_cout' | 'nature_depense';
+export type CategoryAxis = 'cost_type' | 'metier' | 'nature_depense';
 
 export interface Category {
   id: string;
-  tenant_id: string | null;
-  company_id: string | null;
+  tenant_id: string;
   axis: CategoryAxis;
-  code: string;                  // electricite, cout_fixe, materiaux
-  label_fr: string;              // legado — preferir label_pt
-  label_pt: string;              // Eletricidade, Custo fixo, Materiais
+  code: string;
+  label: string;
   sort_order: number;
   is_active: boolean;
 }

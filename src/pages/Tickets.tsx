@@ -43,7 +43,11 @@ export default function Tickets() {
         )}
         {view === 'detail' && selectedTicket && (
           <div className="p-4">
-            <TicketDetail ticket={selectedTicket} onBack={() => setView('list')} />
+            <TicketDetail
+              ticket={selectedTicket}
+              onBack={() => setView('list')}
+              onChanged={() => setRefreshKey((k) => k + 1)}
+            />
           </div>
         )}
         {view === 'new' && (

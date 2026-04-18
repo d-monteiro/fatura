@@ -6,12 +6,22 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
+import { applyBranding, clearBranding } from '@/lib/branding/applyBranding';
 import type { Tenant, Plan, TenantRole } from '@/types/tenant';
+
+interface TenantSummary {
+  id: string;
+  name: string;
+  role: TenantRole;
+}
 
 interface TenantContextType {
   tenant: Tenant | null;
+  tenants: TenantSummary[];
   plan: Plan | null;
   role: TenantRole;
   loading: boolean;
@@ -30,50 +40,89 @@ interface TenantContextType {
 
   // Actions
   refreshTenant: () => Promise<void>;
+  switchTenant: (tenantId: string) => Promise<void>;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
+const TENANT_STORAGE_KEY = 'faturai-current-tenant';
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [role, setRole] = useState<TenantRole>('member');
   const [loading, setLoading] = useState(true);
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(() => {
+    try { return localStorage.getItem(TENANT_STORAGE_KEY); } catch { return null; }
+  });
 
   const loadTenant = useCallback(async () => {
+    if (authLoading) { setLoading(true); return; }
+
     if (!user) {
       setTenant(null);
+      setTenants([]);
       setPlan(null);
       setRole('member');
       setLoading(false);
       return;
     }
 
+    setLoading(true);
     try {
-      // Get the user's tenant membership (maybeSingle handles 0-row case without 406)
-      const { data: tenantUser, error: tuError } = await supabase
+      const { data: memberships, error: tuError } = await supabase
         .from('tenant_users')
-        .select('tenant_id, role')
+        .select('tenant_id, role, tenants!inner(id, name, deleted_at)')
         .eq('user_id', user.id)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
+        .eq('is_active', true);
 
-      if (tuError || !tenantUser) {
+      if (tuError || !memberships || memberships.length === 0) {
+        setTenant(null);
+        setTenants([]);
+        setPlan(null);
+        setLoading(false);
+        return;
+      }
+
+      type MembershipRow = {
+        tenant_id: string;
+        role: string;
+        tenants: { id: string; name: string; deleted_at: string | null } | Array<{ id: string; name: string; deleted_at: string | null }> | null;
+      };
+      const summary: TenantSummary[] = (memberships as unknown as MembershipRow[])
+        .map((m) => {
+          const t = Array.isArray(m.tenants) ? m.tenants[0] : m.tenants;
+          return t && !t.deleted_at
+            ? { id: m.tenant_id, name: t.name, role: m.role as TenantRole }
+            : null;
+        })
+        .filter((x): x is TenantSummary => x !== null);
+      setTenants(summary);
+
+      if (summary.length === 0) {
         setTenant(null);
         setPlan(null);
         setLoading(false);
         return;
       }
 
-      setRole(tenantUser.role as TenantRole);
+      // Pick current tenant: stored preference (if still member) else first
+      const resolvedId = currentTenantId && summary.find((s) => s.id === currentTenantId)
+        ? currentTenantId
+        : summary[0].id;
+      if (resolvedId !== currentTenantId) {
+        try { localStorage.setItem(TENANT_STORAGE_KEY, resolvedId); } catch { /* ignore */ }
+        setCurrentTenantId(resolvedId);
+      }
 
-      // Load tenant data
+      const resolved = summary.find((s) => s.id === resolvedId)!;
+      setRole(resolved.role);
+
       const { data: tenantData, error: tError } = await supabase
         .from('tenants')
         .select('*')
-        .eq('id', tenantUser.tenant_id)
+        .eq('id', resolvedId)
         .maybeSingle();
 
       if (tError || !tenantData) {
@@ -84,7 +133,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
       setTenant(tenantData as Tenant);
 
-      // Load plan if tenant has one
       if (tenantData.plan_id) {
         const { data: planData } = await supabase
           .from('plans')
@@ -102,18 +150,50 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading, currentTenantId]);
 
   useEffect(() => {
     loadTenant();
   }, [loadTenant]);
 
-  const invoicesUsed = tenant?.invoices_this_month ?? 0;
+  useEffect(() => {
+    if (!tenant) {
+      clearBranding();
+      return;
+    }
+    applyBranding(tenant.primary_color, tenant.secondary_color);
+    return clearBranding;
+  }, [tenant]);
+
+  const switchTenant = useCallback(async (tenantId: string) => {
+    const match = tenants.find((t) => t.id === tenantId);
+    if (!match) throw new Error('Tenant inacessível');
+    try { localStorage.setItem(TENANT_STORAGE_KEY, tenantId); } catch { /* ignore */ }
+    setCurrentTenantId(tenantId);
+  }, [tenants]);
+
+  const { data: invoicesUsed = 0 } = useQuery({
+    queryKey: queryKeys.invoicesUsage(tenant?.id ?? null),
+    enabled: !!tenant?.id,
+    queryFn: async () => {
+      const start = new Date();
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from('invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenant!.id)
+        .is('deleted_at', null)
+        .gte('created_at', start.toISOString());
+      return count ?? 0;
+    },
+  });
   const invoicesLimit = plan?.max_invoices_month ?? null;
   const isOverLimit = invoicesLimit !== null && invoicesUsed >= invoicesLimit;
 
   const value: TenantContextType = {
     tenant,
+    tenants,
     plan,
     role,
     loading,
@@ -129,6 +209,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     canInviteUsers: plan?.has_multi_user ?? false,
 
     refreshTenant: loadTenant,
+    switchTenant,
   };
 
   return (

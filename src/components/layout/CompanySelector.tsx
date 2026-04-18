@@ -17,29 +17,34 @@ export function CompanySelector({
   activeCompany, companies, selectCompany, allLabel,
 }: CompanySelectorProps) {
   return (
-    <div className="relative px-3 pb-4">
-      <button onClick={() => setCompanyOpen(!companyOpen)}
-        className="flex w-full items-center justify-between rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15 transition-colors">
-        <span>{currentLabel}</span>
-        <ChevronDown size={16} className={cn('transition-transform', companyOpen && 'rotate-180')} />
-      </button>
-      {companyOpen && (
-        <div className="absolute left-3 right-3 top-full mt-1 rounded-lg bg-white text-foreground shadow-lg overflow-hidden">
-          <button onClick={() => selectCompany('all')}
-            className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors',
-              activeCompany === 'all' && 'font-semibold text-accent-foreground')}>
-            {allLabel}
-          </button>
-          {companies.map((c) => (
-            <button key={c.id} onClick={() => selectCompany(c.id)}
-              className={cn('block w-full px-3 py-2 text-left hover:bg-muted transition-colors',
-                c.id === activeCompany && 'font-semibold text-accent-foreground')}>
-              <span className="text-sm">{c.name}</span>
-              {c.email && <span className="block text-[11px] text-gray-400 truncate">{c.email}</span>}
+    <div className="px-3 pb-4">
+      <div className="relative">
+        <button onClick={() => setCompanyOpen(!companyOpen)}
+          className={cn(
+            'flex w-full items-center justify-between bg-white/10 px-3 py-2 text-sm hover:bg-white/15 transition-colors',
+            companyOpen ? 'rounded-t-lg rounded-b-none bg-white/15' : 'rounded-lg',
+          )}>
+          <span>{currentLabel}</span>
+          <ChevronDown size={16} className={cn('transition-transform', companyOpen && 'rotate-180')} />
+        </button>
+        {companyOpen && (
+          <div className="absolute inset-x-0 top-full z-50 rounded-b-lg bg-white text-foreground shadow-lg overflow-hidden animate-dropdown-grow">
+            <button onClick={() => selectCompany('all')}
+              className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors',
+                activeCompany === 'all' && 'font-semibold text-accent-foreground')}>
+              {allLabel}
             </button>
-          ))}
-        </div>
-      )}
+            {companies.map((c) => (
+              <button key={c.id} onClick={() => selectCompany(c.id)}
+                className={cn('block w-full px-3 py-2 text-left hover:bg-muted transition-colors',
+                  c.id === activeCompany && 'font-semibold text-accent-foreground')}>
+                <span className="text-sm">{c.name}</span>
+                {c.email && <span className="block text-[11px] text-gray-400 truncate">{c.email}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

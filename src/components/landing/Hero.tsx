@@ -75,7 +75,7 @@ export function Hero() {
                   <div className="h-3 w-3 rounded-full bg-yellow-400" />
                   <div className="h-3 w-3 rounded-full bg-green-400" />
                 </div>
-                <div className="ml-4 text-xs text-muted-foreground font-mono">faturas.flowzi.pt/dashboard</div>
+                <div className="ml-4 text-xs text-muted-foreground font-mono">fatura.flowzi.pt/dashboard</div>
               </div>
 
               {/* Mock dashboard content */}

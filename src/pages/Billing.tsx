@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { PlanSelector } from '@/components/billing/PlanSelector';
@@ -5,8 +6,16 @@ import { Sparkles, Clock, Info } from 'lucide-react';
 
 export default function Billing() {
   const { tenant, plan } = useTenant();
-  const trialEnds = tenant?.trial_ends_at ? new Date(tenant.trial_ends_at) : null;
-  const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - Date.now()) / 86_400_000)) : null;
+  const [nowAtMount] = useState(() => Date.now());
+  const trialEndsAt = tenant?.trial_ends_at ?? null;
+  const { trialEnds, daysLeft } = useMemo(() => {
+    if (!trialEndsAt) return { trialEnds: null, daysLeft: null };
+    const d = new Date(trialEndsAt);
+    return {
+      trialEnds: d,
+      daysLeft: Math.max(0, Math.ceil((d.getTime() - nowAtMount) / 86_400_000)),
+    };
+  }, [trialEndsAt, nowAtMount]);
 
   return (
     <div className="max-w-6xl mx-auto p-6 md:p-8 space-y-8">

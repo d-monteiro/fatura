@@ -209,6 +209,16 @@ export function OnboardingWizard() {
     );
   }
 
+  if (submitting) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-lg font-medium text-foreground">A criar o teu espaço...</p>
+        <p className="text-sm text-muted-foreground">Isto demora apenas alguns segundos.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className={`mx-auto px-6 md:px-10 py-8 ${wideStep ? 'max-w-5xl' : 'max-w-2xl'}`}>

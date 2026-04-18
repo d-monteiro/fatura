@@ -4,9 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, ArrowLeft } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { notifySlack } from '@/lib/slack/notify';
 import type { OnboardingData } from './onboardingTypes';
 import { SECTORS } from './onboardingTypes';
 
@@ -30,6 +28,7 @@ export function EnterpriseContactForm({ data, onBack, onSubmitted }: Props) {
   const [phone, setPhone] = useState('');
   const [availability, setAvailability] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [website, setWebsite] = useState(''); // honeypot: bot-only
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,36 +50,34 @@ export function EnterpriseContactForm({ data, onBack, onSubmitted }: Props) {
         ?? data.sectorCustom
         ?? data.sector;
       const availabilityStr = availability.join(', ');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) throw new Error('Config em falta');
 
-      const { error: insertError } = await supabase.from('enterprise_leads').insert({
-        company_name: data.companyName,
-        contact_name: contactName.trim(),
-        email: email.trim(),
-        phone: phone.trim() || null,
-        sector: sectorLabel,
-        country: data.country,
-        invoices_per_month: data.invoicesPerMonth,
-        availability: availabilityStr,
-        notes: notes.trim() || null,
-      });
-
-      if (insertError) throw insertError;
-
-      // Await: a navegação logo a seguir cancela fetches em voo.
-      await notifySlack({
-        channel: 'leads',
-        payload: {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/submit-enterprise-lead`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
           company_name: data.companyName,
           contact_name: contactName.trim(),
           email: email.trim(),
-          phone: phone.trim() || undefined,
+          phone: phone.trim() || null,
           sector: sectorLabel,
           country: data.country,
           invoices_per_month: data.invoicesPerMonth,
           availability: availabilityStr,
-          notes: notes.trim() || undefined,
-        },
+          notes: notes.trim() || null,
+          website, // honeypot
+        }),
       });
+
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+        throw new Error(detail.error ?? 'Falha ao enviar.');
+      }
 
       onSubmitted();
     } catch (e) {
@@ -172,6 +169,19 @@ export function EnterpriseContactForm({ data, onBack, onSubmitted }: Props) {
             {error}
           </div>
         )}
+
+        {/* Honeypot: invisível para humanos, preenchido por bots */}
+        <div aria-hidden="true" className="absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden">
+          <label htmlFor="website-hp">Website (deixar vazio)</label>
+          <input
+            id="website-hp"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="flex justify-between">

@@ -115,8 +115,7 @@ async function matchOrCreateSupplier(g: GeminiInvoiceData, invId: string, tenant
   const { data: ns } = await supabase.from('suppliers').insert({
     tenant_id: tenantId,
     name: g.supplier_name, display_name: g.supplier_name, nif: g.supplier_nif ?? null,
-    is_subcontractor: g.autoliquidation, default_metier: g.metier,
-    default_nature: g.nature_depense, default_cost_type: g.cost_type,
+    is_subcontractor: g.autoliquidation,
   }).select('id').single();
   if (ns) await supabase.from('invoices').update({ supplier_id: ns.id }).eq('id', invId);
 }

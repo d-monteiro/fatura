@@ -3,6 +3,8 @@ import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { MobileInvoiceCard } from './MobileInvoiceCard';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 import type { Invoice } from '@/types/database';
 
 export type SortField = 'doc_date' | 'supplier_name' | 'metier' | 'nature_depense' | 'cost_type' | 'montant_ttc';
@@ -34,6 +36,8 @@ export function FaturasTable({
 }: FaturasTableProps) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
+  const { tenant } = useTenant();
+  const { labelFor } = useCategories(tenant?.id);
   const allSelected = invoices.length > 0 && invoices.every((inv) => selectedIds.has(inv.id));
 
   // Mobile card view
@@ -87,10 +91,10 @@ export function FaturasTable({
               </td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{formatDatePT(inv.doc_date)}</td>
               <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>{inv.supplier_name ?? '\u2014'}</td>
-              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{inv.metier ?? '\u2014'}</td>
-              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{inv.nature_depense ?? '\u2014'}</td>
+              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{labelFor('metier', inv.metier) || '\u2014'}</td>
+              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{labelFor('nature_depense', inv.nature_depense) || '\u2014'}</td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>
-                {inv.cost_type === 'cout_fixe' ? 'Fixe' : inv.cost_type === 'cout_variable' ? 'Variable' : '\u2014'}
+                {labelFor('cost_type', inv.cost_type) || '\u2014'}
               </td>
               <td className="px-4 py-3 text-right font-medium text-gray-900" onClick={() => onRowClick(inv)}>
                 {formatEUR(inv.montant_ttc)}

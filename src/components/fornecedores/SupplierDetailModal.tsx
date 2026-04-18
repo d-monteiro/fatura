@@ -52,13 +52,9 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
   };
 
   const fields = [
-    { label: t('inv.nif'), value: supplier.siret, mono: true },
-    { label: t('sup.tva_intracom'), value: supplier.tva_intracom, mono: true },
+    { label: t('inv.nif'), value: supplier.nif, mono: true },
     { label: t('sup.iban'), value: supplier.iban, mono: true },
     { label: t('sup.address'), value: supplier.address },
-    { label: t('inv.metier'), value: supplier.default_metier },
-    { label: t('inv.nature'), value: supplier.default_nature },
-    { label: t('inv.cost_type'), value: supplier.default_cost_type },
     { label: t('sup.total_spent'), value: formatEUR(supplier.total_spent) },
     { label: t('sup.invoice_count'), value: String(supplier.invoice_count) },
   ];
@@ -75,7 +71,7 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
             <h2 className="text-xl font-bold text-gray-900">
               {supplier.display_name ?? supplier.name}
             </h2>
-            {supplier.is_sous_traitant && (
+            {supplier.is_subcontractor && (
               <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
                 <BadgeCheck className="h-3.5 w-3.5" /> {t('sup.subcontractor')}
               </span>

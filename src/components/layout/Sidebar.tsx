@@ -12,6 +12,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useTenant } from '@/contexts/TenantContext';
 import { cn } from '@/lib/cn';
 import { CompanySelector } from './CompanySelector';
+import { TenantSwitcher } from './TenantSwitcher';
 import type { Company } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -78,15 +79,32 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         'md:z-30 md:translate-x-0',
         mobileOpen ? 'translate-x-0' : '-translate-x-full',
       )}>
-        {/* Logo */}
-        <div className="flex h-16 items-center justify-between px-6">
-          <span className="text-xl font-bold tracking-tight">
-            Fatura<span className="text-accent">AI</span>
-          </span>
-          <button onClick={onMobileClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center md:hidden rounded-lg hover:bg-white/10">
+        {/* Brand header — tenant logo/name if set, else FaturaAI */}
+        <div className="flex h-16 items-center justify-between gap-3 px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {tenant?.logo_url ? (
+              <>
+                <img
+                  src={tenant.logo_url}
+                  alt=""
+                  className="h-8 w-8 rounded-md bg-white object-contain p-0.5 shrink-0"
+                />
+                <span className="truncate text-sm font-semibold tracking-tight">
+                  {tenant.name}
+                </span>
+              </>
+            ) : (
+              <span className="text-xl font-bold tracking-tight">
+                Fatura<span className="text-accent">AI</span>
+              </span>
+            )}
+          </div>
+          <button onClick={onMobileClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center md:hidden rounded-lg hover:bg-white/10 shrink-0">
             <X className="h-5 w-5 text-white/70" />
           </button>
         </div>
+
+        <TenantSwitcher />
 
         <CompanySelector
           companyOpen={companyOpen}
@@ -122,7 +140,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             <span>{t('nav.logout')}</span>
           </button>
           <p className="px-3 pt-2 text-[11px] text-white/30 tracking-wide">
-            FaturaAI &bull; 2026
+            {tenant?.logo_url ? 'por FaturaAI' : 'FaturaAI'} &bull; 2026
           </p>
         </div>
       </aside>

@@ -33,7 +33,7 @@ function Dialog({
 
 function DialogTrigger({
   children,
-  asChild,
+  asChild: _asChild,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) {
   const { onOpenChange } = React.useContext(DialogContext);

@@ -39,7 +39,7 @@ Esta codebase foi marcada pelo dono como "AI slop". Antes de escrever qualquer l
 - API keys **nunca** no frontend — só Edge Functions via `Deno.env.get`.
 - RLS em todas as tabelas, usando `(select auth.uid())` (não `auth.uid()` bare).
 - Edge Functions verificam JWT via `supabase.auth.getUser()`.
-- CORS whitelist via env `ALLOWED_ORIGINS` (ver [supabase/functions/_shared/cors.ts](supabase/functions/_shared/cors.ts)). Default: `faturas.flowzi.pt` + `localhost:5173`. Nunca `*`.
+- CORS whitelist via env `ALLOWED_ORIGINS` (ver [supabase/functions/_shared/cors.ts](supabase/functions/_shared/cors.ts)). Default: `fatura.flowzi.pt` + `localhost:5173`. Nunca `*`.
 - Soft delete (`deleted_at`). Nunca DELETE real em faturas.
 - Audit log em mutações de faturas.
 - OAuth state parameter deve ser HMAC-assinado (pendente — C3).

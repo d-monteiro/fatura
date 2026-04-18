@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase/client';
-import { useI18n } from '@/contexts/I18nContext';
 import { Check } from 'lucide-react';
 import type { Plan } from '@/types/tenant';
 import type { OnboardingData } from './onboardingTypes';
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export function StepPayment({ data, onChange }: Props) {
-  const { lang } = useI18n();
   const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
@@ -58,12 +56,11 @@ export function StepPayment({ data, onChange }: Props) {
       <div className="grid gap-5 md:grid-cols-3">
         {plans.map((plan) => {
           const price = data.billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-          const perMonthLabel = lang === 'en' ? '/mo' : '/mês';
           const perMonth = plan.price_yearly
-            ? `${(plan.price_yearly / 100 / 12).toFixed(0)}€${perMonthLabel}`
+            ? `${(plan.price_yearly / 100 / 12).toFixed(0)}€/mês`
             : null;
-          const description = lang === 'en' && plan.description_en ? plan.description_en : plan.description;
-          const features = lang === 'en' && plan.features_list_en ? plan.features_list_en : plan.features_list;
+          const description = plan.description;
+          const features = plan.features_list;
           const isSelected = data.selectedPlan === plan.slug;
 
           return (
@@ -83,7 +80,7 @@ export function StepPayment({ data, onChange }: Props) {
                   {formatPrice(price)}
                   {price !== null && (
                     <span className="text-sm font-normal text-muted-foreground">
-                      /{data.billingCycle === 'yearly' ? (lang === 'en' ? 'yr' : 'ano') : (lang === 'en' ? 'mo' : 'mês')}
+                      /{data.billingCycle === 'yearly' ? 'ano' : 'mês'}
                     </span>
                   )}
                 </div>

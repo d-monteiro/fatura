@@ -90,7 +90,7 @@ export default function Faturas() {
   });
 
   const { data: counts } = useQuery({
-    queryKey: ['invoice-tab-counts', tenantId, companyId],
+    queryKey: queryKeys.invoiceTabCounts(tenantId, companyId),
     queryFn: async () => {
       if (!tenantId) return null;
       const base = () => {

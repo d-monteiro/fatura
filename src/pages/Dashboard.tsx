@@ -8,6 +8,8 @@ import { MetricCard } from '@/components/dashboard/MetricCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { CategoryDonut } from '@/components/dashboard/CategoryDonut';
 import { RecentInvoicesTable } from '@/components/dashboard/RecentInvoicesTable';
+import { SyncEmailsCard } from '@/components/dashboard/SyncEmailsCard';
+import { ExternalIntegrationsCard } from '@/components/dashboard/ExternalIntegrationsCard';
 import { queryKeys } from '@/lib/queryKeys';
 import { ConnectGoogleBanner } from '@/components/common/ConnectGoogleBanner';
 
@@ -53,6 +55,8 @@ export default function Dashboard() {
 
       <ConnectGoogleBanner />
 
+      <SyncEmailsCard />
+
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <div className="animate-fade-in-up" style={{ animationDelay: '0ms' }}>
@@ -93,10 +97,12 @@ export default function Dashboard() {
             icon={AlertTriangle}
             trend={null}
             color="bg-amber-500"
-            onClick={() => navigate('/inbox')}
+            onClick={() => navigate('/invoices?tab=review')}
           />
         </div>
       </div>
+
+      <ExternalIntegrationsCard />
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
