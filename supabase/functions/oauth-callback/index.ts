@@ -1,11 +1,3 @@
-// ============================================
-// Edge Function: oauth-callback
-// ============================================
-// Recebe o callback do Google OAuth, verifica state HMAC, guarda tokens.
-// Deploy: supabase functions deploy oauth-callback --no-verify-jwt --project-ref <ref>
-// Env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SUPABASE_URL,
-//           SUPABASE_SERVICE_ROLE_KEY, FRONTEND_URL, OAUTH_STATE_SECRET
-
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getAllowedOrigins, getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
@@ -17,6 +9,19 @@ const SAFE_SOURCES: Record<string, string> = {
   upload: "/upload",
   settings: "/settings",
 };
+
+// Escolhe uma origem segura para redirect ao frontend — nunca localhost
+// exceto se explicitamente listado em ALLOWED_ORIGINS.
+function safeFrontendOrigin(stateOrigin?: string | null): string {
+  const allowed = getAllowedOrigins();
+  const nonLocal = allowed.find((o) => !LOCALHOST_RE.test(o));
+  if (stateOrigin) {
+    if (allowed.includes(stateOrigin)) return stateOrigin;
+  }
+  const envUrl = Deno.env.get("FRONTEND_URL");
+  if (envUrl && !LOCALHOST_RE.test(envUrl)) return envUrl;
+  return nonLocal ?? getFrontendUrl();
+}
 
 function redirectWithError(frontendUrl: string, redirectPath: string, message: string): Response {
   const errorUrl = new URL(`${frontendUrl}${redirectPath}`);
@@ -36,16 +41,29 @@ Deno.serve(async (req) => {
     const googleError = url.searchParams.get("error");
 
     const claims = stateParam ? await verifyState(stateParam) : null;
-    if (!claims) {
-      return redirectWithError(getFrontendUrl(), "/settings", "Pedido OAuth inválido ou expirado. Tenta novamente.");
+
+    // Fallback source/origin se state é inválido (legacy plain-JSON vindo de bundle
+    // frontend antigo). Tentamos ler o "source" do JSON para redirect_path,
+    // mas NUNCA confiamos no origin para redirect (pode ser localhost forjado).
+    let legacySource: string | null = null;
+    if (!claims && stateParam) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(stateParam));
+        if (typeof parsed?.source === "string") legacySource = parsed.source;
+        console.warn("[oauth-callback] state sem HMAC (frontend desactualizado?)", { source: legacySource });
+      } catch {
+        console.warn("[oauth-callback] state parse falhou");
+      }
     }
 
-    const { user_id: userId, company_id: companyId, source, origin: stateOrigin } = claims;
-    const redirectPath = SAFE_SOURCES[source] ?? "/settings";
-    const allowed = getAllowedOrigins();
-    const frontendUrl = allowed.includes(stateOrigin) || LOCALHOST_RE.test(stateOrigin)
-      ? stateOrigin
-      : getFrontendUrl();
+    const redirectPath = SAFE_SOURCES[(claims?.source ?? legacySource) ?? "settings"] ?? "/settings";
+    const frontendUrl = safeFrontendOrigin(claims?.origin);
+
+    if (!claims) {
+      return redirectWithError(frontendUrl, redirectPath, "Refaz login e tenta ligar Google novamente.");
+    }
+
+    const { user_id: userId, company_id: companyId } = claims;
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
@@ -113,7 +131,6 @@ Deno.serve(async (req) => {
     }
     const tenantId = tenantUser.tenant_id;
 
-    // Validar que companyId pertence ao tenant do user (blocker #4)
     if (companyId) {
       const { data: company } = await supabase
         .from("companies")
@@ -218,7 +235,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Nota: não colocamos email/company_id em query params para não acabar em error_logs
     const successUrl = new URL(`${frontendUrl}${redirectPath}`);
     successUrl.searchParams.set("oauth", "success");
     return new Response(null, {
@@ -227,6 +243,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("[oauth-callback] unexpected error", error);
-    return redirectWithError(getFrontendUrl(), "/settings", "Erro interno");
+    return redirectWithError(safeFrontendOrigin(), "/settings", "Erro interno");
   }
 });
