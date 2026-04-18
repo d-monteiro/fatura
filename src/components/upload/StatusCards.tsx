@@ -26,7 +26,8 @@ export function StatusCards({
 
   const connect = (loginHint?: string) => {
     if (!userId) return;
-    redirectToGoogleOAuth({ userId, source: 'upload', loginHint, promptSelect: !loginHint });
+    void redirectToGoogleOAuth({ source: 'upload', loginHint, promptSelect: !loginHint })
+      .catch((e: unknown) => console.error('[oauth]', e));
   };
 
   if (loading) {

@@ -1,75 +1,69 @@
 // ============================================
 // Edge Function: oauth-callback
 // ============================================
-// Recebe o callback do Google OAuth e guarda tokens no Supabase.
-// Deploy: supabase functions deploy oauth-callback --project-ref <ref>
+// Recebe o callback do Google OAuth, verifica state HMAC, guarda tokens.
+// Deploy: supabase functions deploy oauth-callback --no-verify-jwt --project-ref <ref>
 // Env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SUPABASE_URL,
-//           SUPABASE_SERVICE_ROLE_KEY, FRONTEND_URL
+//           SUPABASE_SERVICE_ROLE_KEY, FRONTEND_URL, OAUTH_STATE_SECRET
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
+import { getAllowedOrigins, getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
+import { verifyState } from "../_shared/oauthState.ts";
+
+const LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const SAFE_SOURCES: Record<string, string> = {
+  onboarding: "/onboarding",
+  upload: "/upload",
+  settings: "/settings",
+};
+
+function redirectWithError(frontendUrl: string, redirectPath: string, message: string): Response {
+  const errorUrl = new URL(`${frontendUrl}${redirectPath}`);
+  errorUrl.searchParams.set("oauth", "error");
+  errorUrl.searchParams.set("message", message);
+  return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
+}
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     const stateParam = url.searchParams.get("state");
-    const error = url.searchParams.get("error");
+    const googleError = url.searchParams.get("error");
 
-    // Parse state para obter user_id, company_id e source
-    let userId: string | null = null;
-    let companyId: string | null = null;
-    let source: string | null = null;
-    try {
-      if (stateParam) {
-        const stateData = JSON.parse(stateParam);
-        if (stateData.user_id) userId = stateData.user_id;
-        if (stateData.company_id) companyId = stateData.company_id;
-        if (stateData.source) source = stateData.source;
-      }
-    } catch {
-      // Invalid state JSON
+    const claims = stateParam ? await verifyState(stateParam) : null;
+    if (!claims) {
+      return redirectWithError(getFrontendUrl(), "/settings", "Pedido OAuth inválido ou expirado. Tenta novamente.");
     }
 
-    const oauthTable = "user_oauth_tokens";
-    const redirectPath =
-      source === "onboarding" ? "/onboarding" :
-      source === "upload" ? "/upload" :
-      source === "settings" ? "/settings" :
-      companyId ? "/settings" : "/automations";
+    const { user_id: userId, company_id: companyId, source, origin: stateOrigin } = claims;
+    const redirectPath = SAFE_SOURCES[source] ?? "/settings";
+    const allowed = getAllowedOrigins();
+    const frontendUrl = allowed.includes(stateOrigin) || LOCALHOST_RE.test(stateOrigin)
+      ? stateOrigin
+      : getFrontendUrl();
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const frontendUrl = getFrontendUrl();
 
-    if (!clientId || !clientSecret) {
-      return redirectWithError(frontendUrl, redirectPath, "Configuração OAuth em falta");
+    if (!clientId || !clientSecret || !supabaseUrl || !supabaseServiceKey) {
+      return redirectWithError(frontendUrl, redirectPath, "Configuração do servidor em falta");
     }
-
-    if (error) {
-      return redirectWithError(frontendUrl, redirectPath, `Erro OAuth: ${error}`);
+    if (googleError) {
+      return redirectWithError(frontendUrl, redirectPath, "Autorização Google negada");
     }
-
     if (!code) {
       return redirectWithError(frontendUrl, redirectPath, "Código de autorização em falta");
     }
 
-    if (!userId) {
-      return redirectWithError(frontendUrl, redirectPath, "Sessão inválida. Faça login novamente.");
-    }
-
     const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
 
-    // Trocar code por tokens
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -81,60 +75,77 @@ Deno.serve(async (req) => {
         grant_type: "authorization_code",
       }),
     });
-
     if (!tokenResponse.ok) {
-      return redirectWithError(frontendUrl, redirectPath, "Falha ao obter tokens");
+      return redirectWithError(frontendUrl, redirectPath, "Falha ao obter tokens Google");
     }
-
     const tokens = await tokenResponse.json();
-
     if (!tokens.access_token) {
       return redirectWithError(frontendUrl, redirectPath, "Access token não recebido");
     }
 
-    const grantedScopes = tokens.scope ? tokens.scope.split(" ") : [];
+    const grantedScopes: string[] = tokens.scope ? tokens.scope.split(" ") : [];
 
-    // Obter info do utilizador Google
     const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
-
     if (!userInfoResponse.ok) {
-      return redirectWithError(frontendUrl, redirectPath, "Falha ao obter info do utilizador");
+      return redirectWithError(frontendUrl, redirectPath, "Falha ao obter info Google");
     }
-
     const userInfo = await userInfoResponse.json();
-
     if (!userInfo.email) {
-      return redirectWithError(frontendUrl, redirectPath, "Email não disponível");
+      return redirectWithError(frontendUrl, redirectPath, "Email Google indisponível");
     }
 
-    // Guardar tokens no Supabase
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
-      auth: { persistSession: false },
-    });
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
 
     const expiresIn = tokens.expires_in || 3600;
     const tokenExpiry = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    const { data: existing } = await supabase
-      .from(oauthTable)
-      .select("id")
-      .eq("email", userInfo.email)
-      .eq("provider", "google")
-      .single();
+    const { data: tenantUser } = await supabase
+      .from("tenant_users")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+    if (!tenantUser?.tenant_id) {
+      return redirectWithError(frontendUrl, redirectPath, "Tenant não encontrado");
+    }
+    const tenantId = tenantUser.tenant_id;
+
+    // Validar que companyId pertence ao tenant do user (blocker #4)
+    if (companyId) {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("id", companyId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (!company) {
+        return redirectWithError(frontendUrl, redirectPath, "Empresa inacessível");
+      }
+    }
 
     const scopes = grantedScopes.length > 0 ? grantedScopes : [
-      "email",
-      "profile",
+      "email", "profile",
       "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.modify",
       "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets",
     ];
+
+    const { data: existing } = await supabase
+      .from("user_oauth_tokens")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("email", userInfo.email)
+      .eq("provider", "google")
+      .maybeSingle();
+
+    let tokenRowId: string | null = existing?.id ?? null;
 
     if (existing) {
       const { error: updateError } = await supabase
-        .from(oauthTable)
+        .from("user_oauth_tokens")
         .update({
           user_id: userId,
           access_token: tokens.access_token,
@@ -143,102 +154,79 @@ Deno.serve(async (req) => {
           scopes,
         })
         .eq("id", existing.id);
-
       if (updateError) {
         console.error("[oauth-callback] update error", updateError);
-        return redirectWithError(frontendUrl, redirectPath, `BD update: ${updateError.message}`);
+        return redirectWithError(frontendUrl, redirectPath, "Falha ao gravar tokens");
       }
     } else {
       const { count } = await supabase
-        .from(oauthTable)
+        .from("user_oauth_tokens")
         .select("*", { count: "exact", head: true })
         .eq("provider", "google")
-        .eq("user_id", userId);
-
+        .eq("tenant_id", tenantId);
       const isPrimary = (count || 0) === 0;
 
-      const { error: insertError } = await supabase.from(oauthTable).insert({
-        user_id: userId,
-        provider: "google",
-        email: userInfo.email,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token || "",
-        token_expiry: tokenExpiry,
-        scopes,
-        is_primary_storage: isPrimary,
-      });
-
-      if (insertError) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("user_oauth_tokens")
+        .insert({
+          tenant_id: tenantId,
+          user_id: userId,
+          provider: "google",
+          email: userInfo.email,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token || "",
+          token_expiry: tokenExpiry,
+          scopes,
+          is_primary_storage: isPrimary,
+        })
+        .select("id")
+        .single();
+      if (insertError || !inserted) {
         console.error("[oauth-callback] insert error", insertError);
-        return redirectWithError(frontendUrl, redirectPath, `BD insert: ${insertError.message}`);
+        return redirectWithError(frontendUrl, redirectPath, "Falha ao gravar tokens");
       }
+      tokenRowId = inserted.id;
     }
 
-    // Link email to company if company_id provided
-    if (companyId) {
-      // Get the token ID we just saved
-      const { data: savedToken } = await supabase
-        .from(oauthTable)
-        .select("id")
-        .eq("email", userInfo.email)
-        .eq("provider", "google")
-        .single();
+    if (companyId && tokenRowId) {
+      await supabase
+        .from("companies")
+        .update({ email: userInfo.email, oauth_token_id: tokenRowId })
+        .eq("id", companyId)
+        .eq("tenant_id", tenantId);
 
-      if (savedToken) {
-        await supabase
-          .from("companies")
-          .update({ email: userInfo.email, oauth_token_id: savedToken.id })
-          .eq("id", companyId);
-      }
-
-      // Also upsert email_accounts for backward compat (sync-email last_sync_at)
       const { data: existingEA } = await supabase
         .from("email_accounts")
         .select("id")
+        .eq("tenant_id", tenantId)
         .eq("email", userInfo.email)
-        .single();
-
+        .maybeSingle();
       if (existingEA) {
         await supabase.from("email_accounts").update({
-          company_id: companyId, oauth_token_id: savedToken?.id, is_active: true,
+          company_id: companyId, oauth_token_id: tokenRowId, is_active: true,
         }).eq("id", existingEA.id);
       } else {
         await supabase.from("email_accounts").insert({
-          user_id: userId, email: userInfo.email, provider: "gmail",
-          company_id: companyId, oauth_token_id: savedToken?.id, is_active: true,
+          tenant_id: tenantId,
+          user_id: userId,
+          email: userInfo.email,
+          provider: "gmail",
+          company_id: companyId,
+          oauth_token_id: tokenRowId,
+          is_active: true,
         });
       }
     }
 
-    // Redirect com sucesso
+    // Nota: não colocamos email/company_id em query params para não acabar em error_logs
     const successUrl = new URL(`${frontendUrl}${redirectPath}`);
     successUrl.searchParams.set("oauth", "success");
-    successUrl.searchParams.set("email", userInfo.email);
-    if (companyId) successUrl.searchParams.set("company_id", companyId);
-
     return new Response(null, {
       status: 302,
-      headers: {
-        Location: successUrl.toString(),
-        ...corsHeaders,
-      },
+      headers: { Location: successUrl.toString() },
     });
   } catch (error) {
     console.error("[oauth-callback] unexpected error", error);
-    const msg = error instanceof Error ? error.message : "Erro interno";
-    return redirectWithError(getFrontendUrl(), "/automations", msg);
+    return redirectWithError(getFrontendUrl(), "/settings", "Erro interno");
   }
 });
-
-function redirectWithError(frontendUrl: string, redirectPath: string, message: string): Response {
-  const errorUrl = new URL(`${frontendUrl}${redirectPath}`);
-  errorUrl.searchParams.set("oauth", "error");
-  errorUrl.searchParams.set("message", message);
-
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: errorUrl.toString(),
-    },
-  });
-}

@@ -8,18 +8,18 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RequireTenant } from '@/components/common/RequireTenant';
 import Dashboard from '@/pages/Dashboard';
-import Inbox from '@/pages/Inbox';
 import Faturas from '@/pages/Faturas';
 import Upload from '@/pages/Upload';
 import Fornecedores from '@/pages/Fornecedores';
 import Login from '@/pages/Login';
 import Settings from '@/pages/Settings';
-import Automations from '@/pages/Automations';
 import Onboarding from '@/pages/Onboarding';
 import OnboardingThanks from '@/pages/OnboardingThanks';
 import Landing from '@/pages/Landing';
 import Billing from '@/pages/Billing';
 import Tickets from '@/pages/Tickets';
+import Privacy from '@/pages/Privacy';
+import Terms from '@/pages/Terms';
 import { FeedbackWidget } from '@/components/tickets/FeedbackWidget';
 import { ErrorBoundary } from '@/lib/errors/errorBoundary';
 import AdminLayout from '@/pages/admin/AdminLayout';
@@ -56,6 +56,8 @@ function AppRoutes() {
         <Route index element={<Landing />} />
         <Route path="login" element={<Login />} />
         <Route path="onboarding" element={<Onboarding />} />
+        <Route path="legal/privacy" element={<Privacy />} />
+        <Route path="legal/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -65,6 +67,8 @@ function AppRoutes() {
     <Routes>
       <Route path="onboarding" element={<Onboarding />} />
       <Route path="onboarding/thanks" element={<OnboardingThanks />} />
+      <Route path="legal/privacy" element={<Privacy />} />
+      <Route path="legal/terms" element={<Terms />} />
       <Route path="admin" element={<AdminLayout />}>
         <Route index element={<AdminTenants />} />
         <Route path="tickets" element={<AdminTickets />} />
@@ -74,11 +78,9 @@ function AppRoutes() {
       </Route>
       <Route element={<RequireTenant><AppLayout /></RequireTenant>}>
         <Route index element={<Dashboard />} />
-        <Route path="inbox" element={<Inbox />} />
         <Route path="invoices" element={<Faturas />} />
         <Route path="upload" element={<Upload />} />
         <Route path="suppliers" element={<Fornecedores />} />
-        <Route path="automations" element={<Automations />} />
         <Route path="billing" element={<Billing />} />
         <Route path="tickets" element={<Tickets />} />
         <Route path="settings" element={<Settings />} />

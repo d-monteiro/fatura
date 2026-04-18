@@ -5,8 +5,17 @@ import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 import { hasStorageScopes } from '@/lib/google/scopes';
 import { queryKeys } from '@/lib/queryKeys';
 import { AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 type PrimaryToken = { scopes: string[] | null; email: string | null } | null;
+
+async function startOAuth(loginHint?: string) {
+  try {
+    await redirectToGoogleOAuth({ source: 'upload', loginHint });
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Falha ao ligar Google');
+  }
+}
 
 export function ConnectGoogleBanner() {
   const { user } = useAuth();
@@ -33,20 +42,29 @@ export function ConnectGoogleBanner() {
 
   if (!primary) {
     return (
-      <div className="flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-        <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-        <div className="flex-1">
-          <p className="font-medium text-yellow-800">Ligar conta Google</p>
-          <p className="text-sm text-yellow-700">
-            Ainda não ligaste nenhuma conta Google. Upload e sincronização não vão funcionar até ligares uma.
-          </p>
+      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium text-yellow-800">Ligar conta Google</p>
+            <p className="text-sm text-yellow-700">
+              Ainda não ligaste nenhuma conta Google. Upload e sincronização não vão funcionar até ligares uma.
+            </p>
+          </div>
+          <button
+            onClick={() => { void startOAuth(); }}
+            className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-700"
+          >
+            Ligar agora
+          </button>
         </div>
-        <button
-          onClick={() => redirectToGoogleOAuth({ userId, source: 'upload' })}
-          className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-700"
-        >
-          Ligar agora
-        </button>
+        <p className="text-[11px] leading-relaxed text-yellow-900/70">
+          A utilização e transferência para outras apps, por parte do FaturaAI, de informações recebidas das APIs da Google cumprem a{' '}
+          <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="underline">
+            Google API Services User Data Policy
+          </a>
+          , incluindo os requisitos de Limited Use.
+        </p>
       </div>
     );
   }
@@ -62,11 +80,7 @@ export function ConnectGoogleBanner() {
           </p>
         </div>
         <button
-          onClick={() => redirectToGoogleOAuth({
-            userId,
-            source: 'upload',
-            loginHint: primary.email ?? undefined,
-          })}
+          onClick={() => { void startOAuth(primary.email ?? undefined); }}
           className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700"
         >
           Reautenticar

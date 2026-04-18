@@ -2,7 +2,8 @@
 // Edge Function: analyze-document
 // OpenRouter → Gemini 2.5 Pro — Tenant-aware multi-invoice extraction
 // Deploy: supabase functions deploy analyze-document
-// Secret: OPENROUTER_API_KEY
+// Secrets: OPENROUTER_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY,
+//          SUPABASE_SERVICE_ROLE_KEY
 // ============================================
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -12,6 +13,22 @@ import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const API_TIMEOUT_MS = 120_000;
+const MAX_BASE64_LEN = 8_000_000; // ~6MB binary
+const ALLOWED_MIMES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+]);
+
+function json(status: number, body: unknown, cors: Record<string, string>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
+}
 
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -22,18 +39,18 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number):
 function tryParseJSON(text: string): unknown {
   try { return JSON.parse(text); } catch { /* continue */ }
   let fixed = text;
-  const lastBrace = fixed.lastIndexOf('}');
+  const lastBrace = fixed.lastIndexOf("}");
   if (lastBrace > 0) {
     fixed = fixed.substring(0, lastBrace + 1);
     const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
     const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
-    fixed += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
+    fixed += "]".repeat(Math.max(0, openBrackets)) + "}".repeat(Math.max(0, openBraces));
     try { return JSON.parse(fixed); } catch { /* continue */ }
   }
   const lineItemsIdx = text.indexOf('"line_items"');
   if (lineItemsIdx > 0) {
     const before = text.substring(0, lineItemsIdx) + '"line_items": []}';
-    const invoicesClose = before.includes('"invoices"') ? ']}' : '}';
+    const invoicesClose = before.includes('"invoices"') ? "]}" : "}";
     try { return JSON.parse(before); } catch { /* continue */ }
     try { return JSON.parse(before + invoicesClose); } catch { /* continue */ }
   }
@@ -41,11 +58,11 @@ function tryParseJSON(text: string): unknown {
 }
 
 function normalizeResult(parsed: unknown): { invoices: unknown[] } {
-  if (parsed && typeof parsed === 'object') {
-    if ('invoices' in parsed && Array.isArray((parsed as Record<string, unknown>).invoices)) {
+  if (parsed && typeof parsed === "object") {
+    if ("invoices" in parsed && Array.isArray((parsed as Record<string, unknown>).invoices)) {
       return parsed as { invoices: unknown[] };
     }
-    if ('is_valid_document' in parsed) return { invoices: [parsed] };
+    if ("is_valid_document" in parsed) return { invoices: [parsed] };
     if (Array.isArray(parsed)) return { invoices: parsed };
   }
   return { invoices: [parsed] };
@@ -71,22 +88,21 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
     .select("name, name_variations").eq("tenant_id", tenantId).limit(100);
 
   const ob = (tenant.onboarding_data ?? {}) as OnboardingData;
-  const language = (tenant.language as 'pt' | 'fr' | 'en') ?? 'pt';
+  const language = (tenant.language as "pt" | "fr" | "en") ?? "pt";
 
-  const costTypes = (cats ?? []).filter((c) => c.axis === 'cost_type')
+  const costTypes = (cats ?? []).filter((c) => c.axis === "cost_type")
     .map((c) => ({ code: c.code as string, label: c.label as string }));
-  const metiers = (cats ?? []).filter((c) => c.axis === 'metier')
+  const metiers = (cats ?? []).filter((c) => c.axis === "metier")
     .map((c) => ({ code: c.code as string, label: c.label as string }));
-  const natures = (cats ?? []).filter((c) => c.axis === 'nature_depense')
+  const natures = (cats ?? []).filter((c) => c.axis === "nature_depense")
     .map((c) => ({ code: c.code as string, label: c.label as string }));
 
-  // Fallback: se nenhuma categoria está seedada, usar topSuppliers/categories do onboarding como labels brutas
   if (costTypes.length === 0) {
-    costTypes.push({ code: 'cout_fixe', label: 'Custos fixos' }, { code: 'cout_variable', label: 'Custos variáveis' });
+    costTypes.push({ code: "cout_fixe", label: "Custos fixos" }, { code: "cout_variable", label: "Custos variáveis" });
   }
   if (natures.length === 0 && Array.isArray(ob.categories)) {
     ob.categories.forEach((cat, i) => natures.push({
-      code: cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `nat_${i}`,
+      code: cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || `nat_${i}`,
       label: cat,
     }));
   }
@@ -95,28 +111,27 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
     normalized: s.name as string,
     variations: ((s.name_variations as string[]) ?? []).concat([s.name as string]),
   }));
-  // Topar com topSuppliers do onboarding caso suppliers ainda esteja vazia
   if (knownSuppliers.length === 0 && Array.isArray(ob.topSuppliers)) {
     ob.topSuppliers.forEach((s) => knownSuppliers.push({ normalized: s.toUpperCase(), variations: [s] }));
   }
 
   return {
     companyName: tenant.name as string,
-    nif: (tenant.nif as string) ?? '',
-    sector: (tenant.sector as string) ?? 'geral',
+    nif: (tenant.nif as string) ?? "",
+    sector: (tenant.sector as string) ?? "geral",
     language,
-    country: (tenant.country as string) ?? 'PT',
-    currency: (tenant.currency as string) ?? 'EUR',
+    country: (tenant.country as string) ?? "PT",
+    currency: (tenant.currency as string) ?? "EUR",
     nameVariations: ((tenant.invoice_name_variations as string[]) ?? []).length
       ? (tenant.invoice_name_variations as string[])
       : [(tenant.name as string).toUpperCase()],
-    vatRates: getVatRatesForCountry((tenant.country as string) ?? 'PT'),
+    vatRates: getVatRatesForCountry((tenant.country as string) ?? "PT"),
     costTypes,
     metiers,
     natures,
     knownSuppliers,
     documentTypes: Array.isArray(ob.documentTypes) && ob.documentTypes.length
-      ? ob.documentTypes : ['factures', 'recus'],
+      ? ob.documentTypes : ["factures", "recus"],
   };
 }
 
@@ -128,47 +143,57 @@ Tu es un comptable senior. Analyse cette facture et renvoie un JSON structuré.
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
-
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (req.method !== "POST") return json(405, { error: "Method not allowed" }, corsHeaders);
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (authHeader && supabaseUrl && supabaseAnonKey) {
-      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    // Chamadas internas (sync-email) enviam x-internal-secret = service role key
+    const internalSecret = req.headers.get("x-internal-secret");
+    const isInternal = !!internalSecret && !!serviceKey && internalSecret === serviceKey;
+
+    let validatedUserId: string | null = null;
+
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) return json(401, { error: "Unauthorized" }, corsHeaders);
+
+      const userClient = createClient(supabaseUrl, anonKey, {
         auth: { persistSession: false },
         global: { headers: { Authorization: authHeader } },
       });
       const { data: { user } } = await userClient.auth.getUser();
-      if (!user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (!user) return json(401, { error: "Unauthorized" }, corsHeaders);
+      validatedUserId = user.id;
     }
 
     const { data, mimeType, tenantId } = await req.json();
 
-    if (!data || !mimeType) {
-      return new Response(JSON.stringify({ error: "data and mimeType are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (typeof data !== "string" || !data || data.length > MAX_BASE64_LEN) {
+      return json(400, { error: "data inválido ou demasiado grande" }, corsHeaders);
+    }
+    if (typeof mimeType !== "string" || !ALLOWED_MIMES.has(mimeType.toLowerCase())) {
+      return json(400, { error: "mimeType não suportado" }, corsHeaders);
     }
 
-    // Build prompt: tenant-aware se possível, senão fallback
+    const adminClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    if (tenantId && !isInternal && validatedUserId) {
+      const { data: membership } = await adminClient
+        .from("tenant_users")
+        .select("tenant_id")
+        .eq("user_id", validatedUserId)
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!membership) return json(403, { error: "Tenant inacessível" }, corsHeaders);
+    }
+
     let prompt = FALLBACK_PROMPT;
-    if (tenantId && supabaseUrl && serviceKey) {
-      const adminClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    if (tenantId) {
       const cfg = await loadTenantConfig(adminClient, tenantId);
       if (cfg) prompt = buildTenantPrompt(cfg);
     }
@@ -197,30 +222,22 @@ Deno.serve(async (req) => {
           temperature: 0.1,
         }),
       },
-      API_TIMEOUT_MS
+      API_TIMEOUT_MS,
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      return new Response(JSON.stringify({ error: "OpenRouter API error: " + response.status, details: errorText }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(502, { error: `OpenRouter API error: ${response.status}` }, corsHeaders);
     }
 
     const result = await response.json();
     const text = result.choices?.[0]?.message?.content || "";
     const cleanedText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
     const parsed = tryParseJSON(cleanedText);
     const normalized = normalizeResult(parsed);
 
-    return new Response(JSON.stringify(normalized), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, normalized, corsHeaders);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(500, { error: msg }, corsHeaders);
   }
 });

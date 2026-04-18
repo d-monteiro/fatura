@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export function Footer() {
   return (
     <footer className="border-t py-12">
@@ -20,9 +22,9 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-sm mb-3">Legal</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><span className="cursor-default">Termos de utilização</span></li>
-              <li><span className="cursor-default">Política de privacidade</span></li>
-              <li><span className="cursor-default">RGPD</span></li>
+              <li><Link to="/legal/terms" className="hover:text-foreground transition-colors">Termos de utilização</Link></li>
+              <li><Link to="/legal/privacy" className="hover:text-foreground transition-colors">Política de privacidade</Link></li>
+              <li><a href="mailto:privacy@flowzi.pt" className="hover:text-foreground transition-colors">RGPD — pedidos</a></li>
             </ul>
           </div>
         </div>

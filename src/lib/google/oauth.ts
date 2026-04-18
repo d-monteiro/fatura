@@ -1,37 +1,44 @@
-import { FULL_SCOPES } from './scopes';
+import { supabase } from '@/lib/supabase/client';
 
-export type OAuthSource = 'onboarding' | 'upload' | 'settings' | 'automations';
+export type OAuthSource = 'onboarding' | 'upload' | 'settings';
 
 interface OAuthParams {
-  userId: string;
+  userId?: string;
   source: OAuthSource;
   companyId?: string;
   loginHint?: string;
   promptSelect?: boolean;
 }
 
-export function redirectToGoogleOAuth(params: OAuthParams): void {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+export async function redirectToGoogleOAuth(params: OAuthParams): Promise<void> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!clientId || !supabaseUrl) {
-    throw new Error('Config Google/Supabase em falta');
-  }
+  if (!supabaseUrl) throw new Error('Config Supabase em falta');
 
-  const state = JSON.stringify({
-    user_id: params.userId,
-    company_id: params.companyId ?? null,
-    source: params.source,
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Sessão em falta. Faz login primeiro.');
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/oauth-start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      source: params.source,
+      company_id: params.companyId ?? null,
+      origin: window.location.origin,
+      prompt_select: params.promptSelect ?? false,
+      login_hint: params.loginHint,
+    }),
   });
 
-  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  url.searchParams.set('client_id', clientId);
-  url.searchParams.set('redirect_uri', `${supabaseUrl}/functions/v1/oauth-callback`);
-  url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', FULL_SCOPES.join(' '));
-  url.searchParams.set('access_type', 'offline');
-  url.searchParams.set('prompt', params.promptSelect ? 'select_account consent' : 'consent');
-  url.searchParams.set('state', state);
-  if (params.loginHint) url.searchParams.set('login_hint', params.loginHint);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Falha ao iniciar OAuth: ${detail.slice(0, 200)}`);
+  }
 
-  window.location.href = url.toString();
+  const { auth_url } = await response.json();
+  if (!auth_url) throw new Error('auth_url em falta na resposta');
+
+  window.location.href = auth_url;
 }

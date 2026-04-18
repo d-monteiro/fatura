@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
-import { Globe, Trash2, Plus, Star, Mail } from 'lucide-react';
+import { Globe, Trash2, Plus, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTenant } from '@/contexts/TenantContext';
 import { redirectToGoogleOAuth } from '@/lib/google/oauth';
@@ -26,7 +26,7 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
     queryFn: async () => {
       const { data } = await supabase
         .from('user_oauth_tokens')
-        .select('*, email_accounts(id, company_id, is_active, companies(name))')
+        .select('id, provider, email, scopes, is_primary_storage, token_expiry, tenant_id, user_id, email_accounts(id, company_id, is_active, companies(name))')
         .eq('user_id', userId)
         .eq('provider', 'google')
         .order('is_primary_storage', { ascending: false });
@@ -42,27 +42,16 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
         .from('companies').select('id, name').eq('is_active', true);
       return (data as Pick<Company, 'id' | 'name'>[] | null) ?? [];
     },
+    enabled: !!tenant?.id,
   });
 
   const deleteToken = useMutation({
     mutationFn: async (tokenId: string) => {
       await supabase.from('user_oauth_tokens').delete().eq('id', tokenId);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.oauthTokens }),
-  });
-
-  const setPrimary = useMutation({
-    mutationFn: async (tokenId: string) => {
-      await supabase.from('user_oauth_tokens')
-        .update({ is_primary_storage: false })
-        .eq('user_id', userId);
-      await supabase.from('user_oauth_tokens')
-        .update({ is_primary_storage: true })
-        .eq('id', tokenId);
-    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.oauthTokens });
-      toast.success('Conta definida como armazenamento principal');
+      qc.invalidateQueries({ queryKey: queryKeys.companies });
     },
   });
 
@@ -94,6 +83,7 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.oauthTokens });
       qc.invalidateQueries({ queryKey: queryKeys.emailAccounts });
+      qc.invalidateQueries({ queryKey: queryKeys.companies });
       toast.success('Conta ligada à empresa');
       setLinkState(null);
       setTargetCompany('');
@@ -102,11 +92,12 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
   });
 
   const addAccount = () => {
-    redirectToGoogleOAuth({ userId, source: 'settings', promptSelect: true });
+    void redirectToGoogleOAuth({ source: 'settings', promptSelect: true })
+      .catch((e: unknown) => toast.error(e instanceof Error ? e.message : 'Falha ao iniciar OAuth'));
   };
 
   return (
-    <div className="border border-border rounded-xl p-6">
+    <div id="google-accounts" className="border border-border rounded-xl p-6 scroll-mt-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Globe size={20} />
@@ -140,19 +131,14 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
               <li key={t.id} className="p-3 bg-muted rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium truncate">{t.email}</p>
-                      {t.is_primary_storage && (
-                        <span className="inline-flex items-center gap-0.5 text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded">
-                          <Star className="h-3 w-3" /> Principal
-                        </span>
-                      )}
-                      {storage && <Badge>Drive</Badge>}
-                      {sheets && <Badge>Sheets</Badge>}
-                      {gmail && <Badge>Gmail</Badge>}
+                    <p className="font-medium truncate">{t.email}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <PermissionBadge active={storage}>Drive</PermissionBadge>
+                      <PermissionBadge active={!!sheets}>Sheets</PermissionBadge>
+                      <PermissionBadge active={gmail}>Gmail</PermissionBadge>
                     </div>
                     {linkedCompanies.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-2">
                         Faturas de:{' '}
                         {linkedCompanies
                           .map((e) => e.companies?.name ?? '—')
@@ -161,18 +147,10 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0 ml-2">
-                    {!t.is_primary_storage && storage && (
-                      <button
-                        onClick={() => setPrimary.mutate(t.id)}
-                        className="text-xs text-primary hover:underline px-2 py-1"
-                        title="Definir como armazenamento principal"
-                      >
-                        <Star className="h-4 w-4" />
-                      </button>
-                    )}
                     <button
                       onClick={() => deleteToken.mutate(t.id)}
                       className="text-destructive hover:opacity-70 p-2"
+                      title="Remover conta"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -233,8 +211,17 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function PermissionBadge({ active, children }: { active: boolean; children: React.ReactNode }) {
   return (
-    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{children}</span>
+    <span
+      className={
+        active
+          ? 'inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700'
+          : 'inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-400 line-through'
+      }
+      title={active ? 'Permissão concedida' : 'Permissão em falta — reautentica a conta'}
+    >
+      {children}
+    </span>
   );
 }
