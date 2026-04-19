@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { ProgressBar } from './ProgressBar';
 import { StepCompany } from './StepCompany';
 import { StepInvoiceIntel } from './StepInvoiceIntel';
@@ -21,12 +22,21 @@ import {
 } from './useOnboardingStorage';
 import { notifySlack } from '@/lib/slack/notify';
 import { finalizeOnboarding } from '@/lib/onboarding/finalize';
+import { isValidNif } from '@/lib/utils/validation';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 
 const TOTAL_STEPS = 7;
 
+// A constraint tenants_nif_format exige 9 dígitos exatos para PT. Para outros
+// países, NIF pode ser qualquer coisa (não há validação server-side).
+function sanitizeNifForCountry(raw: string, country: string): string {
+  const trimmed = raw.trim();
+  return country === 'PT' ? trimmed.replace(/\D/g, '') : trimmed;
+}
+
 export function OnboardingWizard() {
   const { user } = useAuth();
+  const { refreshTenant } = useTenant();
   const navigate = useNavigate();
 
   // Restore any previous progress from localStorage on first render.
@@ -46,8 +56,12 @@ export function OnboardingWizard() {
   }, []);
 
   // If the user is authenticated and already has a tenant, skip onboarding entirely.
+  // Guard com `submitting`: durante o submit, o finishStarterPro já orquestra a
+  // navegação após refreshTenant. Sem este guard, race com a query abaixo dispara
+  // navigate('/') contra um TenantContext ainda stale → RequireTenant devolve
+  // para /onboarding → loop de history.replaceState.
   useEffect(() => {
-    if (!user) return;
+    if (!user || submitting) return;
     let cancelled = false;
     (async () => {
       const { data: membership } = await supabase
@@ -58,11 +72,12 @@ export function OnboardingWizard() {
         .maybeSingle();
       if (!cancelled && membership) {
         clearStoredOnboarding();
+        await refreshTenant();
         navigate('/', { replace: true });
       }
     })();
     return () => { cancelled = true; };
-  }, [user, navigate]);
+  }, [user, navigate, submitting, refreshTenant]);
 
   const createTenantForCurrentUser = useCallback(async (activeUserId: string, activeEmail: string) => {
     const { data: plan } = await supabase
@@ -79,7 +94,7 @@ export function OnboardingWizard() {
       tenant_data: {
         name: data.companyName,
         slug: `${slug}-${Date.now().toString(36)}`,
-        nif: data.nif,
+        nif: sanitizeNifForCountry(data.nif, data.country),
         sector: data.sector === 'autre' ? data.sectorCustom : data.sector,
         country: data.country,
         primary_color: data.primaryColor,
@@ -137,6 +152,9 @@ export function OnboardingWizard() {
     try {
       await createTenantForCurrentUser(activeUserId, activeEmail);
       clearStoredOnboarding();
+      // refreshTenant antes de navegar: RequireTenant no `/` precisa do tenant
+      // carregado, senão redirect-loop para /onboarding.
+      await refreshTenant();
       navigate('/', { replace: true });
     } catch (e) {
       console.error('[onboarding]', e);
@@ -144,7 +162,7 @@ export function OnboardingWizard() {
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, createTenantForCurrentUser, navigate]);
+  }, [submitting, createTenantForCurrentUser, navigate, refreshTenant]);
 
   // Triggered by the main "Começar teste grátis" button at the bottom.
   const handleSubmit = async () => {
@@ -176,7 +194,14 @@ export function OnboardingWizard() {
   };
 
   const canProceed = () => {
-    if (step === 1) return data.companyName.length >= 2 && data.nif.length > 0 && data.sector.length > 0;
+    if (step === 1) {
+      if (data.companyName.length < 2 || data.sector.length === 0) return false;
+      const nif = sanitizeNifForCountry(data.nif, data.country);
+      if (nif.length === 0) return false;
+      // PT: só avança com NIF válido (9 dígitos + checksum módulo 11).
+      if (data.country === 'PT' && !isValidNif(nif)) return false;
+      return true;
+    }
     if (step === 7) return data.selectedPlan.length > 0;
     return true;
   };

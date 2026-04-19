@@ -9,13 +9,22 @@ import type { Company } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
 import { hasGmailScopes } from '@/lib/google/scopes';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CompanyCardProps {
   company: Company;
 }
 
 type GmailToken = { id: string; email: string | null; token_expiry: string | null; scopes: string[] | null };
-type LinkedAccount = { id: string; email: string; oauth_token_id: string; user_oauth_tokens: { token_expiry: string | null } | null };
+type LinkedAccount = { id: string; email: string; oauth_token_id: string; user_oauth_tokens: { token_expiry: string | null; refresh_token: string | null } | null };
 
 export function CompanyCard({ company: c }: CompanyCardProps) {
   const { t } = useI18n();
@@ -32,7 +41,7 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
     queryFn: async () => {
       const { data } = await supabase
         .from('email_accounts')
-        .select('id, email, oauth_token_id, user_oauth_tokens!oauth_token_id(token_expiry)')
+        .select('id, email, oauth_token_id, user_oauth_tokens!oauth_token_id(token_expiry, refresh_token)')
         .eq('company_id', c.id)
         .eq('is_active', true);
       return (data as LinkedAccount[] | null) ?? [];
@@ -106,22 +115,30 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
     },
   });
 
-  const inputCls = 'w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20';
   const linkedIds = new Set(linked.map((l) => l.oauth_token_id));
   const available = tokens.filter((tok) => !linkedIds.has(tok.id));
 
   if (editing) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-card space-y-2">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-card space-y-3">
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="grid grid-cols-2 gap-2">
-          <div><label className="block text-xs font-medium text-gray-500 mb-0.5">{t('company.name')}</label><input className={inputCls} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></div>
-          <div><label className="block text-xs font-medium text-gray-500 mb-0.5">{t('company.nif')}</label><input className={`${inputCls} font-mono`} value={form.nif} onChange={(e) => setForm((p) => ({ ...p, nif: e.target.value }))} /></div>
-          <div className="col-span-2"><label className="block text-xs font-medium text-gray-500 mb-0.5">{t('company.address')}</label><input className={inputCls} value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} /></div>
+          <div className="space-y-1">
+            <Label htmlFor={`c-${c.id}-name`}>{t('company.name')}</Label>
+            <Input id={`c-${c.id}-name`} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`c-${c.id}-nif`}>{t('company.nif')}</Label>
+            <Input id={`c-${c.id}-nif`} className="font-mono" value={form.nif} onChange={(e) => setForm((p) => ({ ...p, nif: e.target.value }))} />
+          </div>
+          <div className="col-span-2 space-y-1">
+            <Label htmlFor={`c-${c.id}-addr`}>{t('company.address')}</Label>
+            <Input id={`c-${c.id}-addr`} value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+          </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => update.mutate()} disabled={update.isPending} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"><Check className="h-3.5 w-3.5" />{t('action.save')}</button>
-          <button onClick={() => { setEditing(false); setError(''); }} className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"><X className="h-3.5 w-3.5" />{t('action.cancel')}</button>
+          <button onClick={() => update.mutate()} disabled={update.isPending} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"><Check className="h-3.5 w-3.5" />{t('action.save')}</button>
+          <button onClick={() => { setEditing(false); setError(''); }} className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"><X className="h-3.5 w-3.5" />{t('action.cancel')}</button>
         </div>
       </div>
     );
@@ -143,13 +160,13 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
 
       <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
         {linked.map((acc) => {
-          const ok = acc.user_oauth_tokens?.token_expiry && new Date(acc.user_oauth_tokens.token_expiry) > new Date();
+          const ok = !!acc.user_oauth_tokens?.refresh_token;
           return (
             <div key={acc.id} className="flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
                 <Mail className="h-4 w-4 text-gray-400 shrink-0" />
                 <span className="text-sm text-gray-700 truncate">{acc.email}</span>
-                <span className={`h-2 w-2 rounded-full shrink-0 ${ok ? 'bg-green-500' : 'bg-red-400'}`} title={ok ? 'Token válido' : 'Token expirado'} />
+                <span className={`h-2 w-2 rounded-full shrink-0 ${ok ? 'bg-green-500' : 'bg-red-400'}`} title={ok ? 'Conta ativa' : 'Conta revogada — voltar a ligar'} />
               </div>
               <button onClick={() => unlink.mutate(acc.id)} className="text-xs text-gray-400 hover:text-red-500 shrink-0 ml-2">Desligar</button>
             </div>
@@ -159,11 +176,17 @@ export function CompanyCard({ company: c }: CompanyCardProps) {
         {available.length > 0 ? (
           <div className="flex items-center gap-2">
             <Plug className="h-4 w-4 text-gray-400 shrink-0" />
-            <select value={pickToken} onChange={(e) => setPickToken(e.target.value)} className="flex-1 text-sm px-2 py-1 border border-gray-300 rounded bg-white">
-              <option value="">Ligar conta Google…</option>
-              {available.map((tok) => <option key={tok.id} value={tok.id}>{tok.email}</option>)}
-            </select>
-            <button onClick={() => pickToken && link.mutate(pickToken)} disabled={!pickToken || link.isPending} className="text-xs px-3 py-1 bg-primary text-primary-foreground rounded disabled:opacity-50">Ligar</button>
+            <div className="flex-1 min-w-0">
+              <Select value={pickToken} onValueChange={setPickToken}>
+                <SelectTrigger size="sm"><SelectValue placeholder="Ligar conta Google…" /></SelectTrigger>
+                <SelectContent>
+                  {available.map((tok) => (
+                    <SelectItem key={tok.id} value={tok.id}>{tok.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button onClick={() => pickToken && link.mutate(pickToken)} disabled={!pickToken || link.isPending} className="shrink-0 text-xs px-3 py-2 bg-primary text-primary-foreground rounded-md disabled:opacity-50">Ligar</button>
           </div>
         ) : linked.length === 0 ? (
           <p className="text-xs text-gray-500">

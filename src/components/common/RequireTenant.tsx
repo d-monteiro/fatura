@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useTenant } from '@/contexts/TenantContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import type { ReactNode } from 'react';
 
@@ -8,15 +9,20 @@ interface RequireTenantProps {
 }
 
 export function RequireTenant({ children }: RequireTenantProps) {
-  const { tenant, loading } = useTenant();
+  const { tenant, loading: tenantLoading } = useTenant();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const location = useLocation();
 
-  if (loading) {
+  if (tenantLoading || adminLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <LoadingSpinner size={40} />
       </div>
     );
+  }
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
   }
 
   if (!tenant) {

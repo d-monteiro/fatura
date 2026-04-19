@@ -2,6 +2,15 @@ import type { TranslationKey } from '@/lib/i18n';
 import { COST_TYPES, COST_TYPE_LABELS } from '@/lib/constants';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type TFn = (key: TranslationKey) => string;
 
@@ -17,8 +26,6 @@ interface Props {
   t: TFn;
 }
 
-const cls = 'w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
-
 export type { FormData as InvoiceEditFormData };
 
 export function InvoiceEditFormFields({ form, onChange, t }: Props) {
@@ -27,69 +34,128 @@ export function InvoiceEditFormFields({ form, onChange, t }: Props) {
   const { categories } = useCategories(tenant?.id);
   const metierOptions = categories.metier;
   const natureOptions = categories.nature_depense;
+
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.supplier')}</span>
-        <input className={cls} value={form.supplier_name} onChange={(e) => set('supplier_name', e.target.value)} />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.nif')}</span>
-        <input className={cls} value={form.supplier_nif} onChange={(e) => set('supplier_nif', e.target.value)} />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.doc_number')}</span>
-        <input className={cls} value={form.doc_number} onChange={(e) => set('doc_number', e.target.value)} />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.date')}</span>
-        <input type="date" className={cls} value={form.doc_date} onChange={(e) => set('doc_date', e.target.value)} />
-      </label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-gray-600">{t('inv.amount_ht')}</span>
-          <input type="number" step="0.01" className={cls} value={form.montant_ht} onChange={(e) => set('montant_ht', e.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-gray-600">{t('inv.tva')}</span>
-          <input type="number" step="0.01" className={cls} value={form.montant_tva} onChange={(e) => set('montant_tva', e.target.value)} />
-        </label>
+    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+      <div className="space-y-1.5">
+        <Label htmlFor="ie-supplier">{t('inv.supplier')}</Label>
+        <Input
+          id="ie-supplier"
+          value={form.supplier_name}
+          onChange={(e) => set('supplier_name', e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ie-nif">{t('inv.nif')}</Label>
+        <Input
+          id="ie-nif"
+          className="font-mono"
+          value={form.supplier_nif}
+          onChange={(e) => set('supplier_nif', e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ie-doc-number">{t('inv.doc_number')}</Label>
+        <Input
+          id="ie-doc-number"
+          value={form.doc_number}
+          onChange={(e) => set('doc_number', e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ie-date">{t('inv.date')}</Label>
+        <Input
+          id="ie-date"
+          type="date"
+          value={form.doc_date}
+          onChange={(e) => set('doc_date', e.target.value)}
+        />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-gray-600">{t('inv.amount_ttc')}</span>
-          <input type="number" step="0.01" className={cls} value={form.montant_ttc} onChange={(e) => set('montant_ttc', e.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-gray-600">{t('inv.tva_rate')} (%)</span>
-          <input type="number" step="0.1" className={cls} value={form.taux_tva} onChange={(e) => set('taux_tva', e.target.value)} />
-        </label>
+        <div className="space-y-1.5">
+          <Label htmlFor="ie-ht">{t('inv.amount_ht')}</Label>
+          <Input
+            id="ie-ht"
+            type="number"
+            step="0.01"
+            value={form.montant_ht}
+            onChange={(e) => set('montant_ht', e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ie-tva">{t('inv.tva')}</Label>
+          <Input
+            id="ie-tva"
+            type="number"
+            step="0.01"
+            value={form.montant_tva}
+            onChange={(e) => set('montant_tva', e.target.value)}
+          />
+        </div>
       </div>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.metier')}</span>
-        <select className={cls} value={form.metier} onChange={(e) => set('metier', e.target.value)}>
-          <option value="">--</option>
-          {metierOptions.map((c) => <option key={c.id} value={c.code}>{c.label}</option>)}
-        </select>
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.nature')}</span>
-        <select className={cls} value={form.nature_depense} onChange={(e) => set('nature_depense', e.target.value)}>
-          <option value="">--</option>
-          {natureOptions.map((c) => <option key={c.id} value={c.code}>{c.label}</option>)}
-        </select>
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.cost_type')}</span>
-        <select className={cls} value={form.cost_type} onChange={(e) => set('cost_type', e.target.value)}>
-          <option value="">--</option>
-          {COST_TYPES.map((c) => <option key={c} value={c}>{COST_TYPE_LABELS[c]}</option>)}
-        </select>
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-gray-600">{t('inv.summary')}</span>
-        <input className={cls} value={form.summary} onChange={(e) => set('summary', e.target.value)} />
-      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="ie-ttc">{t('inv.amount_ttc')}</Label>
+          <Input
+            id="ie-ttc"
+            type="number"
+            step="0.01"
+            value={form.montant_ttc}
+            onChange={(e) => set('montant_ttc', e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ie-tva-rate">{t('inv.tva_rate')} (%)</Label>
+          <Input
+            id="ie-tva-rate"
+            type="number"
+            step="0.1"
+            value={form.taux_tva}
+            onChange={(e) => set('taux_tva', e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>{t('inv.metier')}</Label>
+        <Select value={form.metier} onValueChange={(v) => set('metier', v)}>
+          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>
+            {metierOptions.map((c) => (
+              <SelectItem key={c.id} value={c.code}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>{t('inv.nature')}</Label>
+        <Select value={form.nature_depense} onValueChange={(v) => set('nature_depense', v)}>
+          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>
+            {natureOptions.map((c) => (
+              <SelectItem key={c.id} value={c.code}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>{t('inv.cost_type')}</Label>
+        <Select value={form.cost_type} onValueChange={(v) => set('cost_type', v)}>
+          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>
+            {COST_TYPES.map((c) => (
+              <SelectItem key={c} value={c}>{COST_TYPE_LABELS[c]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ie-summary">{t('inv.summary')}</Label>
+        <Input
+          id="ie-summary"
+          value={form.summary}
+          onChange={(e) => set('summary', e.target.value)}
+        />
+      </div>
     </div>
   );
 }

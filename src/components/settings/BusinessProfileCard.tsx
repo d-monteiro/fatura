@@ -6,6 +6,15 @@ import { SECTORS, EU_COUNTRIES, CURRENCIES } from '@/components/onboarding/onboa
 import { extractLogoColors } from '@/lib/utils/extractLogoColors';
 import { Briefcase, Plus, X, Check, ImagePlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Form {
   name: string;
@@ -41,8 +50,6 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-
-const inputCls = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20';
 
 export function BusinessProfileCard() {
   const { tenant, refreshTenant } = useTenant();
@@ -133,8 +140,8 @@ export function BusinessProfileCard() {
         <h2 className="text-lg font-semibold">Perfil do negócio</h2>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Logótipo</label>
+      <div className="space-y-1.5">
+        <Label>Logótipo</Label>
         <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 bg-gray-50/50 p-3">
           <div className="h-16 w-16 rounded-lg overflow-hidden bg-white border shadow-sm flex items-center justify-center shrink-0">
             {form.logo_url
@@ -142,7 +149,7 @@ export function BusinessProfileCard() {
               : <ImagePlus className="h-6 w-6 text-gray-300" />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {form.logo_url ? 'Logo atual. Ao trocar, extraímos a paleta automaticamente.' : 'PNG, JPG ou SVG. Máx. 2MB.'}
             </p>
           </div>
@@ -180,32 +187,55 @@ export function BusinessProfileCard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Nome da empresa *</label>
-          <input className={inputCls} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+        <div className="space-y-1.5">
+          <Label htmlFor="bp-name">Nome da empresa *</Label>
+          <Input
+            id="bp-name"
+            value={form.name}
+            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+          />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">NIF</label>
-          <input className={`${inputCls} font-mono`} value={form.nif} onChange={(e) => setForm((p) => ({ ...p, nif: e.target.value }))} />
+        <div className="space-y-1.5">
+          <Label htmlFor="bp-nif">NIF</Label>
+          <Input
+            id="bp-nif"
+            className="font-mono"
+            value={form.nif}
+            onChange={(e) => setForm((p) => ({ ...p, nif: e.target.value }))}
+          />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Setor</label>
-          <select className={inputCls} value={form.sector} onChange={(e) => setForm((p) => ({ ...p, sector: e.target.value }))}>
-            <option value="">—</option>
-            {SECTORS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+        <div className="space-y-1.5">
+          <Label>Setor</Label>
+          <Select value={form.sector} onValueChange={(v) => setForm((p) => ({ ...p, sector: v }))}>
+            <SelectTrigger><SelectValue placeholder="Selecione um setor" /></SelectTrigger>
+            <SelectContent>
+              {SECTORS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">País</label>
-          <select className={inputCls} value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}>
-            {EU_COUNTRIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+        <div className="space-y-1.5">
+          <Label>País</Label>
+          <Select value={form.country} onValueChange={(v) => setForm((p) => ({ ...p, country: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {EU_COUNTRIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Moeda</label>
-          <select className={inputCls} value={form.currency} onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}>
-            {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+        <div className="space-y-1.5">
+          <Label>Moeda</Label>
+          <Select value={form.currency} onValueChange={(v) => setForm((p) => ({ ...p, currency: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <ColorInput label="Cor primária" value={form.primary_color} onChange={(v) => setForm((p) => ({ ...p, primary_color: v }))} />
@@ -213,9 +243,11 @@ export function BusinessProfileCard() {
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Nomes nas faturas recebidas</label>
-        <p className="text-xs text-gray-400 mb-2">Variações do nome da sua empresa como aparecem nas faturas (ex: abreviaturas, marcas). A IA usa isto para identificar o destinatário.</p>
+      <div className="space-y-1.5">
+        <Label>Nomes nas faturas recebidas</Label>
+        <p className="text-xs text-muted-foreground">
+          Variações do nome da sua empresa como aparecem nas faturas (ex: abreviaturas, marcas). A IA usa isto para identificar o destinatário.
+        </p>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {form.invoice_name_variations.map((v) => (
             <span key={v} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">
@@ -223,11 +255,10 @@ export function BusinessProfileCard() {
               <button onClick={() => removeVariation(v)} className="hover:text-red-600"><X className="h-3 w-3" /></button>
             </span>
           ))}
-          {form.invoice_name_variations.length === 0 && <span className="text-xs text-gray-400">Nenhuma ainda.</span>}
+          {form.invoice_name_variations.length === 0 && <span className="text-xs text-muted-foreground">Nenhuma ainda.</span>}
         </div>
         <div className="flex gap-2">
-          <input
-            className={inputCls}
+          <Input
             value={variationDraft}
             onChange={(e) => setVariationDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVariation(); } }}
@@ -237,7 +268,7 @@ export function BusinessProfileCard() {
             type="button"
             onClick={addVariation}
             disabled={!variationDraft.trim()}
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0"
           >
             <Plus className="h-3.5 w-3.5" /> Adicionar
           </button>
@@ -259,11 +290,21 @@ export function BusinessProfileCard() {
 
 function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
       <div className="flex gap-1.5">
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-8 w-8 rounded border border-gray-300 cursor-pointer shrink-0" />
-        <input className={`${inputCls} font-mono uppercase`} value={value} onChange={(e) => onChange(e.target.value)} />
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-10 rounded-md border border-input cursor-pointer shrink-0"
+          aria-label={label}
+        />
+        <Input
+          className="font-mono uppercase"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
       </div>
     </div>
   );

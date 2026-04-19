@@ -13,7 +13,7 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold">1. Quem somos</h2>
             <p>
               FaturaAI é um serviço operado pela Flowzi Lda., com sede em Portugal.
-              Para questões de privacidade contacte <a href="mailto:privacy@flowzi.pt">privacy@flowzi.pt</a>.
+              Para questões de privacidade contacte <a href="mailto:diogo.coutinho@flowzi.pt">diogo.coutinho@flowzi.pt</a>.
             </p>
           </section>
 
@@ -58,7 +58,7 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold">6. Os seus direitos</h2>
             <p>
               Tem direito de acesso, rectificação, apagamento, limitação e portabilidade dos seus dados pessoais,
-              ao abrigo do RGPD. Pode exercê-los contactando <a href="mailto:privacy@flowzi.pt">privacy@flowzi.pt</a>.
+              ao abrigo do RGPD. Pode exercê-los contactando <a href="mailto:diogo.coutinho@flowzi.pt">diogo.coutinho@flowzi.pt</a>.
               Também pode revogar a ligação Google a qualquer momento em <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">myaccount.google.com/permissions</a>.
             </p>
           </section>

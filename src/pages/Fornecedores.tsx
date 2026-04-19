@@ -4,11 +4,12 @@ import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { formatEUR } from '@/lib/utils/validation';
-import { Search, BadgeCheck } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
 import { SupplierDetailModal } from '@/components/fornecedores/SupplierDetailModal';
 import type { Supplier } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
 import { escapeLike } from '@/lib/utils/queries';
+import { FilterSearch } from '@/components/ui/filter-bar';
 
 export default function Fornecedores() {
   const { t } = useI18n();
@@ -56,15 +57,11 @@ export default function Fornecedores() {
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.suppliers')}</h1>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder={t('action.search')}
+      <div className="max-w-md">
+        <FilterSearch
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="min-h-[44px] w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={setSearch}
+          placeholder={t('action.search')}
         />
       </div>
 

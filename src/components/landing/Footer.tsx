@@ -39,13 +39,12 @@ export function Footer() {
             { label: 'Entrar', to: '/login' },
           ]} />
           <FooterCol title="Empresa" links={[
-            { label: 'Contactar', href: 'mailto:ola@flowzi.pt' },
-            { label: 'Suporte', href: 'mailto:suporte@flowzi.pt' },
+            { label: 'Suporte', href: 'mailto:diogo.coutinho@flowzi.pt' },
           ]} />
           <FooterCol title="Legal" links={[
             { label: 'Termos', to: '/legal/terms' },
             { label: 'Privacidade', to: '/legal/privacy' },
-            { label: 'RGPD', href: 'mailto:privacy@flowzi.pt' },
+            { label: 'RGPD', href: 'mailto:diogo.coutinho@flowzi.pt' },
           ]} />
         </div>
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-border pt-6 md:flex-row md:items-center">

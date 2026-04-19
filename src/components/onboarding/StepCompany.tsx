@@ -6,6 +6,7 @@ import { ArrowLeftRight, Building2, Palette } from 'lucide-react';
 import { SECTORS, EU_COUNTRIES, type OnboardingData } from './onboardingTypes';
 import { LogoUploader } from './LogoUploader';
 import { BrandPreview } from './BrandPreview';
+import { isValidNif } from '@/lib/utils/validation';
 
 interface Props {
   data: OnboardingData;
@@ -13,6 +14,10 @@ interface Props {
 }
 
 export function StepCompany({ data, onChange }: Props) {
+  const nifCleaned = data.nif.trim().replace(/\D/g, '');
+  const nifInvalidPT =
+    data.country === 'PT' && data.nif.trim().length > 0 && !isValidNif(nifCleaned);
+
   return (
     <div className="space-y-10">
       <header className="space-y-2">
@@ -50,7 +55,14 @@ export function StepCompany({ data, onChange }: Props) {
                 value={data.nif}
                 onChange={(e) => onChange({ nif: e.target.value })}
                 placeholder="501234567"
+                aria-invalid={nifInvalidPT}
+                className={nifInvalidPT ? 'border-destructive focus-visible:ring-destructive' : undefined}
               />
+              {nifInvalidPT && (
+                <p className="text-xs text-destructive">
+                  NIF inválido. Introduza os 9 dígitos do seu NIF português.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>País *</Label>

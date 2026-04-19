@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { CompanyCard } from './CompanyCard';
 import type { Company } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type CompanyWithToken = Company & { token_expiry?: string | null };
 
@@ -67,8 +69,6 @@ export function CompanyList() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const inputCls = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20';
-
   return (
     <div className="border border-border rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
@@ -89,13 +89,25 @@ export function CompanyList() {
       {creating && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t('company.name')} *</label>
-              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ex: Flowzi Lda" />
+            <div className="space-y-1.5">
+              <Label htmlFor="new-company-name">{t('company.name')} *</Label>
+              <Input
+                id="new-company-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+                placeholder="Ex: Flowzi Lda"
+              />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t('company.nif')}</label>
-              <input className={`${inputCls} font-mono`} value={nif} onChange={(e) => setNif(e.target.value)} placeholder="Opcional" />
+            <div className="space-y-1.5">
+              <Label htmlFor="new-company-nif">{t('company.nif')}</Label>
+              <Input
+                id="new-company-nif"
+                className="font-mono"
+                value={nif}
+                onChange={(e) => setNif(e.target.value)}
+                placeholder="Opcional"
+              />
             </div>
           </div>
           <div className="flex gap-2">

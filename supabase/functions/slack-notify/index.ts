@@ -7,7 +7,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { getAllowedOrigins } from "../_shared/cors.ts";
+import { getAllowedOrigins, getFrontendUrl } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -24,12 +24,9 @@ function cors(req: Request) {
   };
 }
 
-function appUrlFromRequest(req: Request): string {
-  const origin = req.headers.get("origin") ?? "";
-  const allowed = getAllowedOrigins();
-  if (allowed.includes(origin)) return origin;
-  return allowed[0];
-}
+// Botões "Abrir no admin" têm de apontar SEMPRE para a produção (FRONTEND_URL
+// ou fallback fatura.flowzi.pt). Se usarmos o origin do request, uma chamada
+// de dev manda `http://localhost:5173/admin/...` para o Slack do team.
 
 interface LeadPayload {
   company_name: string;
@@ -209,13 +206,13 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json() as Body;
     const topic = normalizeTopic(body.channel);
-    const appUrl = appUrlFromRequest(req);
+    const adminUrl = getFrontendUrl();
 
     let message: { text: string; blocks: Block[] };
     switch (topic) {
-      case "lead": message = buildLead(body.payload as LeadPayload, appUrl); break;
+      case "lead": message = buildLead(body.payload as LeadPayload, adminUrl); break;
       case "signup": message = buildSignup(body.payload as SignupPayload); break;
-      case "ticket": message = buildTicket(body.payload as TicketPayload, appUrl); break;
+      case "ticket": message = buildTicket(body.payload as TicketPayload, adminUrl); break;
       case "alert": message = buildAlert(body.payload as AlertPayload); break;
       default: {
         return new Response(JSON.stringify({ ok: false, error: "unknown topic" }), {

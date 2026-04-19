@@ -8,6 +8,13 @@ import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 import { hasStorageScopes, hasGmailScopes, SCOPE_SHEETS } from '@/lib/google/scopes';
 import { queryKeys } from '@/lib/queryKeys';
 import type { OAuthToken, Company, EmailAccount } from '@/types/database';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type TokenWithEmails = OAuthToken & {
   email_accounts: (Pick<EmailAccount, 'id' | 'company_id' | 'is_active'> & {
@@ -178,16 +185,16 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
                   <div className="mt-2 flex items-center gap-2">
                     {linkState?.tokenId === t.id ? (
                       <>
-                        <select
-                          value={targetCompany}
-                          onChange={(e) => setTargetCompany(e.target.value)}
-                          className="flex-1 text-sm px-2 py-1 border border-border rounded bg-background"
-                        >
-                          <option value="">Escolher empresa...</option>
-                          {availableCompanies.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
+                        <div className="flex-1 min-w-0">
+                          <Select value={targetCompany} onValueChange={setTargetCompany}>
+                            <SelectTrigger size="sm"><SelectValue placeholder="Escolher empresa..." /></SelectTrigger>
+                            <SelectContent>
+                              {availableCompanies.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <button
                           onClick={() => {
                             if (!targetCompany || !t.email) return;
@@ -198,13 +205,13 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
                             });
                           }}
                           disabled={!targetCompany}
-                          className="text-xs px-3 py-1 bg-primary text-primary-foreground rounded disabled:opacity-50"
+                          className="shrink-0 text-xs px-3 py-2 bg-primary text-primary-foreground rounded-md disabled:opacity-50"
                         >
                           Ligar
                         </button>
                         <button
                           onClick={() => { setLinkState(null); setTargetCompany(''); }}
-                          className="text-xs px-2 py-1 text-muted-foreground"
+                          className="shrink-0 text-xs px-2 py-2 text-muted-foreground"
                         >
                           Cancelar
                         </button>

@@ -8,7 +8,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 
 const RATE_LIMIT_PER_HOUR = 3;
 const ENDPOINT_KEY = "submit-enterprise-lead";
@@ -118,15 +118,37 @@ Deno.serve(async (req) => {
       return json(500, { error: "Falha a registar" }, corsHeaders);
     }
 
-    // Best-effort Slack notify
+    // Best-effort Slack notify — Block Kit para ficar consistente com slack-notify
     const slackWebhook = Deno.env.get("SLACK_WEBHOOK_URL");
     if (slackWebhook) {
       try {
+        const adminUrl = getFrontendUrl();
+        const lines = [`*Empresa:* ${companyName}`];
+        const contact = [contactName, email, phone].filter(Boolean).join(" · ");
+        lines.push(`*Contacto:* ${contact}`);
+        if (sector) lines.push(`*Setor:* ${sector}`);
+        if (invoicesPerMonth) lines.push(`*Volume:* ~${invoicesPerMonth} faturas/mês`);
+        if (availability) lines.push(`*Disponibilidade:* ${availability}`);
+        if (notes) lines.push(`*Notas:* ${notes.slice(0, 300)}`);
+
         await fetch(slackWebhook, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            text: `Novo lead Empresarial: ${companyName} (${contactName} <${email}>) · ${sector ?? "—"} · ${invoicesPerMonth ?? "?"} faturas/mês`,
+            text: `Lead: ${companyName}`,
+            blocks: [
+              { type: "header", text: { type: "plain_text", text: "Novo lead empresarial" } },
+              { type: "section", text: { type: "mrkdwn", text: lines.join("\n") } },
+              {
+                type: "actions",
+                elements: [{
+                  type: "button",
+                  text: { type: "plain_text", text: "Abrir no admin" },
+                  url: `${adminUrl}/admin/onboarding`,
+                  style: "primary",
+                }],
+              },
+            ],
           }),
         });
       } catch (e) {

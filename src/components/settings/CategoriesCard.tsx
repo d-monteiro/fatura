@@ -1,11 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
-import { Tags, Plus, Trash2, Check, X, Sparkles } from 'lucide-react';
+import { Tags, Plus, Trash2, Check, X, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { CATEGORY_TEMPLATES } from '@/components/onboarding/onboardingTypes';
+import { CATEGORY_TEMPLATES, SECTORS } from '@/components/onboarding/onboardingTypes';
 import type { Category, CategoryAxis } from '@/types/database';
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const AXES: { value: Exclude<CategoryAxis, 'cost_type'>; label: string; hint: string }[] = [
   { value: 'metier', label: 'Especialidades', hint: 'Áreas técnicas do seu negócio (ex: Eletricidade, Canalização)' },
@@ -17,20 +28,17 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'cat';
 }
 
-const inputCls = 'rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20';
-
 export function CategoriesCard() {
   const { tenant } = useTenant();
   const qc = useQueryClient();
 
-  const { data: totalCount = 0 } = useQuery({
-    queryKey: ['categories', tenant?.id, 'total'],
+  const { data: everCount, isLoading: countLoading } = useQuery({
+    queryKey: ['categories', tenant?.id, 'ever'],
     enabled: !!tenant?.id,
     queryFn: async () => {
       const { count } = await supabase.from('categories')
         .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenant!.id)
-        .eq('is_active', true);
+        .eq('tenant_id', tenant!.id);
       return count ?? 0;
     },
   });
@@ -60,14 +68,29 @@ export function CategoriesCard() {
       if (error) throw error;
       return rows.length;
     },
-    onSuccess: (n) => {
-      toast.success(`${n} categorias carregadas`);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Auto-seed: tenant antigo (ou setor mudado) sem nenhuma categoria — carrega o template do setor uma vez.
+  // Não re-seed se user removeu tudo manualmente (everCount > 0 mantém-se via soft-delete).
+  const autoSeeded = useRef(false);
+  useEffect(() => {
+    if (autoSeeded.current) return;
+    if (countLoading || !tenant?.id || !tenant.sector) return;
+    if (everCount !== 0) return;
+    autoSeeded.current = true;
+    seedStandard.mutate();
+  }, [countLoading, everCount, tenant?.id, tenant?.sector, seedStandard]);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   if (!tenant) return null;
+
+  const sectorLabel = SECTORS.find((s) => s.value === tenant.sector)?.label;
+  const canApplyTemplate = !!tenant.sector && tenant.sector !== 'autre' && !!sectorLabel;
 
   return (
     <div className="border border-border rounded-xl p-6 space-y-5">
@@ -76,20 +99,44 @@ export function CategoriesCard() {
           <Tags size={20} />
           <h2 className="text-lg font-semibold">Categorias</h2>
         </div>
-        {totalCount === 0 && (
+        {canApplyTemplate && (
           <button
-            onClick={() => seedStandard.mutate()}
+            type="button"
+            onClick={() => setConfirmOpen(true)}
             disabled={seedStandard.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            title={`Repõe as categorias do template ${sectorLabel}`}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            {seedStandard.isPending ? 'A carregar…' : 'Carregar padrão'}
+            <RefreshCw className={`h-3.5 w-3.5 ${seedStandard.isPending ? 'animate-spin' : ''}`} />
+            {seedStandard.isPending ? 'A aplicar…' : 'Aplicar template do setor'}
           </button>
         )}
       </div>
       {AXES.map((a) => (
         <AxisSection key={a.value} tenantId={tenant.id} axis={a.value} label={a.label} hint={a.hint} />
       ))}
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aplicar template de {sectorLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Adiciona ou repõe as categorias-base deste setor. Categorias que adicionaste manualmente são mantidas; categorias do template que tenhas removido voltam a aparecer e os nomes voltam aos originais.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                seedStandard.mutate(undefined, { onSuccess: () => toast.success('Template aplicado') });
+              }}
+            >
+              Aplicar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -188,8 +235,8 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
       </div>
 
       <div className="flex gap-2">
-        <input
-          className={`${inputCls} flex-1`}
+        <Input
+          className="flex-1"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) { e.preventDefault(); add.mutate(draft); } }}
@@ -199,7 +246,7 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
           type="button"
           onClick={() => add.mutate(draft)}
           disabled={!draft.trim() || add.isPending}
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0"
         >
           <Plus className="h-3.5 w-3.5" /> Adicionar
         </button>

@@ -1,0 +1,24 @@
+# Desliga verificação de JWT no gateway para funções que validam manualmente
+# via supabase.auth.getUser() internamente. Necessário enquanto o gateway
+# tiver bug com ES256 (asymmetric JWT signing keys).
+# Refs: supabase/supabase#42244, #42810, edge-runtime#654.
+
+project_id = "sxfwprydmllovnxxjhrh"
+
+[functions.oauth-start]
+verify_jwt = false
+
+[functions.analyze-document]
+verify_jwt = false
+
+[functions.refresh-token]
+verify_jwt = false
+
+[functions.revoke-oauth-token]
+verify_jwt = false
+
+[functions.slack-notify]
+verify_jwt = false
+
+[functions.sync-email]
+verify_jwt = false

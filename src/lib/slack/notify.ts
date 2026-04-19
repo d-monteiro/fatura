@@ -3,8 +3,9 @@
  * Silent-fail: if Slack is not configured or errors out, we log and move on —
  * the UX must never break because of a missing notification.
  *
- * The edge function runs without JWT verification so it can also be called
- * during anonymous onboarding (before the account is created).
+ * A edge function exige JWT de user válido (ver supabase/functions/slack-notify/index.ts),
+ * por isso fazemos skip se a sessão ainda não estiver propagada em vez de mandar
+ * um request com o ANON_KEY (gera 401 no console).
  */
 
 import { supabase } from '@/lib/supabase/client';
@@ -58,15 +59,14 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export async function notifySlack(args: NotifyArgs): Promise<void> {
   if (!SUPABASE_URL || !ANON_KEY) return;
   try {
-    // Use the session token if available, otherwise fall back to the anon key.
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? ANON_KEY;
+    if (!session?.access_token) return;
 
     await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${session.access_token}`,
         'apikey': ANON_KEY,
       },
       body: JSON.stringify(args),
