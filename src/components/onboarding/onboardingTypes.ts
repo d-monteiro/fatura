@@ -96,8 +96,6 @@ export interface OnboardingData {
   // Block 2: Invoice Intelligence
   invoiceNameVariations: string[];
   invoicesPerMonth: number;
-  categories: string[];
-  topSuppliers: string[];
   documentTypes: string[];
 
   // Block 3: Storage
@@ -130,8 +128,6 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingData = {
 
   invoiceNameVariations: [],
   invoicesPerMonth: 100,
-  categories: [],
-  topSuppliers: [],
   documentTypes: ['factures'],
 
   storageProvider: 'google_drive',

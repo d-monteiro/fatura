@@ -33,15 +33,12 @@ export function StepStorage({ data, onChange }: Props) {
             </button>
             <button
               type="button"
-              onClick={() => onChange({ storageProvider: 'onedrive' })}
-              className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
-                data.storageProvider === 'onedrive'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-muted hover:border-primary/50'
-              }`}
+              disabled
+              aria-disabled
+              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-muted bg-muted/20 opacity-60 cursor-not-allowed"
             >
-              <HardDrive className="h-8 w-8" />
-              <span className="font-medium text-sm">OneDrive</span>
+              <HardDrive className="h-8 w-8 text-muted-foreground" />
+              <span className="font-medium text-sm text-muted-foreground">OneDrive</span>
               <span className="text-xs text-muted-foreground">(Em breve)</span>
             </button>
           </div>
@@ -63,12 +60,8 @@ export function StepStorage({ data, onChange }: Props) {
         </div>
 
         <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-1">
-          <p className="text-xs text-primary">
-            As pastas serão organizadas automaticamente por ano e mês. Pode personalizar a estrutura nas Definições depois da configuração.
-          </p>
-          <p className="text-xs text-primary">
-            A ligação à tua conta Google (autenticação Drive/Gmail) é feita depois de criares o acesso.
-          </p>
+          <p className="text-xs text-primary">Pastas organizadas por ano e mês. Editável em Definições.</p>
+          <p className="text-xs text-primary">A ligação ao Google acontece após criar a conta.</p>
         </div>
       </div>
     </div>

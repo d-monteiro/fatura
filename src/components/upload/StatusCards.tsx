@@ -73,9 +73,9 @@ export function StatusCards({
       {needsReauth && !refreshError && (
         <Card color="orange" icon={<AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />}>
           <div className="flex-1">
-            <p className="font-medium text-orange-800">Permissões em falta</p>
+            <p className="font-medium text-orange-800">Permissões do Drive em falta</p>
             <p className="text-sm text-orange-700">
-              A conta {primaryEmail ?? 'Google'} não tem acesso ao Drive. Volte a autenticar para continuar.
+              A conta {primaryEmail ?? 'Google'} não tem acesso ao Drive, onde os PDFs são guardados. Volte a autenticar para continuar.
             </p>
           </div>
           <button

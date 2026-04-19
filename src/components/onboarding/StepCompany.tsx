@@ -2,7 +2,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ArrowLeftRight, Building2, Palette, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, Building2, Palette } from 'lucide-react';
 import { SECTORS, EU_COUNTRIES, type OnboardingData } from './onboardingTypes';
 import { LogoUploader } from './LogoUploader';
 import { BrandPreview } from './BrandPreview';
@@ -16,13 +16,9 @@ export function StepCompany({ data, onChange }: Props) {
   return (
     <div className="space-y-10">
       <header className="space-y-2">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium">
-          <Sparkles className="h-3.5 w-3.5" />
-          Vamos começar
-        </div>
         <h2 className="text-3xl font-bold tracking-tight">A sua empresa</h2>
         <p className="text-muted-foreground">
-          Uma configuração rápida — pode alterar tudo mais tarde em Definições.
+          Uma configuração rápida. Pode alterar tudo mais tarde em Definições.
         </p>
       </header>
 

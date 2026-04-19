@@ -1,8 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { SECTORS, EU_COUNTRIES, DOCUMENT_TYPES, type OnboardingData } from './onboardingTypes';
-import { Pencil, Sparkles } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 
 interface Props {
   data: OnboardingData;
@@ -47,8 +46,6 @@ export function StepReview({ data, onGoToStep }: Props) {
     .map((v) => DOCUMENT_TYPES.find((d) => d.value === v)?.label ?? v)
     .join(', ');
 
-  const recommended = data.invoicesPerMonth > 100 ? 'Pro' : 'Starter';
-
   return (
     <div className="space-y-6">
       <div>
@@ -65,18 +62,8 @@ export function StepReview({ data, onGoToStep }: Props) {
         </Section>
 
         <Section title="Faturas" step={2} onEdit={onGoToStep}>
-          <Row label="Volume / mês" value={`~${data.invoicesPerMonth}`} />
+          <Row label="Volume estimado / mês" value={`~${data.invoicesPerMonth}`} />
           <Row label="Tipos" value={docTypeLabels} />
-          {data.categories.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {data.categories.slice(0, 8).map((c) => (
-                <Badge key={c} variant="secondary" className="text-xs">{c}</Badge>
-              ))}
-              {data.categories.length > 8 && (
-                <Badge variant="outline" className="text-xs">+{data.categories.length - 8}</Badge>
-              )}
-            </div>
-          )}
         </Section>
 
         <Section title="Armazenamento" step={3} onEdit={onGoToStep}>
@@ -95,22 +82,6 @@ export function StepReview({ data, onGoToStep }: Props) {
             <Row label="Emails" value={data.emailAddresses.join(', ')} />
           )}
         </Section>
-      </div>
-
-      <div className="relative overflow-hidden rounded-xl border-2 border-primary bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10 p-5">
-        <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-        <div className="relative flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-primary">Plano recomendado</div>
-            <p className="mt-1 text-lg font-bold">{recommended}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Com base nas suas respostas, este é o plano ideal para si.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,134 +1,145 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FileText, CheckCircle2, Zap } from 'lucide-react';
+import { ArrowRight, FileText } from 'lucide-react';
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
-      {/* Decorative blobs */}
-      <div className="absolute top-20 -left-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl opacity-60 animate-pulse" />
-      <div className="absolute bottom-10 -right-20 h-80 w-80 rounded-full bg-accent/30 blur-3xl opacity-50" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+    <section className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute -top-40 right-0 h-[560px] w-[560px] translate-x-1/4 rounded-full bg-accent/20 blur-3xl" />
+        <div className="absolute -bottom-20 left-0 h-[420px] w-[420px] -translate-x-1/4 rounded-full bg-primary/10 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.03] text-primary"
+          style={{
+            backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+      </div>
 
-      {/* Grid pattern overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
-        }}
-      />
+      <div className="mx-auto grid max-w-7xl gap-16 px-6 py-20 md:py-28 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-32">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            7 dias grátis · sem cartão de crédito
+          </div>
 
-      <div className="relative mx-auto max-w-6xl px-4 py-24 sm:py-32 lg:py-40">
-        <div className="flex flex-col items-center text-center">
-          {/* Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight max-w-4xl leading-[1.05]">
-            As suas faturas,{' '}
-            <span className="relative inline-block">
-              <span className="relative z-10 bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
-                sem esforço
-              </span>
-              <svg
-                className="absolute -bottom-2 left-0 w-full"
-                viewBox="0 0 300 12"
-                fill="none"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M2 8C75 3 150 3 298 8"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  className="text-accent"
-                />
-              </svg>
-            </span>
+          <h1 className="mt-6 text-[40px] font-bold leading-[1.02] tracking-tighter text-primary sm:text-5xl lg:text-[64px]">
+            As suas faturas, automáticas.
           </h1>
 
-          {/* Sub-headline */}
-          <p className="mt-8 text-lg sm:text-xl text-muted-foreground max-w-2xl leading-relaxed">
-            A IA lê, categoriza e organiza todas as faturas dos seus fornecedores.
-            Chega de folhas de cálculo manuais.
+          <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            A IA lê, categoriza e arquiva tudo no seu Google Drive. Configurado em 5 minutos.
           </p>
 
-          {/* Single CTA */}
-          <div className="mt-10">
-            <Button asChild size="lg" className="h-14 px-8 text-base shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
-              <Link to="/onboarding" className="inline-flex items-center whitespace-nowrap gap-2">
-                Começar grátis · 7 dias
-                <ArrowRight className="h-5 w-5" />
+          <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              asChild
+              className="group h-14 rounded-full bg-primary py-2 pl-7 pr-2 text-base font-medium text-primary-foreground shadow-[0_10px_30px_-10px_rgba(14,36,53,0.4)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[1px] hover:shadow-[0_15px_40px_-10px_rgba(14,36,53,0.5)] active:translate-y-0"
+            >
+              <Link to="/onboarding" className="inline-flex items-center gap-3">
+                Começar os meus 7 dias grátis
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5">
+                  <ArrowRight className="!h-4 !w-4" />
+                </span>
               </Link>
             </Button>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Sem cartão de crédito · Configuração em 5 minutos
-            </p>
+
+            <a
+              href="#como-funciona"
+              className="inline-flex h-14 items-center justify-center px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              Ver como funciona
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
           </div>
 
-          {/* Visual mock preview */}
-          <div className="relative mt-20 w-full max-w-4xl">
-            <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-3xl blur-2xl opacity-50" />
-            <div className="relative rounded-2xl border bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
-              {/* Mock header bar */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
-                <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-red-400" />
-                  <div className="h-3 w-3 rounded-full bg-yellow-400" />
-                  <div className="h-3 w-3 rounded-full bg-green-400" />
-                </div>
-                <div className="ml-4 text-xs text-muted-foreground font-mono">fatura.flowzi.pt/dashboard</div>
+          <dl className="mt-10 grid max-w-lg grid-cols-3 gap-4">
+            {[
+              ['Sem cartão', 'na adesão'],
+              ['5 min', 'a configurar'],
+              ['Cancele', 'sem pagar nada'],
+            ].map(([top, bot]) => (
+              <div key={top} className="border-l-2 border-accent/40 pl-3">
+                <dt className="text-sm font-semibold text-primary">{top}</dt>
+                <dd className="text-xs text-muted-foreground">{bot}</dd>
               </div>
-
-              {/* Mock dashboard content */}
-              <div className="grid md:grid-cols-3 gap-4 p-6">
-                <MetricCard icon={FileText} label="Faturas este mês" value="247" trend="+12%" />
-                <MetricCard icon={Zap} label="Processadas por IA" value="100%" trend="automático" />
-                <MetricCard icon={CheckCircle2} label="Tempo poupado" value="38h" trend="este mês" />
-              </div>
-
-              <div className="px-6 pb-6">
-                <div className="rounded-lg border bg-background/50 p-4 space-y-2">
-                  {[
-                    { supplier: 'EDP COMERCIAL', amount: '342,18 EUR', category: 'Eletricidade' },
-                    { supplier: 'NOS COMUNICAÇÕES', amount: '89,50 EUR', category: 'Telecomunicações' },
-                    { supplier: 'STAPLES', amount: '156,70 EUR', category: 'Escritório' },
-                  ].map((inv, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 text-sm border-b last:border-b-0">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                          <FileText className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex items-baseline gap-2 min-w-0">
-                          <span className="font-medium truncate">{inv.supplier}</span>
-                          <span className="text-xs text-muted-foreground truncate">· {inv.category}</span>
-                        </div>
-                      </div>
-                      <div className="font-mono font-medium shrink-0">{inv.amount}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+            ))}
+          </dl>
         </div>
+
+        <HeroMock />
       </div>
     </section>
   );
 }
 
-function MetricCard({ icon: Icon, label, value, trend }: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  trend: string;
-}) {
+function HeroMock() {
+  const invoices = [
+    { s: 'EDP COMERCIAL', c: 'Eletricidade', a: '342,18 EUR', t: 'Hoje' },
+    { s: 'NOS COMUNICAÇÕES', c: 'Telecomunicações', a: '89,50 EUR', t: 'Hoje' },
+    { s: 'STAPLES', c: 'Escritório', a: '156,70 EUR', t: 'Ontem' },
+    { s: 'GALP ENERGIA', c: 'Combustível', a: '74,30 EUR', t: 'Ontem' },
+  ];
+
   return (
-    <div className="rounded-xl border bg-background/50 p-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <Icon className="h-4 w-4" />
-        {label}
+    <div className="relative">
+      <div className="relative rounded-[28px] border border-border bg-card p-2 shadow-[0_40px_80px_-30px_rgba(14,36,53,0.25)]">
+        <div className="overflow-hidden rounded-[22px] bg-background">
+          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+            <div className="flex gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+            </div>
+            <span className="font-mono text-[10px] text-muted-foreground">fatura.flowzi.pt</span>
+            <span className="w-8" />
+          </div>
+
+          <div className="grid grid-cols-3 divide-x divide-border/60 border-b border-border/60">
+            <Kpi label="Este mês" value="247" hint="+12%" />
+            <Kpi label="Por IA" value="100%" hint="auto" />
+            <Kpi label="Tempo" value="38h" hint="poupadas" />
+          </div>
+
+          <ul className="divide-y divide-border/50">
+            {invoices.map((inv, i) => (
+              <li
+                key={inv.s}
+                className="flex items-center gap-4 px-5 py-3.5 text-sm animate-fade-in-up"
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+                  <FileText className="h-4 w-4 text-primary" strokeWidth={1.8} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium text-primary">{inv.s}</div>
+                  <div className="truncate text-xs text-muted-foreground">{inv.c} · {inv.t}</div>
+                </div>
+                <span className="font-mono text-sm font-medium text-primary">{inv.a}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex items-center gap-2 border-t border-border/60 px-5 py-3 text-xs text-muted-foreground">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-primary" />
+            </span>
+            A sincronizar Gmail · 3 novas faturas detetadas
+          </div>
+        </div>
       </div>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-primary mt-1">{trend}</div>
+    </div>
+  );
+}
+
+function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="p-4">
+      <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-2xl font-semibold tracking-tighter text-primary">{value}</div>
+      <div className="text-[10px] text-accent">{hint}</div>
     </div>
   );
 }

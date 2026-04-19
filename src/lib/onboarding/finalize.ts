@@ -1,5 +1,5 @@
 /**
- * Bootstrap pós-onboarding: seed categorias, fornecedores, empresa default e pasta root no Drive.
+ * Bootstrap pós-onboarding: seed categorias do sector, empresa default e pasta root no Drive.
  * Chamado pelo OnboardingWizard depois de criar o tenant + tenant_users.
  * Tolerante a falhas: cada passo é independente, falhas não bloqueiam outros.
  */
@@ -13,7 +13,7 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'cat';
 }
 
-async function seedCategories(tenantId: string, sector: string, extraCategories: string[]) {
+async function seedCategories(tenantId: string, sector: string) {
   const tpl = CATEGORY_TEMPLATES[sector] ?? CATEGORY_TEMPLATES.services ?? { metiers: [], natures: [], cost_types: ['Custos fixos', 'Custos variáveis'] };
   const rows: { tenant_id: string; axis: string; code: string; label: string; sort_order: number }[] = [];
 
@@ -25,23 +25,11 @@ async function seedCategories(tenantId: string, sector: string, extraCategories:
   tpl.metiers.forEach((label, i) => rows.push({
     tenant_id: tenantId, axis: 'metier', code: slugify(label), label, sort_order: i,
   }));
-
-  const allNatures = Array.from(new Set([...tpl.natures, ...extraCategories]));
-  allNatures.forEach((label, i) => rows.push({
+  tpl.natures.forEach((label, i) => rows.push({
     tenant_id: tenantId, axis: 'nature_depense', code: slugify(label), label, sort_order: i,
   }));
 
   if (rows.length) await supabase.from('categories').insert(rows);
-}
-
-async function seedSuppliers(tenantId: string, topSuppliers: string[]) {
-  if (!topSuppliers?.length) return;
-  await supabase.from('suppliers').insert(topSuppliers.map((s) => ({
-    tenant_id: tenantId,
-    name: s.toUpperCase(),
-    display_name: s,
-    name_variations: [s],
-  })));
 }
 
 async function seedDefaultCompany(tenantId: string, companyName: string, nif: string) {
@@ -95,8 +83,7 @@ export async function finalizeOnboarding(opts: {
   const rootName = 'FATURAS';
 
   const results = await Promise.allSettled([
-    seedCategories(tenantId, sector, data.categories),
-    seedSuppliers(tenantId, data.topSuppliers),
+    seedCategories(tenantId, sector),
     seedDefaultCompany(tenantId, data.companyName, data.nif),
     supabase.from('tenants').update({ drive_root_folder_name: rootName }).eq('id', tenantId),
     bootstrapDriveRoot(tenantId, userId, rootName),

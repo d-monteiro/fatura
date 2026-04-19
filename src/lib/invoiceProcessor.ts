@@ -21,7 +21,7 @@ interface TenantContext {
 
 async function loadTenantContext(tenantId: string): Promise<TenantContext | null> {
   const { data: t } = await supabase.from('tenants')
-    .select('id, language, folder_structure, drive_root_folder_name, auto_sheets, onboarding_data')
+    .select('id, language, folder_structure, drive_root_folder_name, auto_sheets')
     .eq('id', tenantId).is('deleted_at', null).single();
   if (!t) return null;
 
@@ -32,11 +32,6 @@ async function loadTenantContext(tenantId: string): Promise<TenantContext | null
     normalized: s.name as string,
     variations: ((s.name_variations as string[]) ?? []),
   }));
-  // Topar com onboarding topSuppliers se DB ainda vazia
-  const ob = (t.onboarding_data as { topSuppliers?: string[] } | null) ?? {};
-  if (known.length === 0 && Array.isArray(ob.topSuppliers)) {
-    ob.topSuppliers.forEach((s) => known.push({ normalized: s.toUpperCase(), variations: [s] }));
-  }
 
   return {
     id: t.id as string,

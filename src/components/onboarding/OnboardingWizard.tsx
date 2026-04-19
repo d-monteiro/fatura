@@ -97,8 +97,6 @@ export function OnboardingWizard() {
         auto_reports: data.autoReports,
         invoice_name_variations: data.invoiceNameVariations ?? [],
         onboarding_data: {
-          categories: data.categories,
-          topSuppliers: data.topSuppliers,
           documentTypes: data.documentTypes,
           emailSync: data.emailSync,
           emailAddresses: data.emailAddresses,

@@ -6,3 +6,8 @@ dist
 .DS_Store
 .vercel
 ai-fatura-pro.zip
+
+# sample PDFs — nunca servir faturas em public
+public/faturasex/
+*.pdf
+!public/favicon.png

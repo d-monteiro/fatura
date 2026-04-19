@@ -21,10 +21,7 @@ export function StepAutomation({ data, onChange }: Props) {
           <Mail className="h-5 w-5 text-primary" />
           <div>
             <div className="font-medium text-sm">Sincronização automática de Gmail</div>
-            <div className="text-xs text-muted-foreground">
-              Todos os dias às 23:58 verificamos os emails das últimas 24h
-              com anexos PDF/imagem, e processamos com IA.
-            </div>
+            <div className="text-xs text-muted-foreground">Todos os dias à meia-noite.</div>
           </div>
         </div>
         <input
@@ -36,8 +33,7 @@ export function StepAutomation({ data, onChange }: Props) {
       </label>
 
       <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
-        A ligação à tua conta Google acontece depois de criares o acesso (passo final).
-        Podes adicionar vários emails — um por empresa — em Definições.
+        Ligação ao Google no passo final.
       </div>
     </div>
   );

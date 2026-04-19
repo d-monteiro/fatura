@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase/client';
 import { Link } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check, ArrowRight } from 'lucide-react';
 import type { Plan } from '@/types/tenant';
 
 export function Pricing() {
@@ -21,85 +20,106 @@ export function Pricing() {
 
   const formatPrice = (cents: number | null) => {
     if (cents === null) return 'Sob orçamento';
-    return `${(cents / 100).toFixed(0)}€`;
+    return `${(cents / 100).toFixed(0)} EUR`;
   };
 
   return (
-    <section id="pricing" className="py-20 bg-muted/30">
-      <div className="mx-auto max-w-5xl px-4">
-        <h2 className="text-3xl font-bold text-center mb-4">Preços simples e transparentes</h2>
-        <p className="text-center text-muted-foreground mb-8">
-          7 dias de teste grátis em todos os planos. Sem compromisso.
-        </p>
-
-        <div className="flex justify-center gap-2 mb-10">
-          <Button
-            variant={cycle === 'monthly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setCycle('monthly')}
-          >
-            Mensal
-          </Button>
-          <Button
-            variant={cycle === 'yearly' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setCycle('yearly')}
-          >
-            Anual (-17%)
-          </Button>
+    <section id="pricing" className="border-y border-border bg-card py-24 md:py-32">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+            Preços
+          </div>
+          <h2 className="mt-6 text-4xl font-bold leading-[1.05] tracking-tighter text-primary md:text-5xl">
+            Começa em 0 EUR durante 7 dias.
+          </h2>
+          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+            Paga só se ficar. Sem cartão exigido para começar. Cancele quando quiser.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="mt-10 flex justify-center">
+          <div className="inline-flex items-center rounded-full border border-border bg-background p-1 text-sm">
+            <button
+              onClick={() => setCycle('monthly')}
+              className={`h-9 rounded-full px-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${cycle === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
+            >
+              Mensal
+            </button>
+            <button
+              onClick={() => setCycle('yearly')}
+              className={`h-9 rounded-full px-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${cycle === 'yearly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
+            >
+              Anual
+              <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wider ${cycle === 'yearly' ? 'text-accent' : 'text-accent'}`}>
+                −17%
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
           {plans.map((plan) => {
             const price = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-            const description = plan.description;
-            const features = plan.features_list;
-            const ctaLabel = plan.cta_label;
-            const perYear = 'ano';
-            const perMonth = 'mês';
             return (
               <div
                 key={plan.id}
-                className={`rounded-xl border bg-card p-6 flex flex-col ${
-                  plan.is_popular ? 'border-primary ring-2 ring-primary/20 relative' : ''
+                className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  plan.is_popular
+                    ? 'border-primary bg-background shadow-[0_30px_60px_-20px_rgba(14,36,53,0.25)] md:-my-4'
+                    : 'border-border bg-background hover:-translate-y-[2px] hover:border-primary/20'
                 }`}
               >
                 {plan.is_popular && (
-                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Popular</Badge>
+                  <div className="absolute -top-3 left-8 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-accent-foreground">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    Mais escolhido
+                  </div>
                 )}
-                <h3 className="text-xl font-bold">{plan.name}</h3>
-                <div className="mt-2 text-3xl font-bold">
-                  {formatPrice(price)}
+                <h3 className="text-xl font-semibold text-primary">{plan.name}</h3>
+                <p className="mt-1 min-h-[2.5rem] text-sm text-muted-foreground">{plan.description}</p>
+
+                <div className="mt-6 flex items-baseline gap-1">
+                  <span className="font-mono text-5xl font-bold tracking-tighter text-primary">
+                    {formatPrice(price)}
+                  </span>
                   {price !== null && (
-                    <span className="text-base font-normal text-muted-foreground">
-                      /{cycle === 'yearly' ? perYear : perMonth}
+                    <span className="text-sm text-muted-foreground">
+                      /{cycle === 'yearly' ? 'ano' : 'mês'}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground flex-grow">{description}</p>
 
-                <ul className="mt-6 space-y-2">
-                  {(features ?? []).map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      <span>{f}</span>
+                <ul className="mt-8 flex-1 space-y-3">
+                  {(plan.features_list ?? []).map((f, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-primary">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
+                      <span className="leading-relaxed">{f}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Button
                   asChild
-                  className="mt-6 w-full"
-                  variant={plan.is_popular ? 'default' : 'outline'}
+                  className={`group mt-8 h-12 w-full rounded-full ${
+                    plan.is_popular
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'border border-border bg-background text-primary hover:bg-primary hover:text-primary-foreground'
+                  }`}
                 >
-                  <Link to="/onboarding">
-                    {plan.is_custom_pricing ? ctaLabel : 'Começar grátis'}
+                  <Link to="/onboarding" className="inline-flex items-center gap-2">
+                    {plan.is_custom_pricing ? plan.cta_label : 'Começar 7 dias grátis'}
+                    <ArrowRight className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5" />
                   </Link>
                 </Button>
               </div>
             );
           })}
         </div>
+
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          Todos os planos incluem 7 dias grátis sem cartão. Cancele a qualquer momento, sem pagar nada.
+        </p>
       </div>
     </section>
   );

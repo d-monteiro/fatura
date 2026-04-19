@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CATEGORY_TEMPLATES, DOCUMENT_TYPES, INVOICE_VOLUME_OPTIONS, type OnboardingData } from './onboardingTypes';
+import { DOCUMENT_TYPES, INVOICE_VOLUME_OPTIONS, type OnboardingData } from './onboardingTypes';
 import { X, Plus } from 'lucide-react';
 
 interface Props {
@@ -83,24 +83,13 @@ function TagInput({ values, onAdd, onRemove, placeholder }: {
 }
 
 export function StepInvoiceIntel({ data, onChange }: Props) {
-  const template = data.sector ? CATEGORY_TEMPLATES[data.sector] : null;
-  const suggestedCategories = template
-    ? [...template.metiers, ...template.natures, ...template.cost_types]
-    : [];
-  const customCategories = data.categories.filter((c) => !suggestedCategories.includes(c));
-
-  const toggleCategory = (cat: string) => {
-    const next = data.categories.includes(cat)
-      ? data.categories.filter((c) => c !== cat)
-      : [...data.categories, cat];
-    onChange({ categories: next });
-  };
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Inteligência de faturas</h2>
-        <p className="text-muted-foreground mt-1">Ajude a IA a compreender melhor os seus documentos.</p>
+        <h2 className="text-2xl font-bold">As suas faturas</h2>
+        <p className="text-muted-foreground mt-1">
+          Só o essencial. Pode editar tudo em Definições mais tarde.
+        </p>
       </div>
 
       <div className="space-y-5">
@@ -115,8 +104,9 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>Número médio de faturas por mês</Label>
-          <div className="flex gap-2 flex-wrap">
+          <Label>Número médio de faturas esperadas por mês</Label>
+          <p className="text-xs text-muted-foreground">É só uma estimativa.</p>
+          <div className="flex gap-2 flex-wrap pt-1">
             {INVOICE_VOLUME_OPTIONS.map((v) => (
               <Button
                 key={v}
@@ -129,41 +119,6 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
               </Button>
             ))}
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Categorias de custos</Label>
-          {suggestedCategories.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {suggestedCategories.map((cat) => (
-                <Chip
-                  key={cat}
-                  label={cat}
-                  selected={data.categories.includes(cat)}
-                  onClick={() => toggleCategory(cat)}
-                />
-              ))}
-            </div>
-          )}
-          <TagInput
-            values={customCategories}
-            onAdd={(v) => onChange({ categories: [...data.categories, v] })}
-            onRemove={(i) => {
-              const removed = customCategories[i];
-              onChange({ categories: data.categories.filter((c) => c !== removed) });
-            }}
-            placeholder="Adicionar categoria personalizada"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Top fornecedores (5 a 10)</Label>
-          <TagInput
-            values={data.topSuppliers}
-            onAdd={(v) => onChange({ topSuppliers: [...data.topSuppliers, v] })}
-            onRemove={(i) => onChange({ topSuppliers: data.topSuppliers.filter((_, idx) => idx !== i) })}
-            placeholder="Nome do fornecedor"
-          />
         </div>
 
         <div className="space-y-2">

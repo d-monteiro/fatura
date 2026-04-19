@@ -1,6 +1,6 @@
 /**
  * Normalização de fornecedores baseada em config do tenant.
- * O mapping vem de tenant.suppliers (variantes registadas) ou onboarding_data.topSuppliers.
+ * O mapping vem de tenant.suppliers (variantes registadas).
  */
 
 export interface KnownSupplier {

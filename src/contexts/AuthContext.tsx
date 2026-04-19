@@ -24,19 +24,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for auth changes
-    // NEVER await supabase calls inside this callback (deadlock)
+    // NEVER await supabase calls inside this callback (deadlock).
+    // TOKEN_REFRESHED dispara ao voltar à tab; se o user é o mesmo, não
+    // propagar novas referências para evitar remount em cascata (RequireTenant).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, s) => {
-        setSession(s);
-        setUser(s?.user ?? null);
+        const nextUserId = s?.user?.id ?? null;
+        setUser(prev => (prev?.id === nextUserId ? prev : s?.user ?? null));
+        setSession(prev => (prev?.user?.id === nextUserId ? prev : s));
         setLoading(false);
       },
     );
