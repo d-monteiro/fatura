@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ProgressBar } from './ProgressBar';
 import { StepCompany } from './StepCompany';
 import { StepInvoiceIntel } from './StepInvoiceIntel';
@@ -21,8 +22,11 @@ import {
   useOnboardingStorage,
 } from './useOnboardingStorage';
 import { notifySlack } from '@/lib/slack/notify';
-import { finalizeOnboarding } from '@/lib/onboarding/finalize';
+import { finalizeOnboarding, buildCategoriesPayload, buildDefaultCompanyPayload } from '@/lib/onboarding/finalize';
+import { reportError } from '@/lib/errors/errorReporter';
 import { isValidNif } from '@/lib/utils/validation';
+import { track } from '@/lib/analytics/track';
+import { EVENTS, ONBOARDING_STEP_NAMES } from '@/lib/analytics/events';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 
 const TOTAL_STEPS = 7;
@@ -37,7 +41,12 @@ function sanitizeNifForCountry(raw: string, country: string): string {
 export function OnboardingWizard() {
   const { user } = useAuth();
   const { refreshTenant } = useTenant();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAdmin) navigate('/admin', { replace: true });
+  }, [isAdmin, navigate]);
 
   // Restore any previous progress from localStorage on first render.
   const stored = loadStoredOnboarding();
@@ -50,6 +59,39 @@ export function OnboardingWizard() {
 
   // Persist data + step to localStorage on every change.
   useOnboardingStorage(data, step);
+
+  const stepEnteredAt = useRef<number>(0);
+  const submittedRef = useRef(false);
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    track(EVENTS.ONBOARDING_STARTED, {
+      resumed_from_step: stored.step > 1 ? stored.step : null,
+    });
+  }, [stored.step]);
+
+  useEffect(() => {
+    stepEnteredAt.current = Date.now();
+    track(EVENTS.ONBOARDING_STEP_VIEWED, {
+      step,
+      step_name: ONBOARDING_STEP_NAMES[step],
+    });
+  }, [step]);
+
+  useEffect(() => {
+    function onBeforeUnload() {
+      if (submittedRef.current) return;
+      track(EVENTS.ONBOARDING_STEP_ABANDONED, {
+        step,
+        step_name: ONBOARDING_STEP_NAMES[step],
+        time_spent_ms: Date.now() - stepEnteredAt.current,
+      });
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [step]);
 
   const onChange = useCallback((updates: Partial<OnboardingData>) => {
     setData((prev) => ({ ...prev, ...updates }));
@@ -89,13 +131,15 @@ export function OnboardingWizard() {
       .substring(0, 40) || `tenant-${Date.now()}`;
 
     const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const sanitizedNif = sanitizeNifForCountry(data.nif, data.country);
+    const effectiveSector = data.sector === 'outro' ? data.sectorCustom : data.sector;
 
     const { data: newTenantId, error: tErr } = await supabase.rpc('create_tenant_with_owner', {
       tenant_data: {
         name: data.companyName,
         slug: `${slug}-${Date.now().toString(36)}`,
-        nif: sanitizeNifForCountry(data.nif, data.country),
-        sector: data.sector === 'autre' ? data.sectorCustom : data.sector,
+        nif: sanitizedNif,
+        sector: effectiveSector,
         country: data.country,
         primary_color: data.primaryColor,
         secondary_color: data.secondaryColor,
@@ -116,17 +160,25 @@ export function OnboardingWizard() {
           emailSync: data.emailSync,
           emailAddresses: data.emailAddresses,
         },
+        // Seeds atomic no RPC: se qualquer um falha, tenant não é criado.
+        default_company: buildDefaultCompanyPayload(data.companyName, sanitizedNif),
+        categories: buildCategoriesPayload(data.sector),
       },
     });
 
     if (tErr || !newTenantId) throw new Error(tErr?.message ?? 'Falha ao criar a conta.');
     const tenant = { id: newTenantId as string };
 
-    // Best-effort bootstrap (categories, suppliers, default company, Drive folder).
+    // Drive root + logo — non-blocking. Seeds já foram criados atomic no RPC.
     try {
       await finalizeOnboarding({ tenantId: tenant.id, userId: activeUserId, data });
     } catch (e) {
-      console.warn('[onboarding] finalize warning', e);
+      void reportError(e, {
+        component: 'OnboardingWizard/finalize',
+        tenantId: tenant.id,
+        userId: activeUserId,
+        level: 'warn',
+      });
     }
 
     await notifySlack({
@@ -151,18 +203,30 @@ export function OnboardingWizard() {
     setSubmitting(true);
     try {
       await createTenantForCurrentUser(activeUserId, activeEmail);
+      submittedRef.current = true;
+      track(EVENTS.ONBOARDING_SUBMITTED, {
+        plan: data.selectedPlan,
+        country: data.country,
+        sector: data.sector,
+        billing_cycle: data.billingCycle,
+        storage_provider: data.storageProvider,
+        email_sync: data.emailSync,
+      });
       clearStoredOnboarding();
       // refreshTenant antes de navegar: RequireTenant no `/` precisa do tenant
       // carregado, senão redirect-loop para /onboarding.
       await refreshTenant();
       navigate('/', { replace: true });
     } catch (e) {
-      console.error('[onboarding]', e);
+      void reportError(e, {
+        component: 'OnboardingWizard/finishStarterPro',
+        userId: activeUserId,
+      });
       setSubmitError(e instanceof Error ? e.message : 'Erro ao concluir a configuração.');
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, createTenantForCurrentUser, navigate, refreshTenant]);
+  }, [submitting, createTenantForCurrentUser, navigate, refreshTenant, data.selectedPlan, data.country, data.sector, data.billingCycle, data.storageProvider, data.emailSync]);
 
   // Triggered by the main "Começar teste grátis" button at the bottom.
   const handleSubmit = async () => {
@@ -185,6 +249,13 @@ export function OnboardingWizard() {
 
   const goToStep = (s: number) => {
     const target = Math.max(1, Math.min(TOTAL_STEPS, s));
+    if (target > step) {
+      track(EVENTS.ONBOARDING_STEP_COMPLETED, {
+        step,
+        step_name: ONBOARDING_STEP_NAMES[step],
+        time_spent_ms: Date.now() - stepEnteredAt.current,
+      });
+    }
     setStep(target);
     setMaxReachedStep((prev) => Math.max(prev, target));
   };

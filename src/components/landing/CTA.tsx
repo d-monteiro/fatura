@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 
 export function CTA() {
   return (
@@ -39,7 +41,11 @@ export function CTA() {
             asChild
             className="group h-16 rounded-full bg-accent pl-8 pr-2 text-base font-medium text-accent-foreground shadow-[0_20px_40px_-10px_rgba(187,179,136,0.4)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[2px] hover:shadow-[0_25px_50px_-10px_rgba(187,179,136,0.5)]"
           >
-            <Link to="/onboarding" className="inline-flex items-center gap-4">
+            <Link
+              to="/onboarding"
+              onClick={() => track(EVENTS.LANDING_CTA_CLICKED, { location: 'cta_section' })}
+              className="inline-flex items-center gap-4"
+            >
               Começar os meus 7 dias grátis
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-1">
                 <ArrowRight className="!h-5 !w-5" />

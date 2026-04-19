@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 import type { OnboardingData } from './onboardingTypes';
 import { SECTORS } from './onboardingTypes';
 
@@ -79,6 +81,12 @@ export function EnterpriseContactForm({ data, onBack, onSubmitted }: Props) {
         throw new Error(detail.error ?? 'Falha ao enviar.');
       }
 
+      track(EVENTS.ONBOARDING_ENTERPRISE_CONTACT_SUBMITTED, {
+        country: data.country,
+        sector: data.sector,
+        invoices_per_month: data.invoicesPerMonth,
+        availability_count: availability.length,
+      });
       onSubmitted();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao enviar o pedido.');

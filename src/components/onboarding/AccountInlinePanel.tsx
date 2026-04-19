@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase/client';
 import { ShieldCheck } from 'lucide-react';
 import { OAUTH_PROVIDERS, type OAuthProviderId } from '@/components/common/oauthProviders';
+import { LegalConsentCheckboxes } from './LegalConsentCheckboxes';
 
 interface Props {
   submitting: boolean;
@@ -15,11 +16,34 @@ interface Props {
 export function AccountInlinePanel({ submitting, onAuthenticated, onError }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [localSubmitting, setLocalSubmitting] = useState(false);
+  const [consentError, setConsentError] = useState(false);
+  const [consentErrorNonce, setConsentErrorNonce] = useState(0);
 
   const busy = submitting || localSubmitting;
+  const accepted = acceptedTerms && acceptedPrivacy;
+
+  const triggerConsentError = () => {
+    setConsentError(true);
+    setConsentErrorNonce((n) => n + 1);
+  };
+
+  const handleTermsChange = (v: boolean) => {
+    setAcceptedTerms(v);
+    setConsentError(false);
+  };
+  const handlePrivacyChange = (v: boolean) => {
+    setAcceptedPrivacy(v);
+    setConsentError(false);
+  };
 
   const handleOAuth = async (provider: OAuthProviderId) => {
+    if (!accepted) {
+      triggerConsentError();
+      return;
+    }
     try {
       setLocalSubmitting(true);
       const { error } = await supabase.auth.signInWithOAuth({
@@ -36,6 +60,10 @@ export function AccountInlinePanel({ submitting, onAuthenticated, onError }: Pro
   const handleSubmit = async () => {
     if (!email.trim() || password.length < 6) {
       onError('Introduza um email válido e uma palavra-passe com pelo menos 6 caracteres.');
+      return;
+    }
+    if (!accepted) {
+      triggerConsentError();
       return;
     }
     setLocalSubmitting(true);
@@ -139,6 +167,16 @@ export function AccountInlinePanel({ submitting, onAuthenticated, onError }: Pro
           />
         </div>
       </div>
+
+      <LegalConsentCheckboxes
+        acceptedTerms={acceptedTerms}
+        acceptedPrivacy={acceptedPrivacy}
+        onTermsChange={handleTermsChange}
+        onPrivacyChange={handlePrivacyChange}
+        disabled={busy}
+        error={consentError}
+        errorNonce={consentErrorNonce}
+      />
 
       <Button
         type="button"

@@ -6,6 +6,9 @@ import { appendInvoiceToSheet } from '@/lib/google/sheets';
 import { normalizeSupplierName, type KnownSupplier } from '@/lib/utils/suppliers';
 import { validateMontants } from '@/lib/utils/validation';
 import { formatMonthFolder } from '@/lib/utils/months';
+import { reportError } from '@/lib/errors/errorReporter';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 import type { Invoice, GeminiInvoiceData } from '@/types/database';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -56,13 +59,22 @@ async function ensureFreshToken(userId: string): Promise<string | null> {
       body: JSON.stringify({ email: row.email }),
     });
     if (!res.ok) {
-      console.error('[ensureFreshToken] refresh-token endpoint failed:', res.status, await res.text().catch(() => ''));
+      const body = await res.text().catch(() => '');
+      void reportError(`refresh-token endpoint falhou (${res.status})`, {
+        component: 'invoiceProcessor/ensureFreshToken',
+        userId,
+        extra: { status: res.status, body: body.slice(0, 500) },
+      });
       return null;
     }
     const result = await res.json();
     return result.access_token || null;
   } catch (err) {
-    console.error('[ensureFreshToken] network error refreshing token:', err);
+    void reportError(err, {
+      component: 'invoiceProcessor/ensureFreshToken',
+      userId,
+      extra: { phase: 'network' },
+    });
     return null;
   }
 }
@@ -137,7 +149,13 @@ async function processSingle(
   if (v.warnings.length) w.push(...v.warnings);
 
   const dup = await checkDuplicate(tenant.id, g, cid);
-  if (dup) return { success: false, isDuplicate: true, error: dup };
+  if (dup) {
+    track(EVENTS.INVOICE_DUPLICATE_BLOCKED, {
+      tenant_id: tenant.id,
+      supplier: g.supplier_name,
+    });
+    return { success: false, isDuplicate: true, error: dup };
+  }
 
   const { data: co } = await supabase.from('companies').select('short_name, name').eq('id', cid).single();
   const coName = (co?.short_name as string) || (co?.name as string) || 'EMPRESA';
@@ -166,7 +184,8 @@ async function processSingle(
   const df = await uploadInvoiceToDrive(token, new Uint8Array(buf), fName, parentId, file.type);
 
   const curYear = new Date().getFullYear();
-  const CONFIDENCE_THRESHOLD = 80;
+  // Gemini devolve confidence em 0-1
+  const CONFIDENCE_THRESHOLD = 0.8;
   const review = g.confidence_score < CONFIDENCE_THRESHOLD || (g.doc_year !== null && g.doc_year < curYear - 1) || !v.valid;
   const reviewReason = review
     ? (!v.valid ? 'Erro de validação de montantes' : g.confidence_score < CONFIDENCE_THRESHOLD ? 'Confiança baixa' : 'Data suspeita')
@@ -183,7 +202,24 @@ async function processSingle(
     summary: g.summary, confidence_score: g.confidence_score,
     status: review ? 'review' : 'inbox', manual_review: review, review_reason: reviewReason,
   }).select().single();
-  if (err) return { success: false, error: `Erro a guardar: ${err.message}` };
+  if (err) {
+    track(EVENTS.INVOICE_ANALYZE_FAILED, {
+      tenant_id: tenant.id,
+      stage: 'db_insert',
+      error_code: err.code ?? 'unknown',
+    });
+    return { success: false, error: `Erro a guardar: ${err.message}` };
+  }
+
+  track(EVENTS.INVOICE_SAVED, {
+    tenant_id: tenant.id,
+    company_id: cid,
+    cost_type: g.cost_type,
+    document_type: g.document_type,
+    needs_review: review,
+    confidence_score: g.confidence_score,
+    source: 'upload',
+  });
 
   if (g.line_items?.length && inv) {
     await supabase.from('invoice_line_items').insert(g.line_items.map((li, i) => ({
@@ -203,7 +239,13 @@ async function processSingle(
         taux_tva: g.taux_tva, summary: g.summary, drive_link: df.webViewLink,
       }, tenant.language);
     } catch (err) {
-      console.error('[processSingle] Sheets append failed:', err);
+      void reportError(err, {
+        component: 'invoiceProcessor/sheetsAppend',
+        tenantId: tenant.id,
+        userId: userId ?? undefined,
+        level: 'warn',
+        extra: { sheetId },
+      });
       w.push('Falha na sincronização com Google Sheets (fatura guardada)');
     }
   }
@@ -231,7 +273,22 @@ export async function processInvoiceUpload(
     }
     if (!token) return [{ success: false, error: 'Token Google expirado. Reconecte em Definições.' }];
 
-    const invoices = await analyzeInvoiceWithGemini(await fileToBase64(file), file.type, tenantId);
+    let invoices: GeminiInvoiceData[];
+    try {
+      invoices = await analyzeInvoiceWithGemini(await fileToBase64(file), file.type, tenantId);
+      track(EVENTS.INVOICE_ANALYZE_SUCCEEDED, {
+        tenant_id: tenantId,
+        count: invoices.length,
+        mime: file.type,
+      });
+    } catch (e) {
+      track(EVENTS.INVOICE_ANALYZE_FAILED, {
+        tenant_id: tenantId,
+        stage: 'gemini',
+        message: e instanceof Error ? e.message : 'unknown',
+      });
+      throw e;
+    }
     const results: UploadResult[] = [];
     for (const g of invoices) {
       const cid = await detectCompanyId(tenantId, g.destinataire_name, defaultCompanyId ?? undefined);
@@ -240,6 +297,12 @@ export async function processInvoiceUpload(
     }
     return results;
   } catch (error) {
+    void reportError(error, {
+      component: 'invoiceProcessor/processInvoiceUpload',
+      tenantId: tenantId ?? undefined,
+      userId: userId ?? undefined,
+      extra: { fileName: file.name, fileType: file.type, fileSize: file.size },
+    });
     return [{ success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' }];
   }
 }

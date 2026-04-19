@@ -9,6 +9,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 
 const RATE_LIMIT_PER_HOUR = 3;
 const ENDPOINT_KEY = "submit-enterprise-lead";
@@ -114,7 +115,12 @@ Deno.serve(async (req) => {
     });
 
     if (insertError) {
-      console.error("[submit-enterprise-lead] insert error", insertError);
+      await logEdgeError({
+        functionName: "submit-enterprise-lead",
+        message: `insert enterprise_leads falhou: ${insertError.message}`,
+        error: insertError,
+        metadata: { code: insertError.code, companyName },
+      });
       return json(500, { error: "Falha a registar" }, corsHeaders);
     }
 
@@ -152,13 +158,24 @@ Deno.serve(async (req) => {
           }),
         });
       } catch (e) {
-        console.warn("[submit-enterprise-lead] slack notify failed", e);
+        await logEdgeError({
+          functionName: "submit-enterprise-lead",
+          message: "slack notify failed",
+          error: e,
+          level: "warn",
+        });
       }
     }
 
     return json(200, { ok: true }, corsHeaders);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Erro interno";
+    await logEdgeError({
+      functionName: "submit-enterprise-lead",
+      message: msg,
+      error,
+      httpStatus: 500,
+    });
     return json(500, { error: msg }, corsHeaders);
   }
 });

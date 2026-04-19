@@ -22,3 +22,9 @@ verify_jwt = false
 
 [functions.sync-email]
 verify_jwt = false
+
+[functions.analytics-query]
+verify_jwt = false
+
+[functions.reprocess-pending]
+verify_jwt = false

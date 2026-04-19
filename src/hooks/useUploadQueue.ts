@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { UploadFileState } from '@/components/upload/UploadResultList';
 import { processInvoiceUpload } from '@/lib/invoiceProcessor';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 import type { TranslationKey } from '@/lib/i18n';
 
 const MAX_FILES = 10;
@@ -87,6 +89,13 @@ export function useUploadQueue(
         }
         await delay(300);
       }
+      const final = filesRef.current;
+      track(EVENTS.INVOICE_UPLOAD_COMPLETED, {
+        total: final.length,
+        success: final.filter(f => f.status === 'success').length,
+        errors: final.filter(f => f.status === 'error').length,
+        duplicates: final.filter(f => f.status === 'duplicate').length,
+      });
       setIsProcessing(false);
       processingRef.current = false;
     })();
@@ -100,6 +109,11 @@ export function useUploadQueue(
     }
     setRateLimitError(null);
     const batch = newFiles.slice(0, MAX_FILES);
+    track(EVENTS.INVOICE_UPLOAD_STARTED, {
+      source: 'dropzone',
+      count: batch.length,
+      total_size: batch.reduce((s, f) => s + f.size, 0),
+    });
     setFiles(batch.map((file, i) => ({
       id: `${Date.now()}-${i}-${file.name}`, fileName: file.name,
       status: 'pending' as const, progress: 0, file,

@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase/client';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 
 export type OAuthSource = 'onboarding' | 'upload' | 'settings';
 
@@ -39,6 +41,12 @@ export async function redirectToGoogleOAuth(params: OAuthParams): Promise<void> 
 
   const { auth_url } = await response.json();
   if (!auth_url) throw new Error('auth_url em falta na resposta');
+
+  track(EVENTS.GOOGLE_OAUTH_INITIATED, {
+    source: params.source,
+    has_company: !!params.companyId,
+    prompt_select: !!params.promptSelect,
+  });
 
   window.location.href = auth_url;
 }

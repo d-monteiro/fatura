@@ -8,7 +8,7 @@ export const SECTORS = [
   { value: 'technologie', label: 'Tecnologia / TI' },
   { value: 'immobilier', label: 'Imobiliário' },
   { value: 'agriculture', label: 'Agricultura' },
-  { value: 'autre', label: 'Outro' },
+  { value: 'outro', label: 'Outro' },
 ] as const;
 
 export const EU_COUNTRIES = [

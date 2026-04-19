@@ -1,55 +1,55 @@
-/**
- * FaturaAI - Error Reporter
- * Logs errors to console (dev) and Supabase error_logs table.
- */
-
-import { supabase } from '@/lib/supabase/client';
 import { notifySlack } from '@/lib/slack/notify';
+import { logErrorCore } from './errorLog';
 import type { ErrorContext } from './errorTypes';
 
-export async function reportError(error: Error, context?: ErrorContext): Promise<void> {
-  const level = context?.level ?? 'error';
+export async function reportError(error: unknown, context?: ErrorContext): Promise<void> {
+  const result = await logErrorCore(error, context);
+  if (result.dropped) return;
 
-  // 1. Always log to console
-  console.error('[FaturaAI Error]', error.message, context);
-
-  // 2. Log to Supabase error_logs — strip PII do URL (tokens/emails em query params)
-  try {
-    const cleanUrl = window.location.pathname;
-    await supabase.from('error_logs').insert({
-      tenant_id: context?.tenantId ?? null,
-      user_id: context?.userId ?? null,
-      level,
-      source: 'frontend',
-      function_name: context?.component ?? context?.function ?? null,
-      message: error.message,
-      stack_trace: error.stack ?? null,
-      metadata: {
-        path: cleanUrl,
-        ...context?.extra,
-      },
-    });
-  } catch {
-    // Silently fail — don't error on error reporting
-  }
-
-  // 3. Notify Slack for critical errors only
-  if (level === 'error' || level === 'fatal') {
+  if (!result.skipSlack && (result.level === 'error' || result.level === 'fatal')) {
     void notifySlack({
       channel: 'alerts',
       payload: {
-        level,
+        level: result.level,
         source: 'frontend',
-        function_name: context?.component ?? context?.function,
-        message: error.message,
+        function_name: result.component,
+        message: result.error.message,
       },
     });
   }
 }
 
-/**
- * Report a warning (non-fatal issue).
- */
 export async function reportWarning(message: string, context?: ErrorContext): Promise<void> {
   await reportError(new Error(message), { ...context, level: 'warn' });
+}
+
+let globalHandlersInstalled = false;
+
+export function installGlobalErrorHandlers(): void {
+  if (globalHandlersInstalled || typeof window === 'undefined') return;
+  globalHandlersInstalled = true;
+
+  window.addEventListener('error', (event) => {
+    const err = event.error instanceof Error ? event.error : new Error(event.message || 'window.error');
+    void reportError(err, {
+      level: 'error',
+      component: 'window.onerror',
+      extra: {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      },
+    });
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const err = reason instanceof Error ? reason : new Error(
+      typeof reason === 'string' ? reason : `Unhandled rejection: ${JSON.stringify(reason)?.slice(0, 500)}`,
+    );
+    void reportError(err, {
+      level: 'error',
+      component: 'unhandledrejection',
+    });
+  });
 }

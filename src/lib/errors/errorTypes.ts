@@ -5,4 +5,5 @@ export interface ErrorContext {
   component?: string;
   function?: string;
   extra?: Record<string, unknown>;
+  skipSlack?: boolean;
 }

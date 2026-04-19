@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { applyBranding, clearBranding } from '@/lib/branding/applyBranding';
+import { identifyTenant } from '@/lib/analytics/track';
 import type { Tenant, Plan, TenantRole } from '@/types/tenant';
 
 interface TenantSummary {
@@ -165,6 +166,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return clearBranding;
   }, [tenant]);
 
+  useEffect(() => {
+    if (!tenant?.id) return;
+    identifyTenant(tenant.id, {
+      name: tenant.name,
+      plan: plan?.slug,
+      plan_status: tenant.plan_status,
+      country: tenant.country,
+    });
+  }, [tenant?.id, tenant?.name, tenant?.plan_status, tenant?.country, plan?.slug]);
+
   const switchTenant = useCallback(async (tenantId: string) => {
     const match = tenants.find((t) => t.id === tenantId);
     if (!match) throw new Error('Tenant inacessível');
@@ -176,15 +187,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     queryKey: queryKeys.invoicesUsage(tenant?.id ?? null),
     enabled: !!tenant?.id,
     queryFn: async () => {
-      const start = new Date();
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      // Reset admin tem precedência se for mais recente que o início do mês
+      const resetAt = tenant!.invoices_month_reset ? new Date(tenant!.invoices_month_reset) : null;
+      const lowerBound = resetAt && resetAt > monthStart ? resetAt : monthStart;
       const { count } = await supabase
         .from('invoices')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenant!.id)
         .is('deleted_at', null)
-        .gte('created_at', start.toISOString());
+        .gte('created_at', lowerBound.toISOString());
       return count ?? 0;
     },
   });

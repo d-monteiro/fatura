@@ -7,10 +7,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateInvoiceLists } from '@/lib/queryKeys';
 
 interface SyncResult {
-  processed: number;
+  discovered: number;
   duplicates: number;
   skipped: number;
   errors: number;
+  messagesFound: number;
+  attachmentsSeen: number;
 }
 
 export function SyncEmailsCard() {
@@ -46,22 +48,31 @@ export function SyncEmailsCard() {
       }
 
       const r: SyncResult = {
-        processed: data.total_processed ?? 0,
+        discovered: data.total_discovered ?? 0,
         duplicates: data.total_duplicates ?? 0,
         skipped: data.total_skipped ?? 0,
         errors: data.total_errors ?? 0,
+        messagesFound: data.total_messages_found ?? 0,
+        attachmentsSeen: data.total_attachments_seen ?? 0,
       };
       setResult(r);
 
       if (data.code === 'no_accounts') {
         toast.info(data.message);
-      } else if (r.processed > 0) {
-        toast.success(`${r.processed} ${t('sync.processed')}`);
+      } else if (r.discovered > 0) {
+        toast.success(`${r.discovered} ${t('sync.processed')}`);
         invalidateInvoiceLists(qc);
       } else if (r.duplicates > 0) {
         toast.info(`${r.duplicates} ${t('sync.duplicates')}`);
-      } else {
+      } else if (r.errors > 0) {
+        toast.error(t('sync.errors_found'));
+      } else if (r.messagesFound === 0) {
         toast.info(t('sync.no_emails'));
+      } else if (r.skipped > 0) {
+        toast.info(`${r.skipped} ${t('sync.skipped_only')}`);
+      } else {
+        // Gmail devolveu mensagens mas nenhuma tinha anexo elegível
+        toast.info(`${r.messagesFound} ${t('sync.no_matches')}`);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('sync.error'));
@@ -86,7 +97,7 @@ export function SyncEmailsCard() {
         {result && (
           <span className="inline-flex items-center gap-1 text-xs text-gray-600">
             <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-            {result.processed} {t('sync.processed')} &middot; {result.duplicates} {t('sync.duplicates')}
+            {result.messagesFound} emails · {result.attachmentsSeen} anexos · {result.discovered} nova(s)
           </span>
         )}
         <button

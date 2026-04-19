@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
-import { Tags, Plus, Trash2, Check, X, RefreshCw } from 'lucide-react';
+import { Tags, Plus, Check, X, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORY_TEMPLATES, SECTORS } from '@/components/onboarding/onboardingTypes';
 import type { Category, CategoryAxis } from '@/types/database';
@@ -46,7 +46,7 @@ export function CategoriesCard() {
   const seedStandard = useMutation({
     mutationFn: async () => {
       if (!tenant?.id) throw new Error('Sem tenant activo');
-      const sectorKey = tenant.sector && tenant.sector !== 'autre' ? tenant.sector : 'services';
+      const sectorKey = tenant.sector && tenant.sector !== 'outro' ? tenant.sector : 'services';
       const tpl = CATEGORY_TEMPLATES[sectorKey] ?? CATEGORY_TEMPLATES.services;
       if (!tpl) throw new Error('Template em falta');
 
@@ -90,31 +90,38 @@ export function CategoriesCard() {
   if (!tenant) return null;
 
   const sectorLabel = SECTORS.find((s) => s.value === tenant.sector)?.label;
-  const canApplyTemplate = !!tenant.sector && tenant.sector !== 'autre' && !!sectorLabel;
+  const canApplyTemplate = !!tenant.sector && tenant.sector !== 'outro' && !!sectorLabel;
 
   return (
-    <div className="border border-border rounded-xl p-6 space-y-5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Tags size={20} />
-          <h2 className="text-lg font-semibold">Categorias</h2>
+    <div className="border border-border rounded-xl p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <div className="flex items-start gap-2">
+          <Tags size={20} className="mt-0.5 text-muted-foreground" />
+          <div>
+            <h2 className="text-lg font-semibold leading-tight">Categorias</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Classifica as tuas despesas por especialidade e por tipo de compra.
+            </p>
+          </div>
         </div>
         {canApplyTemplate && (
           <button
             type="button"
             onClick={() => setConfirmOpen(true)}
             disabled={seedStandard.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             title={`Repõe as categorias do template ${sectorLabel}`}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${seedStandard.isPending ? 'animate-spin' : ''}`} />
-            {seedStandard.isPending ? 'A aplicar…' : 'Aplicar template do setor'}
+            {seedStandard.isPending ? 'A aplicar…' : `Repor template ${sectorLabel}`}
           </button>
         )}
       </div>
-      {AXES.map((a) => (
-        <AxisSection key={a.value} tenantId={tenant.id} axis={a.value} label={a.label} hint={a.hint} />
-      ))}
+      <div className="divide-y divide-border">
+        {AXES.map((a) => (
+          <AxisSection key={a.value} tenantId={tenant.id} axis={a.value} label={a.label} hint={a.hint} />
+        ))}
+      </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
@@ -189,24 +196,39 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('categories').update({ is_active: false }).eq('id', id);
+    mutationFn: async (row: { id: string; label: string }) => {
+      const { error } = await supabase.from('categories').update({ is_active: false }).eq('id', row.id);
       if (error) throw error;
+      return row;
     },
-    onSuccess: invalidate,
+    onSuccess: ({ id, label: removedLabel }) => {
+      invalidate();
+      toast.success(`"${removedLabel}" removido`, {
+        action: {
+          label: 'Anular',
+          onClick: () => {
+            void supabase.from('categories').update({ is_active: true }).eq('id', id)
+              .then(({ error }) => {
+                if (error) toast.error('Não foi possível repor');
+                else invalidate();
+              });
+          },
+        },
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
-    <div className="space-y-2">
+    <div className="py-5 first:pt-0 last:pb-0 space-y-3">
       <div>
         <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
-        <p className="text-xs text-gray-500">{hint}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
         {rows.map((r) => editing?.id === r.id ? (
-          <span key={r.id} className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-white px-2 py-0.5">
+          <span key={r.id} className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-white pl-3 pr-1 py-1">
             <input
               autoFocus
               className="bg-transparent text-xs outline-none w-32"
@@ -217,21 +239,48 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
                 if (e.key === 'Escape') setEditing(null);
               }}
             />
-            <button onClick={() => rename.mutate({ id: r.id, newLabel: editing.label })} className="text-green-600 hover:text-green-700"><Check className="h-3 w-3" /></button>
-            <button onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600"><X className="h-3 w-3" /></button>
+            <button
+              type="button"
+              onClick={() => rename.mutate({ id: r.id, newLabel: editing.label })}
+              className="rounded-full p-0.5 text-green-600 hover:bg-green-50"
+              title="Guardar"
+            >
+              <Check className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(null)}
+              className="rounded-full p-0.5 text-gray-400 hover:bg-gray-100"
+              title="Cancelar"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </span>
         ) : (
-          <span key={r.id} className="group inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700">
-            <button onClick={() => setEditing({ id: r.id, label: r.label })} className="hover:text-primary">{r.label}</button>
+          <span key={r.id} className="inline-flex items-center rounded-full bg-gray-100 pl-3 pr-1 py-1 text-xs text-gray-700 transition hover:bg-gray-200">
             <button
-              onClick={() => { if (confirm(`Remover "${r.label}"?`)) remove.mutate(r.id); }}
-              className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+              type="button"
+              onClick={() => setEditing({ id: r.id, label: r.label })}
+              className="font-medium hover:text-primary"
+              title="Editar"
             >
-              <Trash2 className="h-3 w-3" />
+              {r.label}
+            </button>
+            <button
+              type="button"
+              onClick={() => remove.mutate({ id: r.id, label: r.label })}
+              className="ml-1 rounded-full p-0.5 text-gray-400 hover:bg-white hover:text-red-600 transition"
+              title="Remover"
+            >
+              <X className="h-3 w-3" />
             </button>
           </span>
         ))}
-        {rows.length === 0 && <span className="text-xs text-gray-400">Nenhuma ainda.</span>}
+        {rows.length === 0 && (
+          <span className="text-xs text-muted-foreground italic">
+            Sem categorias. Adiciona abaixo ou repõe o template.
+          </span>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -246,7 +295,7 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
           type="button"
           onClick={() => add.mutate(draft)}
           disabled={!draft.trim() || add.isPending}
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0"
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0"
         >
           <Plus className="h-3.5 w-3.5" /> Adicionar
         </button>

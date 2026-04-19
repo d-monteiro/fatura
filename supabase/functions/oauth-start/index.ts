@@ -9,6 +9,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders, getAllowedOrigins } from "../_shared/cors.ts";
 import { signState } from "../_shared/oauthState.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 
 const FULL_SCOPES = [
   "email",
@@ -98,6 +99,12 @@ Deno.serve(async (req) => {
     return json(200, { auth_url: authUrl.toString() }, corsHeaders);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Erro interno";
+    await logEdgeError({
+      functionName: "oauth-start",
+      message: msg,
+      error,
+      httpStatus: 500,
+    });
     return json(500, { error: msg }, corsHeaders);
   }
 });

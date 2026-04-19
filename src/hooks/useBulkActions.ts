@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { invalidateInvoiceLists } from '@/lib/queryKeys';
+import { reportError } from '@/lib/errors/errorReporter';
 import type { Invoice } from '@/types/database';
 
 export function useBulkActions() {
@@ -26,13 +28,23 @@ export function useBulkActions() {
 
   const bulkDelete = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('invoices')
         .update({ deleted_at: new Date().toISOString() })
-        .in('id', ids);
+        .in('id', ids)
+        .is('deleted_at', null)
+        .select('id');
       if (error) throw error;
+      return data?.length ?? 0;
     },
-    onSuccess: invalidate,
+    onSuccess: (count) => {
+      invalidate();
+      toast.success(`${count} fatura(s) eliminada(s)`);
+    },
+    onError: (err) => {
+      void reportError(err, { component: 'useBulkActions.bulkDelete' });
+      toast.error(err instanceof Error ? err.message : 'Erro a eliminar faturas');
+    },
   });
 
   const toggleSelect = useCallback((id: string) => {

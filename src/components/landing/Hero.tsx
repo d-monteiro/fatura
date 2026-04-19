@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowRight, FileText } from 'lucide-react';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 
 export function Hero() {
   return (
@@ -37,7 +39,11 @@ export function Hero() {
               asChild
               className="group h-14 rounded-full bg-primary py-2 pl-7 pr-2 text-base font-medium text-primary-foreground shadow-[0_10px_30px_-10px_rgba(14,36,53,0.4)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-[1px] hover:shadow-[0_15px_40px_-10px_rgba(14,36,53,0.5)] active:translate-y-0"
             >
-              <Link to="/onboarding" className="inline-flex items-center gap-3">
+              <Link
+                to="/onboarding"
+                onClick={() => track(EVENTS.LANDING_CTA_CLICKED, { location: 'hero' })}
+                className="inline-flex items-center gap-3"
+              >
                 Começar os meus 7 dias grátis
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5">
                   <ArrowRight className="!h-4 !w-4" />

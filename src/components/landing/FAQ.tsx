@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Plus, Minus, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 
 const faqs = [
   {
@@ -59,7 +61,16 @@ export function FAQ() {
             return (
               <div key={i} className="border-b border-border">
                 <button
-                  onClick={() => setOpen(isOpen ? null : i)}
+                  onClick={() => {
+                    const next = isOpen ? null : i;
+                    if (next !== null) {
+                      track(EVENTS.LANDING_FAQ_EXPANDED, {
+                        question_index: i,
+                        question: faq.q,
+                      });
+                    }
+                    setOpen(next);
+                  }}
                   className="flex w-full items-start justify-between gap-6 py-5 text-left transition-colors"
                 >
                   <span className="text-base font-medium leading-snug text-primary">
@@ -92,7 +103,11 @@ export function FAQ() {
             asChild
             className="group mt-6 h-12 rounded-full bg-primary pl-6 pr-2 text-base font-medium text-primary-foreground"
           >
-            <Link to="/onboarding" className="inline-flex items-center gap-3">
+            <Link
+              to="/onboarding"
+              onClick={() => track(EVENTS.LANDING_CTA_CLICKED, { location: 'faq' })}
+              className="inline-flex items-center gap-3"
+            >
               Começar os meus 7 dias grátis
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5">
                 <ArrowRight className="!h-4 !w-4" />

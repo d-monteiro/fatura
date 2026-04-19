@@ -5,30 +5,61 @@ interface Props {
   invoice: Invoice;
 }
 
-/** Shared PDF/image preview for split-screen dialogs. */
+function stripQuery(url: string) {
+  const i = url.indexOf('?');
+  return i === -1 ? url : url.slice(0, i);
+}
+
 export function InvoiceDocPreview({ invoice }: Props) {
   const { t } = useI18n();
-  const fileUrl = invoice.drive_link || invoice.file_url || '';
-  const isImage = /\.(jpg|jpeg|png)$/i.test(fileUrl);
-  const drivePreviewUrl = invoice.drive_file_id
-    ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview`
-    : null;
-  const imageThumbnailUrl = invoice.drive_file_id && isImage
-    ? `https://drive.google.com/thumbnail?id=${invoice.drive_file_id}&sz=w1000`
-    : null;
 
-  if (imageThumbnailUrl) {
+  // 1. Drive (fatura já sincronizada)
+  if (invoice.drive_file_id) {
+    const base = stripQuery(invoice.file_url || '');
+    const pathOrUrl = invoice.storage_path || base;
+    const isImage = /\.(jpe?g|png)$/i.test(pathOrUrl);
+    if (isImage) {
+      return (
+        <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+          <img
+            src={`https://drive.google.com/thumbnail?id=${invoice.drive_file_id}&sz=w1000`}
+            alt="Document"
+            className="max-w-full max-h-full object-contain rounded"
+          />
+        </div>
+      );
+    }
     return (
-      <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-        <img src={imageThumbnailUrl} alt="Document" className="max-w-full max-h-full object-contain rounded" />
+      <div className="w-full h-full p-2">
+        <iframe
+          src={`https://drive.google.com/file/d/${invoice.drive_file_id}/preview`}
+          className="w-full h-full border-0 rounded-lg"
+          title="Document Preview"
+          allow="autoplay"
+        />
       </div>
     );
   }
 
-  if (drivePreviewUrl) {
+  // 2. Supabase signed URL (fatura recém-vinda por email, ainda sem Drive)
+  if (invoice.file_url) {
+    const base = stripQuery(invoice.file_url);
+    const pathHint = invoice.storage_path || base;
+    const isImage = /\.(jpe?g|png)$/i.test(pathHint);
+    if (isImage) {
+      return (
+        <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+          <img src={invoice.file_url} alt="Document" className="max-w-full max-h-full object-contain rounded" />
+        </div>
+      );
+    }
     return (
       <div className="w-full h-full p-2">
-        <iframe src={drivePreviewUrl} className="w-full h-full border-0 rounded-lg" title="Document Preview" allow="autoplay" />
+        <iframe
+          src={invoice.file_url}
+          className="w-full h-full border-0 rounded-lg"
+          title="Document Preview"
+        />
       </div>
     );
   }

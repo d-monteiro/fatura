@@ -33,6 +33,14 @@ export default function Billing() {
               Plano atual
             </div>
             <h2 className="text-4xl font-bold tracking-tight">{plan?.name ?? 'Sem plano'}</h2>
+            {tenant?.lifetime_discount_percent !== null && tenant?.lifetime_discount_percent !== undefined && tenant.lifetime_discount_percent > 0 && (
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-3 py-1 text-xs font-medium">
+                Desconto vitalício: -{tenant.lifetime_discount_percent}%
+                {tenant.lifetime_discount_reason && (
+                  <span className="opacity-80 font-normal">· {tenant.lifetime_discount_reason}</span>
+                )}
+              </div>
+            )}
             {trialEnds && (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" />

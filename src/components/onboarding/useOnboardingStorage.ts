@@ -9,6 +9,7 @@ export function loadStoredOnboarding(): { data: OnboardingData; step: number } {
     const raw = localStorage.getItem(STORAGE_KEY);
     const stepRaw = localStorage.getItem(STEP_KEY);
     const data = raw ? { ...DEFAULT_ONBOARDING_DATA, ...JSON.parse(raw) } : DEFAULT_ONBOARDING_DATA;
+    if (data.sector === 'autre') data.sector = 'outro';
     const step = stepRaw ? Math.max(1, Math.min(7, parseInt(stepRaw, 10) || 1)) : 1;
     return { data, step };
   } catch {

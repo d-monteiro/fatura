@@ -8,6 +8,7 @@
  */
 
 import { driveLimiter } from '@/lib/rateLimiter';
+import { reportError } from '@/lib/errors/errorReporter';
 
 const DRIVE_TIMEOUT_MS = 30_000;     // 30s para operacoes normais
 const DRIVE_UPLOAD_TIMEOUT_MS = 120_000; // 2min para uploads
@@ -27,13 +28,20 @@ export async function getTokenInfo(accessToken: string): Promise<{ scopes: strin
       { signal: controller.signal },
     );
     if (!response.ok) {
-      console.warn('[getTokenInfo] tokeninfo responded', response.status);
+      void reportError(`tokeninfo respondeu ${response.status}`, {
+        component: 'google/getTokenInfo',
+        level: 'warn',
+        extra: { status: response.status },
+      });
       return null;
     }
     const data = await response.json();
     return { scopes: data.scope?.split(' ') ?? [], email: data.email };
   } catch (err) {
-    console.warn('[getTokenInfo] failed:', err);
+    void reportError(err, {
+      component: 'google/getTokenInfo',
+      level: 'warn',
+    });
     return null;
   } finally {
     clearTimeout(timeoutId);

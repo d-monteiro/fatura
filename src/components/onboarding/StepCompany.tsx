@@ -80,13 +80,13 @@ export function StepCompany({ data, onChange }: Props) {
             <Label>Setor / Indústria *</Label>
             <Select value={data.sector} onValueChange={(v) => onChange({ sector: v })}>
               <SelectTrigger><SelectValue placeholder="Escolher um setor" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-96">
                 {SECTORS.map((s) => (
                   <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {data.sector === 'autre' && (
+            {data.sector === 'outro' && (
               <Input
                 value={data.sectorCustom}
                 onChange={(e) => onChange({ sectorCustom: e.target.value })}

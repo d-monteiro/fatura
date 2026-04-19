@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { TicketStatusBadge, TicketPriorityBadge } from './StatusBadge';
-import { ArrowLeft, Send, XCircle } from 'lucide-react';
+import { TicketPriorityBadge } from './StatusBadge';
+import {
+  ArrowLeft, Send, XCircle, CheckCircle2, Clock, MessageCircle, Sparkles, Headphones,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import type { Ticket, TicketMessage, TicketStatus } from '@/types/tickets';
 
@@ -13,6 +15,79 @@ interface Props {
   onBack: () => void;
   onChanged?: () => void;
 }
+
+type Tone = 'amber' | 'blue' | 'purple' | 'emerald' | 'green';
+
+const STATUS_DISPLAY: Record<TicketStatus, {
+  icon: typeof CheckCircle2;
+  title: string;
+  description: string;
+  tone: Tone;
+}> = {
+  open: {
+    icon: Clock,
+    title: 'À espera da equipa',
+    description: 'O seu ticket foi recebido. A equipa de suporte vai analisar em breve.',
+    tone: 'amber',
+  },
+  in_progress: {
+    icon: Sparkles,
+    title: 'A equipa está a analisar',
+    description: 'Alguém da equipa já está a trabalhar no seu pedido.',
+    tone: 'blue',
+  },
+  waiting_customer: {
+    icon: MessageCircle,
+    title: 'Aguarda a sua resposta',
+    description: 'A equipa pediu mais informação. Responda para continuarmos.',
+    tone: 'purple',
+  },
+  resolved: {
+    icon: CheckCircle2,
+    title: 'Resolvido pela equipa',
+    description: 'Se estiver satisfeito com a resposta, confirme a resolução. Se não, responda para continuarmos.',
+    tone: 'emerald',
+  },
+  closed: {
+    icon: CheckCircle2,
+    title: 'Ticket fechado e resolvido',
+    description: 'Este ticket já foi resolvido pela equipa de suporte. Para novas questões, crie outro ticket.',
+    tone: 'green',
+  },
+};
+
+const TONE_CLASSES: Record<Tone, { wrap: string; icon: string; title: string; body: string }> = {
+  amber: {
+    wrap: 'border-amber-200 bg-amber-50',
+    icon: 'text-amber-600 bg-amber-100',
+    title: 'text-amber-900',
+    body: 'text-amber-800',
+  },
+  blue: {
+    wrap: 'border-blue-200 bg-blue-50',
+    icon: 'text-blue-600 bg-blue-100',
+    title: 'text-blue-900',
+    body: 'text-blue-800',
+  },
+  purple: {
+    wrap: 'border-purple-200 bg-purple-50',
+    icon: 'text-purple-600 bg-purple-100',
+    title: 'text-purple-900',
+    body: 'text-purple-800',
+  },
+  emerald: {
+    wrap: 'border-emerald-200 bg-emerald-50',
+    icon: 'text-emerald-600 bg-emerald-100',
+    title: 'text-emerald-900',
+    body: 'text-emerald-800',
+  },
+  green: {
+    wrap: 'border-green-200 bg-green-50',
+    icon: 'text-green-600 bg-green-100',
+    title: 'text-green-900',
+    body: 'text-green-800',
+  },
+};
 
 export function TicketDetail({ ticket, onBack, onChanged }: Props) {
   const { user } = useAuth();
@@ -71,31 +146,41 @@ export function TicketDetail({ ticket, onBack, onChanged }: Props) {
     }
   };
 
-  const isClosed = status === 'closed';
   const isOwner = user?.id === ticket.user_id;
+  const isClosed = status === 'closed';
+  const isResolved = status === 'resolved';
+  const canClose = isOwner && !isClosed;
+  const display = STATUS_DISPLAY[status];
+  const tone = TONE_CLASSES[display.tone];
+  const StatusIcon = display.icon;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="font-semibold text-lg flex-1 min-w-0 truncate">{ticket.subject}</h2>
-        <div className="flex items-center gap-2 shrink-0">
-          <TicketStatusBadge status={status} />
-          <TicketPriorityBadge priority={ticket.priority} />
+        <TicketPriorityBadge priority={ticket.priority} />
+      </div>
+
+      <div className={`rounded-xl border p-4 flex items-start gap-3 ${tone.wrap}`}>
+        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${tone.icon}`}>
+          <StatusIcon className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0 pt-0.5">
+          <div className={`font-semibold text-[15px] ${tone.title}`}>{display.title}</div>
+          <div className={`text-sm mt-1 leading-relaxed ${tone.body}`}>{display.description}</div>
         </div>
       </div>
 
-      <div className="rounded-lg border p-4 text-sm whitespace-pre-wrap break-words">
-        {ticket.description}
-      </div>
-      <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
-        <span>
-          Criado a {new Date(ticket.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-        </span>
-        <span aria-hidden>·</span>
-        <span>Submetido — conteúdo não editável</span>
+      <div>
+        <div className="rounded-lg border p-4 text-sm whitespace-pre-wrap break-words bg-muted/30">
+          {ticket.description}
+        </div>
+        <div className="text-xs text-muted-foreground mt-2">
+          Enviado a {new Date(ticket.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </div>
       </div>
 
       {messages.length > 0 && (
@@ -107,8 +192,11 @@ export function TicketDetail({ ticket, onBack, onChanged }: Props) {
                 msg.is_from_admin ? 'bg-primary/5 border-l-2 border-primary' : 'bg-muted'
               }`}
             >
-              <div className="text-xs text-muted-foreground mb-1">
-                {msg.is_from_admin ? 'Suporte' : 'Eu'} — {new Date(msg.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                {msg.is_from_admin && <Headphones className="h-3 w-3" />}
+                <span className="font-medium">{msg.is_from_admin ? 'Suporte' : 'Eu'}</span>
+                <span aria-hidden>·</span>
+                <span>{new Date(msg.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="whitespace-pre-wrap">{msg.content}</div>
             </div>
@@ -131,7 +219,7 @@ export function TicketDetail({ ticket, onBack, onChanged }: Props) {
         </div>
       )}
 
-      {!isClosed && isOwner && (
+      {canClose && (
         <div className="flex items-center justify-end gap-2 pt-2 border-t">
           {confirmClose ? (
             <>
@@ -139,21 +227,25 @@ export function TicketDetail({ ticket, onBack, onChanged }: Props) {
               <Button variant="ghost" size="sm" onClick={() => setConfirmClose(false)} disabled={closing}>
                 Cancelar
               </Button>
-              <Button variant="destructive" size="sm" onClick={handleClose} disabled={closing} className="gap-2">
-                <XCircle className="h-4 w-4" /> Confirmar fecho
+              <Button variant={isResolved ? 'default' : 'destructive'} size="sm" onClick={handleClose} disabled={closing} className="gap-2">
+                {isResolved ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                Confirmar
               </Button>
             </>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => setConfirmClose(true)} className="gap-2">
-              <XCircle className="h-4 w-4" /> Fechar ticket
+            <Button
+              variant={isResolved ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setConfirmClose(true)}
+              className="gap-2"
+            >
+              {isResolved ? (
+                <><CheckCircle2 className="h-4 w-4" /> Confirmar resolução</>
+              ) : (
+                <><XCircle className="h-4 w-4" /> Fechar ticket</>
+              )}
             </Button>
           )}
-        </div>
-      )}
-
-      {isClosed && (
-        <div className="text-xs text-muted-foreground border-t pt-3">
-          Ticket fechado. Para novas questões crie outro ticket.
         </div>
       )}
     </div>

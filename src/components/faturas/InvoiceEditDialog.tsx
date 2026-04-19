@@ -53,8 +53,8 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-black/50 md:left-60" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:left-60">
         <div className="relative flex h-[90vh] w-full max-w-[95vw] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl md:w-[1400px]"
           onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-1 flex-col md:flex-row min-h-0">

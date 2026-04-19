@@ -131,7 +131,7 @@ const translations = {
 
   // Automations (sync email card)
   'auto.check_emails': { pt: 'Verificar emails' },
-  'auto.check_emails_desc': { pt: 'Verifica emails das últimas 24h com faturas PDF, processa com IA e guarda no Drive' },
+  'auto.check_emails_desc': { pt: 'Verifica emails dos últimos 7 dias com faturas PDF/JPG/PNG, processa com IA e guarda no Drive' },
   'auto.check_now': { pt: 'Verificar emails agora' },
   'auto.checking': { pt: 'A verificar emails...' },
 
@@ -197,6 +197,8 @@ const translations = {
   'drawer.doc_not_available': { pt: 'Documento nao disponivel' },
   'drawer.total': { pt: 'Total c/IVA' },
   'drawer.deleting': { pt: 'A eliminar...' },
+  'toast.invoice_deleted': { pt: 'Fatura eliminada' },
+  'toast.invoice_delete_failed': { pt: 'Nao foi possivel eliminar a fatura' },
 
   // Review
   'review.title': { pt: 'Rever fatura' },
@@ -270,7 +272,10 @@ const translations = {
   // Sync toasts
   'sync.processed': { pt: 'fatura(s) processada(s)!' },
   'sync.duplicates': { pt: 'duplicada(s) encontrada(s)' },
-  'sync.no_emails': { pt: 'Nenhum email com faturas nas últimas 24h' },
+  'sync.no_emails': { pt: 'Nenhum email com faturas nos últimos 7 dias' },
+  'sync.no_matches': { pt: 'emails verificados, nenhum anexo PDF/imagem novo' },
+  'sync.skipped_only': { pt: 'anexo(s) encontrado(s) mas ignorados (tamanho/formato)' },
+  'sync.errors_found': { pt: 'verificação com erros — ver Definições → Erros' },
   'sync.error': { pt: 'Erro ao verificar' },
 
   // Month abbreviations

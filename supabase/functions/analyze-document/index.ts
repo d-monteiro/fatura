@@ -10,6 +10,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { buildTenantPrompt, getVatRatesForCountry, type TenantAIConfig } from "../_shared/promptBuilder.ts";
 import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
+import { logEdgeError } from "../_shared/logError.ts";
+import { finalizeInvoice } from "../_shared/finalizeInvoice.ts";
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const API_TIMEOUT_MS = 120_000;
@@ -135,6 +137,18 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
   };
 }
 
+const REJECTION_LABELS_PT: Record<string, string> = {
+  pas_un_document: "Não é um documento",
+  document_illisible: "Documento ilegível",
+  pas_une_facture: "Não é uma fatura",
+  pas_une_facture_fournisseur: "Fatura emitida pela própria empresa",
+};
+
+function rejectionToPt(reason: unknown): string {
+  if (typeof reason !== "string" || !reason) return "Documento não validado";
+  return REJECTION_LABELS_PT[reason] ?? reason;
+}
+
 const FALLBACK_PROMPT = `# RÔLE
 Tu es un comptable senior. Analyse cette facture et renvoie un JSON structuré.
 
@@ -174,8 +188,10 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
     // Modo interno "by invoice": carrega stub + storage, corre Gemini, persiste e sai.
+    // skip_finalize=true: chamador faz Drive+Sheets em batch (sync-email)
     if (isInternal && typeof body?.invoice_id === "string") {
-      return await analyzeByInvoiceId(body.invoice_id, adminClient, corsHeaders);
+      const skipFinalize = body?.skip_finalize === true;
+      return await analyzeByInvoiceId(body.invoice_id, adminClient, corsHeaders, skipFinalize);
     }
 
     const { data, mimeType, tenantId } = body;
@@ -196,6 +212,16 @@ Deno.serve(async (req) => {
         .eq("is_active", true)
         .maybeSingle();
       if (!membership) return json(403, { error: "Tenant inacessível" }, corsHeaders);
+
+      const limitCheck = await checkInvoiceLimit(adminClient, tenantId as string);
+      if (!limitCheck.ok) {
+        return json(402, {
+          error: "Limite mensal de faturas atingido.",
+          code: "invoice_limit_reached",
+          limit: limitCheck.limit,
+          used: limitCheck.used,
+        }, corsHeaders);
+      }
     }
 
     let prompt = FALLBACK_PROMPT;
@@ -210,6 +236,14 @@ Deno.serve(async (req) => {
     return json(200, geminiResult.normalized, corsHeaders);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
+    await logEdgeError({
+      functionName: "analyze-document",
+      message: msg,
+      error,
+      httpMethod: req.method,
+      httpPath: new URL(req.url).pathname,
+      httpStatus: 500,
+    });
     return json(500, { error: msg }, corsHeaders);
   }
 });
@@ -233,7 +267,7 @@ async function runGemini(prompt: string, base64Data: string, mimeType: string): 
         "X-Title": "FaturaAI",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         messages: [{
           role: "user",
           content: [
@@ -269,6 +303,7 @@ async function analyzeByInvoiceId(
   invoiceId: string,
   adminClient: ReturnType<typeof createClient>,
   corsHeaders: Record<string, string>,
+  skipFinalize = false,
 ): Promise<Response> {
   const { data: invoice, error: invErr } = await adminClient
     .from("invoices")
@@ -324,16 +359,22 @@ async function analyzeByInvoiceId(
   const first = (Array.isArray(invoices) && invoices[0]) as Record<string, unknown> | undefined;
 
   if (!first || first.is_valid_document === false) {
-    await adminClient.from("invoices").update({
-      status: "review",
-      manual_review: true,
-      review_reason: (first?.rejection_reason as string) || "Documento não validado",
-    }).eq("id", invoiceId);
-    return json(200, { ok: true, state: "review" }, corsHeaders);
+    // Gemini rejeitou (não é fatura / ilegível / fatura emitida pela empresa).
+    // Soft-delete em vez de status=failed: sai do UI mas mantém attachment_hash
+    // para dedup no próximo sync (senão pagamos Gemini outra vez pelo mesmo
+    // PDF que acabámos de rejeitar).
+    await rejectInvoice(
+      adminClient,
+      invoiceId,
+      invoice.storage_path as string | null,
+      rejectionToPt(first?.rejection_reason),
+    );
+    return json(200, { ok: true, state: "rejected" }, corsHeaders);
   }
 
   const confidence = (first.confidence_score as number | undefined) ?? 0;
-  const needsReview = confidence < 80;
+  // Gemini devolve confidence em 0-1
+  const needsReview = confidence < 0.8;
 
   const { error: updateErr } = await adminClient.from("invoices").update({
     document_type: first.document_type ?? null,
@@ -354,6 +395,7 @@ async function analyzeByInvoiceId(
     payment_method: first.payment_method ?? null,
     supplier_iban: first.supplier_iban ?? null,
     summary: first.summary ?? null,
+    destinataire_name: (first.destinataire_name as string | undefined) ?? null,
     confidence_score: confidence,
     status: needsReview ? "review" : "inbox",
     manual_review: needsReview,
@@ -382,7 +424,25 @@ async function analyzeByInvoiceId(
     );
   }
 
-  return json(200, { ok: true, state: needsReview ? "review" : "inbox" }, corsHeaders);
+  // Fase 2: Drive + Sheets + supplier match + dedup via finalizeInvoice.
+  // sync-email passa skip_finalize=true e dispara reprocess-pending em batch
+  // depois — evita N×Drive em paralelo a saturar quota.
+  if (skipFinalize) {
+    return json(200, {
+      ok: true,
+      state: needsReview ? "review" : "inbox",
+      finalize_skipped: true,
+    }, corsHeaders);
+  }
+  const finalizeResult = await finalizeInvoice(invoiceId, adminClient, {
+    deleteStorageAfterDrive: true,
+  });
+
+  return json(200, {
+    ok: true,
+    state: needsReview ? "review" : "inbox",
+    finalize: finalizeResult,
+  }, corsHeaders);
 }
 
 async function markFailed(
@@ -391,6 +451,66 @@ async function markFailed(
   await adminClient.from("invoices").update({
     status: "failed", manual_review: true, review_reason: reason.slice(0, 500),
   }).eq("id", invoiceId);
+}
+
+// Rejeição definitiva (Gemini decidiu que não é fatura processável).
+// Soft-delete mantém o registo para dedup via attachment_hash mas remove
+// do UI e liberta o bucket.
+async function rejectInvoice(
+  adminClient: ReturnType<typeof createClient>,
+  invoiceId: string,
+  storagePath: string | null,
+  reason: string,
+) {
+  await adminClient.from("invoices").update({
+    status: "failed",
+    manual_review: false,
+    review_reason: reason.slice(0, 500),
+    deleted_at: new Date().toISOString(),
+  }).eq("id", invoiceId);
+  if (storagePath) {
+    await adminClient.storage.from("invoices").remove([storagePath]);
+  }
+}
+
+type LimitOutcome = { ok: true } | { ok: false; limit: number; used: number };
+
+async function checkInvoiceLimit(
+  adminClient: ReturnType<typeof createClient>,
+  tenantId: string,
+): Promise<LimitOutcome> {
+  const { data: tenantRow } = await adminClient
+    .from("tenants")
+    .select("plan_id, invoices_month_reset")
+    .eq("id", tenantId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const planId = tenantRow?.plan_id as string | null | undefined;
+  if (!planId) return { ok: true };
+
+  const { data: planRow } = await adminClient
+    .from("plans")
+    .select("max_invoices_month")
+    .eq("id", planId)
+    .maybeSingle();
+  const limit = planRow?.max_invoices_month as number | null | undefined;
+  if (typeof limit !== "number") return { ok: true };
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const resetRaw = tenantRow?.invoices_month_reset as string | null | undefined;
+  const resetAt = resetRaw ? new Date(resetRaw) : null;
+  const lowerBound = resetAt && resetAt > monthStart ? resetAt : monthStart;
+
+  const { count } = await adminClient
+    .from("invoices")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .is("deleted_at", null)
+    .gte("created_at", lowerBound.toISOString());
+  const used = count ?? 0;
+  return used >= limit ? { ok: false, limit, used } : { ok: true };
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {

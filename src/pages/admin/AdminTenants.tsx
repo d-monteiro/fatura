@@ -1,54 +1,94 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase/client';
-import type { Tenant } from '@/types/tenant';
+import { TenantDetailDrawer } from '@/components/admin/TenantDetailDrawer';
+import { sectorLabel } from '@/lib/admin/labels';
+import { ChevronRight } from 'lucide-react';
+
+interface TenantOverview {
+  id: string;
+  name: string;
+  slug: string;
+  country: string;
+  sector: string | null;
+  nif: string | null;
+  plan_status: string;
+  is_active: boolean;
+  setup_status: string;
+  created_at: string;
+  invoices_total: number;
+  invoices_this_month: number;
+  suppliers_total: number;
+  companies_total: number;
+}
 
 export default function AdminTenants() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    // Admin uses service role in Edge Functions.
-    // For now, this relies on the user being a member of all tenants or service role.
-    supabase
-      .from('tenants')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setTenants(data as Tenant[]);
-        setLoading(false);
-      });
-  }, []);
+  const { data: tenants = [], isLoading } = useQuery<TenantOverview[]>({
+    queryKey: ['admin-tenants-overview'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_admin_tenants_overview');
+      if (error) throw error;
+      return (data ?? []) as TenantOverview[];
+    },
+  });
 
-  if (loading) return <div className="text-muted-foreground">A carregar...</div>;
+  const filtered = search
+    ? tenants.filter((t) =>
+        [t.name, t.slug, t.nif, t.sector].some((v) => v?.toLowerCase().includes(search.toLowerCase())),
+      )
+    : tenants;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Tenants</h1>
-      <p className="text-muted-foreground">{tenants.length} tenant(s) enregistré(s)</p>
+      <div>
+        <h1 className="text-2xl font-bold">Tenants</h1>
+        <p className="text-sm text-muted-foreground">{tenants.length} tenant(s) registado(s)</p>
+      </div>
 
-      {tenants.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Nenhum tenant de momento.</div>
+      <Input
+        placeholder="Pesquisar por nome, slug, NIF ou setor..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="max-w-md"
+      />
+
+      {isLoading ? (
+        <div className="text-muted-foreground">A carregar...</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {tenants.length === 0 ? 'Nenhum tenant de momento.' : 'Sem resultados.'}
+        </div>
       ) : (
         <div className="rounded-lg border divide-y">
-          {tenants.map((t) => (
-            <div key={t.id} className="p-4 flex items-center justify-between">
-              <div>
-                <div className="font-medium">{t.name}</div>
-                <div className="text-xs text-muted-foreground">{t.slug} &middot; {t.country} &middot; {t.sector ?? '—'}</div>
+          {filtered.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSelectedId(t.id)}
+              className="w-full p-4 flex items-center justify-between text-left hover:bg-muted/50 transition-colors"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="font-medium truncate">{t.name}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {t.slug} · {t.country} · {sectorLabel(t.sector)}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={t.plan_status === 'active' ? 'default' : 'secondary'}>
-                  {t.plan_status}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {t.invoices_this_month ?? 0} factures
-                </span>
+              <div className="flex items-center gap-2 shrink-0">
+                {!t.is_active && <Badge variant="secondary">Suspenso</Badge>}
+                <Badge variant={t.plan_status === 'active' ? 'default' : 'secondary'}>{t.plan_status}</Badge>
+                <span className="text-xs text-muted-foreground hidden sm:inline">{t.invoices_total} faturas</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      <TenantDetailDrawer tenantId={selectedId} onClose={() => setSelectedId(null)} />
     </div>
   );
 }

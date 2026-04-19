@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
+import { identify, resetTracking } from '@/lib/analytics/track';
 
 interface AuthContextType {
   user: User | null;
@@ -44,6 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      identify(user.id, {
+        email: user.email ?? undefined,
+        created_at: user.created_at,
+      });
+    } else {
+      resetTracking();
+    }
+  }, [user]);
 
   async function login(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({

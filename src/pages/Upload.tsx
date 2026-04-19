@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 import { StatusCards } from '@/components/upload/StatusCards';
 import { DropZone } from '@/components/upload/DropZone';
 import { UploadResultList } from '@/components/upload/UploadResultList';
@@ -24,12 +26,15 @@ export default function Upload() {
     const oauth = searchParams.get('oauth');
     if (oauth === 'success') {
       const email = searchParams.get('email');
+      track(EVENTS.GOOGLE_OAUTH_COMPLETED, { source: 'upload' });
       toast.success(`Conta Google ligada${email ? ` (${email})` : ''}`);
       qc.invalidateQueries({ queryKey: queryKeys.oauthTokens });
       qc.invalidateQueries({ queryKey: ['google-token'] });
       setSearchParams((p) => { p.delete('oauth'); p.delete('email'); p.delete('company_id'); return p; });
     } else if (oauth === 'error') {
-      toast.error(searchParams.get('message') || 'Erro ao ligar conta Google');
+      const message = searchParams.get('message') || 'Erro ao ligar conta Google';
+      track(EVENTS.GOOGLE_OAUTH_FAILED, { source: 'upload', message });
+      toast.error(message);
       setSearchParams((p) => { p.delete('oauth'); p.delete('message'); return p; });
     }
   }, [searchParams, setSearchParams, qc]);

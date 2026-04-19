@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getAllowedOrigins, getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 import { verifyState } from "../_shared/oauthState.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 
 const LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const SAFE_SOURCES: Record<string, string> = {
@@ -172,7 +173,14 @@ Deno.serve(async (req) => {
         })
         .eq("id", existing.id);
       if (updateError) {
-        console.error("[oauth-callback] update error", updateError);
+        await logEdgeError({
+          functionName: "oauth-callback",
+          message: `update user_oauth_tokens falhou: ${updateError.message}`,
+          error: updateError,
+          tenantId,
+          userId,
+          metadata: { phase: "update", code: updateError.code },
+        });
         return redirectWithError(frontendUrl, redirectPath, "Falha ao gravar tokens");
       }
     } else {
@@ -199,7 +207,14 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
       if (insertError || !inserted) {
-        console.error("[oauth-callback] insert error", insertError);
+        await logEdgeError({
+          functionName: "oauth-callback",
+          message: `insert user_oauth_tokens falhou: ${insertError?.message ?? "sem detalhe"}`,
+          error: insertError,
+          tenantId,
+          userId,
+          metadata: { phase: "insert", code: insertError?.code },
+        });
         return redirectWithError(frontendUrl, redirectPath, "Falha ao gravar tokens");
       }
       tokenRowId = inserted.id;
@@ -242,7 +257,12 @@ Deno.serve(async (req) => {
       headers: { Location: successUrl.toString() },
     });
   } catch (error) {
-    console.error("[oauth-callback] unexpected error", error);
+    await logEdgeError({
+      functionName: "oauth-callback",
+      message: error instanceof Error ? error.message : "unexpected error",
+      error,
+      level: "fatal",
+    });
     return redirectWithError(safeFrontendOrigin(), "/settings", "Erro interno");
   }
 });

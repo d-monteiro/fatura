@@ -15,6 +15,12 @@ SaaS de faturação multi-empresa com IA (OCR + extração). Mercado: PT. Dev ú
 - Deploy: Vercel (FE) + Supabase Cloud (BE)
 - **Sem** react-hook-form, sem zod, sem lib de i18n (Context caseiro).
 
+## Database & Infrastructure
+
+- Always use Supabase MCP to verify actual database state (tables, columns, constraints, RLS policies) BEFORE proposing fixes. Don't assume schema matches code.
+- When deploying Edge Functions, use the existing `source/` path layout and `config.toml` conventions; don't regenerate scaffolding.
+- Check storage buckets, RLS INSERT policies, and unique constraints early when diagnosing data/insert errors.
+
 ## Idioma
 
 - UI e código (identifiers, comentários, commits) em **PT-PT** com acordo ortográfico.
@@ -33,6 +39,11 @@ Esta codebase foi marcada pelo dono como "AI slop". Antes de escrever qualquer l
 7. **Sem ficheiros `.md` novos** (planos, análises, READMEs) sem pedido explícito.
 8. **Não inventar features.** Só o que foi pedido.
 9. Formatar EUR: `1 234,56 EUR`. Datas: `DD/MM/AAAA`.
+
+## Root Cause Discipline
+
+- Fix root causes, not symptoms. If a UI spacing issue traces to a parent container's padding, fix the parent — don't patch with margin tweaks on the child.
+- Before iterating on errors (e.g., HogQL, OAuth, CORS), read the relevant docs/configuration first rather than guessing through repeated deploys.
 
 ## Segurança (crítico)
 

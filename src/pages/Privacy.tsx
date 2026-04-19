@@ -43,6 +43,7 @@ export default function Privacy() {
               <li>OpenRouter / Google Gemini — análise automática de faturas (o documento é enviado para extração de dados; não é usado para treino).</li>
               <li>Vercel — hospedagem da aplicação web.</li>
               <li>Google — Drive / Gmail / Sheets apenas quando autoriza.</li>
+              <li>PostHog — analytics de produto (eventos, funil de onboarding), dados alojados na União Europeia. Não usamos session recordings nem cookies de terceiros.</li>
             </ul>
           </section>
 

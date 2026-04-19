@@ -70,7 +70,7 @@ export default function Faturas() {
         .select('*', { count: 'exact' })
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
-        .order(sortField, { ascending: sortDir === 'asc' })
+        .order(sortField, { ascending: sortDir === 'asc', nullsFirst: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       const statuses = TAB_STATUSES[tab];

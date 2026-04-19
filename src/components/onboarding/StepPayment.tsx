@@ -135,11 +135,6 @@ export function StepPayment({ data, onChange }: Props) {
                     </li>
                   ))}
                 </ul>
-                {plan.setup_fee > 0 && (
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    + Taxa de configuração: {formatPrice(plan.setup_fee)} (pagamento único)
-                  </div>
-                )}
               </CardContent>
             </Card>
           );

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
+import { reportError } from '@/lib/errors/errorReporter';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TenantProvider } from '@/contexts/TenantContext';
@@ -28,7 +29,10 @@ import AdminTickets from '@/pages/admin/AdminTickets';
 import AdminErrors from '@/pages/admin/AdminErrors';
 import AdminUsage from '@/pages/admin/AdminUsage';
 import AdminOnboarding from '@/pages/admin/AdminOnboarding';
+import AdminAdmins from '@/pages/admin/AdminAdmins';
+import AdminAnalytics from '@/pages/admin/AdminAnalytics';
 import NotFound from '@/pages/NotFound';
+import { usePageViews } from '@/lib/analytics/usePageViews';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,10 +44,27 @@ const queryClient = new QueryClient({
       refetchOnMount: false,
     },
   },
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      void reportError(error, {
+        component: 'react-query/query',
+        extra: { queryKey: query.queryKey },
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _vars, _ctx, mutation) => {
+      void reportError(error, {
+        component: 'react-query/mutation',
+        extra: { mutationKey: mutation.options.mutationKey },
+      });
+    },
+  }),
 });
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  usePageViews();
 
   if (loading) {
     return (
@@ -77,7 +98,9 @@ function AppRoutes() {
         <Route path="tickets" element={<AdminTickets />} />
         <Route path="errors" element={<AdminErrors />} />
         <Route path="usage" element={<AdminUsage />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="onboarding" element={<AdminOnboarding />} />
+        <Route path="admins" element={<AdminAdmins />} />
       </Route>
       <Route element={<RequireTenant><AppLayout /></RequireTenant>}>
         <Route index element={<Dashboard />} />

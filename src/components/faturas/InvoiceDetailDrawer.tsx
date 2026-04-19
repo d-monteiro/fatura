@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { invalidateInvoiceLists, queryKeys } from '@/lib/queryKeys';
+import { reportError } from '@/lib/errors/errorReporter';
 import { InvoiceReviewDialog } from './InvoiceReviewDialog';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 import { NormalDrawerContent, NormalDrawerFooter } from './InvoiceNormalDrawer';
@@ -70,11 +72,23 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       setIsDeleting(true);
-      const { error } = await supabase.from('invoices')
-        .update({ deleted_at: new Date().toISOString() }).eq('id', invoice!.id);
+      const { data, error } = await supabase.from('invoices')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', invoice!.id)
+        .is('deleted_at', null)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Nenhuma fatura foi eliminada (RLS ou ID inválido)');
     },
-    onSuccess: () => { invalidateInvoiceLists(qc); onClose(); },
+    onSuccess: () => {
+      invalidateInvoiceLists(qc);
+      toast.success(t('toast.invoice_deleted'));
+      onClose();
+    },
+    onError: (err) => {
+      void reportError(err, { component: 'InvoiceDetailDrawer.deleteMutation', extra: { invoiceId: invoice?.id } });
+      toast.error(err instanceof Error ? err.message : t('toast.invoice_delete_failed'));
+    },
     onSettled: () => setIsDeleting(false),
   });
 
@@ -101,7 +115,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/30 md:left-60" onClick={onClose} />
       <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-xl">
         <div className="border-b px-5 py-4">
           <div className="flex items-start justify-between">

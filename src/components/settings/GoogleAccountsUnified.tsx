@@ -152,39 +152,44 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
               (c) => !linkedCompanies.some((l) => l.company_id === c.id),
             );
             return (
-              <li key={t.id} className="p-3 bg-muted rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{t.email}</p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <PermissionBadge active={storage}>Drive</PermissionBadge>
-                      <PermissionBadge active={!!sheets}>Sheets</PermissionBadge>
-                      <PermissionBadge active={gmail}>Gmail</PermissionBadge>
-                    </div>
-                    {linkedCompanies.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Faturas de:{' '}
-                        {linkedCompanies
-                          .map((e) => e.companies?.name ?? '—')
-                          .join(', ')}
-                      </p>
-                    )}
+              <li key={t.id} className="rounded-lg border border-border bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium truncate flex-1 min-w-0">{t.email}</p>
+                  <button
+                    onClick={() => deleteToken.mutate(t.id)}
+                    className="shrink-0 -mr-1 p-1 text-muted-foreground hover:text-destructive transition"
+                    title="Remover conta"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                {linkedCompanies.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                      Faturas de
+                    </p>
+                    <p className="text-lg font-semibold text-foreground mt-0.5">
+                      {linkedCompanies
+                        .map((e) => e.companies?.name ?? '—')
+                        .join(', ')}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <button
-                      onClick={() => deleteToken.mutate(t.id)}
-                      className="text-destructive hover:opacity-70 p-2"
-                      title="Remover conta"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                )}
+
+                <div className="mt-3">
+                  <p className="text-xs text-muted-foreground mb-1.5">Com permissões em:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <PermissionBadge active={storage}>Drive</PermissionBadge>
+                    <PermissionBadge active={!!sheets}>Sheets</PermissionBadge>
+                    <PermissionBadge active={gmail}>Gmail</PermissionBadge>
                   </div>
                 </div>
 
                 {gmail && availableCompanies.length > 0 && (
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-3 pt-3 border-t border-border">
                     {linkState?.tokenId === t.id ? (
-                      <>
+                      <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <Select value={targetCompany} onValueChange={setTargetCompany}>
                             <SelectTrigger size="sm"><SelectValue placeholder="Escolher empresa..." /></SelectTrigger>
@@ -215,7 +220,7 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
                         >
                           Cancelar
                         </button>
-                      </>
+                      </div>
                     ) : (
                       <button
                         onClick={() => setLinkState({ tokenId: t.id, email: t.email ?? '' })}

@@ -10,6 +10,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 
 function json(status: number, body: unknown, cors: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
@@ -110,11 +111,23 @@ Deno.serve(async (req) => {
       })
       .eq("id", account.id);
     if (updateError) {
+      await logEdgeError({
+        functionName: "refresh-token",
+        message: `Falha ao guardar novo token: ${updateError.message}`,
+        error: updateError,
+        metadata: { code: updateError.code, accountId: account.id },
+      });
       return json(500, { error: "Falha ao guardar novo token" }, corsHeaders);
     }
 
     return json(200, { refreshed: true, expires_at: newExpiry }, corsHeaders);
-  } catch {
+  } catch (error) {
+    await logEdgeError({
+      functionName: "refresh-token",
+      message: error instanceof Error ? error.message : "Erro interno",
+      error,
+      httpStatus: 500,
+    });
     return json(500, { error: "Erro interno" }, corsHeaders);
   }
 });

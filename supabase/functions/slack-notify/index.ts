@@ -8,6 +8,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getAllowedOrigins, getFrontendUrl } from "../_shared/cors.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -230,7 +231,13 @@ Deno.serve(async (req: Request) => {
 
     if (!slackResp.ok) {
       const errText = await slackResp.text();
-      console.error("[slack-notify] Slack API error:", slackResp.status, errText);
+      await logEdgeError({
+        functionName: "slack-notify",
+        message: `Slack API error ${slackResp.status}`,
+        level: "warn",
+        httpStatus: slackResp.status,
+        metadata: { errText: errText.slice(0, 500) },
+      });
       return new Response(
         JSON.stringify({ ok: false, reason: "slack_api_error", status: slackResp.status }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -242,7 +249,12 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
-    console.error("[slack-notify] error:", error);
+    await logEdgeError({
+      functionName: "slack-notify",
+      message: error instanceof Error ? error.message : "unknown",
+      error,
+      httpStatus: 500,
+    });
     return new Response(
       JSON.stringify({ ok: false, error: error instanceof Error ? error.message : "unknown" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '@/lib/supabase/client';
+import { logErrorCore } from '@/lib/errors/errorLog';
 
 type LeadPayload = {
   company_name: string;
@@ -72,6 +73,11 @@ export async function notifySlack(args: NotifyArgs): Promise<void> {
       body: JSON.stringify(args),
     });
   } catch (e) {
-    console.warn('[slack] notify failed silently:', e);
+    void logErrorCore(e, {
+      component: 'slack/notify',
+      level: 'warn',
+      skipSlack: true,
+      extra: { channel: args.channel },
+    });
   }
 }

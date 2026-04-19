@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { redirectToGoogleOAuth } from '@/lib/google/oauth';
+import { reportError } from '@/lib/errors/errorReporter';
 
 interface StatusCardsProps {
   loading: boolean;
@@ -27,7 +28,7 @@ export function StatusCards({
   const connect = (loginHint?: string) => {
     if (!userId) return;
     void redirectToGoogleOAuth({ source: 'upload', loginHint, promptSelect: !loginHint })
-      .catch((e: unknown) => console.error('[oauth]', e));
+      .catch((e: unknown) => reportError(e, { component: 'StatusCards/redirectToGoogleOAuth', userId: userId ?? undefined }));
   };
 
   if (loading) {

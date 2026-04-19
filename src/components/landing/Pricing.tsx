@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase/client';
 import { Link } from 'react-router-dom';
 import { Check, ArrowRight } from 'lucide-react';
+import { track } from '@/lib/analytics/track';
+import { EVENTS } from '@/lib/analytics/events';
 import type { Plan } from '@/types/tenant';
 
 export function Pricing() {
@@ -41,13 +43,19 @@ export function Pricing() {
         <div className="mt-10 flex justify-center">
           <div className="inline-flex items-center rounded-full border border-border bg-background p-1 text-sm">
             <button
-              onClick={() => setCycle('monthly')}
+              onClick={() => {
+                setCycle('monthly');
+                track(EVENTS.LANDING_PRICING_CYCLE_CHANGED, { cycle: 'monthly' });
+              }}
               className={`h-9 rounded-full px-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${cycle === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
             >
               Mensal
             </button>
             <button
-              onClick={() => setCycle('yearly')}
+              onClick={() => {
+                setCycle('yearly');
+                track(EVENTS.LANDING_PRICING_CYCLE_CHANGED, { cycle: 'yearly' });
+              }}
               className={`h-9 rounded-full px-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${cycle === 'yearly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
             >
               Anual
@@ -107,7 +115,15 @@ export function Pricing() {
                       : 'border border-border bg-background text-primary hover:bg-primary hover:text-primary-foreground'
                   }`}
                 >
-                  <Link to="/onboarding" className="inline-flex items-center gap-2">
+                  <Link
+                    to="/onboarding"
+                    onClick={() => track(EVENTS.LANDING_CTA_CLICKED, {
+                      location: 'pricing',
+                      plan: plan.slug,
+                      cycle,
+                    })}
+                    className="inline-flex items-center gap-2"
+                  >
                     {plan.is_custom_pricing ? plan.cta_label : 'Começar 7 dias grátis'}
                     <ArrowRight className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5" />
                   </Link>
