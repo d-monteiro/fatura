@@ -85,10 +85,6 @@ export interface Tenant {
   invoices_this_month: number;
   invoices_month_reset: string | null;
 
-  // Admin overrides
-  lifetime_discount_percent: number | null;
-  lifetime_discount_reason: string | null;
-
   // Onboarding
   onboarding_completed: boolean;
   onboarding_data: Record<string, unknown> | null;

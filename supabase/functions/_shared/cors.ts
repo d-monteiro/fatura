@@ -44,5 +44,6 @@ export function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 export function getFrontendUrl(): string {
-  return Deno.env.get("FRONTEND_URL") || getAllowedOrigins()[0];
+  const raw = Deno.env.get("FRONTEND_URL") || getAllowedOrigins()[0];
+  return raw.replace(/\/+$/, "");
 }

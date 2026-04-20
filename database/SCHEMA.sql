@@ -118,10 +118,6 @@ CREATE TABLE tenants (
   invoices_this_month INTEGER DEFAULT 0,
   invoices_month_reset TIMESTAMPTZ,
 
-  -- Admin overrides
-  lifetime_discount_percent NUMERIC(5,2),
-  lifetime_discount_reason TEXT,
-
   -- Onboarding
   onboarding_completed BOOLEAN DEFAULT false,
   onboarding_data JSONB,
@@ -159,14 +155,7 @@ CREATE TABLE tenants (
   referred_by TEXT,
   notes TEXT,
 
-  CONSTRAINT tenants_onboarding_data_size CHECK (pg_column_size(onboarding_data) < 16384),
-  CONSTRAINT tenants_lifetime_discount_percent_check CHECK (
-    lifetime_discount_percent IS NULL
-    OR (lifetime_discount_percent >= 0 AND lifetime_discount_percent <= 100)
-  ),
-  CONSTRAINT tenants_lifetime_discount_reason_check CHECK (
-    lifetime_discount_reason IS NULL OR length(lifetime_discount_reason) <= 500
-  )
+  CONSTRAINT tenants_onboarding_data_size CHECK (pg_column_size(onboarding_data) < 16384)
   -- NOTA: há também um CHECK `tenants_nif_format` em produção que usa
   -- a função is_valid_nif(nif, country). Está definido via migrations e não
   -- é recriado aqui para não depender de funções externas neste baseline.

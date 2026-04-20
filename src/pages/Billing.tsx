@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useTenant } from '@/contexts/TenantContext';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { PlanSelector } from '@/components/billing/PlanSelector';
+import { CheckoutCancelDialog } from '@/components/billing/CheckoutCancelDialog';
 import { openBillingPortal } from '@/lib/stripe/checkout';
 import { isUnlimitedTrial } from '@/lib/utils/trial';
 import { Sparkles, Clock, Infinity as InfinityIcon, CreditCard, Loader2 } from 'lucide-react';
@@ -13,6 +14,7 @@ export default function Billing() {
   const { tenant, plan, refreshTenant } = useTenant();
   const [params, setParams] = useSearchParams();
   const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [nowAtMount] = useState(() => Date.now());
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export default function Billing() {
       toast.success('Pagamento concluído. A subscrição será activada em instantes.');
       void refreshTenant();
     } else if (result === 'cancel') {
-      toast.info('Checkout cancelado.');
+      setCancelOpen(true);
     }
     params.delete('checkout');
     params.delete('session_id');
@@ -68,14 +70,6 @@ export default function Billing() {
               Plano atual
             </div>
             <h2 className="text-4xl font-bold tracking-tight">{plan?.name ?? 'Sem plano'}</h2>
-            {tenant?.lifetime_discount_percent !== null && tenant?.lifetime_discount_percent !== undefined && tenant.lifetime_discount_percent > 0 && (
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-3 py-1 text-xs font-medium">
-                Desconto vitalício: -{tenant.lifetime_discount_percent}%
-                {tenant.lifetime_discount_reason && (
-                  <span className="opacity-80 font-normal">· {tenant.lifetime_discount_reason}</span>
-                )}
-              </div>
-            )}
             {unlimitedTrial && !hasCustomer && (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                 <InfinityIcon className="h-3.5 w-3.5" />
@@ -111,6 +105,8 @@ export default function Billing() {
       </section>
 
       <PlanSelector />
+
+      <CheckoutCancelDialog open={cancelOpen} onOpenChange={setCancelOpen} />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -76,23 +75,9 @@ export function TenantBetaControls({ tenant, tenantId }: Props) {
     patchMutation.mutate({ trial_ends_at: target.toISOString() });
   };
 
-  const [discount, setDiscount] = useState(
-    tenant.lifetime_discount_percent !== null ? String(tenant.lifetime_discount_percent) : ''
-  );
-  const [reason, setReason] = useState(tenant.lifetime_discount_reason ?? '');
-
-  const applyDiscount = () => {
-    const trimmed = discount.trim();
-    const percent = trimmed === '' ? null : Number(trimmed);
-    if (percent !== null && (Number.isNaN(percent) || percent < 0 || percent > 100)) {
-      toast.error('Percentagem inválida (0-100)');
-      return;
-    }
-    patchMutation.mutate({
-      lifetime_discount_percent: percent,
-      lifetime_discount_reason: reason.trim() || null,
-    });
-  };
+  const stripeCustomerUrl = tenant.stripe_customer_id
+    ? `https://dashboard.stripe.com/customers/${tenant.stripe_customer_id}`
+    : 'https://dashboard.stripe.com/coupons';
 
   const trialDateValue = tenant.trial_ends_at ? tenant.trial_ends_at.substring(0, 10) : '';
   const resetLabel = tenant.invoices_month_reset
@@ -140,27 +125,14 @@ export function TenantBetaControls({ tenant, tenantId }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Desconto vitalício</Label>
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            value={discount}
-            onChange={(e) => setDiscount(e.target.value)}
-            placeholder="0-100"
-            className="w-28"
-          />
-          <Input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Motivo (ex: Beta tester)"
-            className="flex-1"
-          />
-        </div>
-        <Button size="sm" onClick={applyDiscount} disabled={patchMutation.isPending}>
-          Aplicar desconto
+        <Label>Descontos</Label>
+        <p className="text-xs text-muted-foreground">
+          Geridos no Stripe. Aplicar coupon ao cliente ou criar promotion code partilhável.
+        </p>
+        <Button size="sm" variant="outline" asChild>
+          <a href={stripeCustomerUrl} target="_blank" rel="noopener noreferrer">
+            {tenant.stripe_customer_id ? 'Abrir cliente no Stripe' : 'Abrir coupons Stripe'}
+          </a>
         </Button>
       </div>
 

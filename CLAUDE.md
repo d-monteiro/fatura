@@ -59,14 +59,27 @@ Esta codebase foi marcada pelo dono como "AI slop". Antes de escrever qualquer l
 
 ## Setup Google Cloud Console (manual)
 
-OAuth Google usa scopes sensíveis (`gmail.readonly`, `gmail.modify`) que exigem Google Verification para produção aberta. Enquanto em Testing:
+OAuth Google em **Publishing status: In production** (publicada em 2026-04-20), mas **sem Google Verification completa**. Scopes usados:
 
-1. `console.cloud.google.com` → APIs & Services → OAuth consent screen
-2. User type: **External**, Publishing status: **Testing**
-3. **Test users**: adicionar cada email que vai ligar-se via OAuth (até 100). Obrigatório — senão Google bloqueia com `access_denied`.
-4. Scopes centralizados em [src/lib/google/scopes.ts](src/lib/google/scopes.ts). Helper único de redirect: [src/lib/google/oauth.ts](src/lib/google/oauth.ts) (`redirectToGoogleOAuth`). Nunca construir URLs OAuth à mão.
-5. Scope Gmail: **só** `gmail.readonly` (sensitive, sem CASA). Não usar `gmail.modify` (restricted, exige CASA $$). Dedup de emails feito em BD via `email_message_id`, sem labels.
-6. Ir a prod aberto: submeter para Google Verification (demo-video + justificação dos scopes).
+- `email`, `profile` — não-sensíveis.
+- `drive.file` — sensitive (só acesso a ficheiros criados/abertos pela app). Sem CASA.
+- `spreadsheets` — sensitive. Sem CASA.
+- `gmail.readonly` — **restricted** (exige CASA para verificação). Sem CASA no momento.
+
+Estado actual ("unverified in production"):
+- Qualquer utilizador consegue autorizar, mas vê ecrã **"Google hasn't verified this app"** antes do consent.
+- Limite: **100 new grants totais** (não por dia; cumulativo até verificação). Após 100, Google bloqueia novos consents com `access_denied`.
+- Refresh tokens atuais **não expiram** por mudança de status (7-day expiry só aplica em Testing, e já saímos).
+
+Ir a produção verdadeiramente aberta (≥100 users ou remover o warning):
+1. Submeter para Google Verification no OAuth consent screen: demo-video de cada scope, privacy policy URL, domínio verificado via Search Console.
+2. Para `gmail.readonly` especificamente: fazer **CASA assessment** (Cloud Application Security Assessment) com laboratório aprovado — custa $$$ (Tier 2 ~$1–3k/ano) e demora semanas.
+3. Alternativa para evitar CASA: trocar para `gmail.metadata` (sensitive, sem CASA) — mas só lê headers, não anexos. Inviável para extração de faturas.
+
+Código:
+- Scopes centralizados em [src/lib/google/scopes.ts](src/lib/google/scopes.ts).
+- Helper único de redirect: [src/lib/google/oauth.ts](src/lib/google/oauth.ts) (`redirectToGoogleOAuth`). Nunca construir URLs OAuth à mão.
+- Dedup de emails feito em BD via `email_message_id`, sem labels (não usar `gmail.modify` — é restricted e também precisa CASA).
 
 ## Armadilhas conhecidas
 

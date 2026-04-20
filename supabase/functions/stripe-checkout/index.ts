@@ -133,12 +133,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    const successUrl = `${frontendUrl}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${frontendUrl}/billing?checkout=cancel`;
+    console.log("[stripe-checkout] urls", { frontendUrl, successUrl, cancelUrl });
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${frontendUrl}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/billing?checkout=cancel`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       allow_promotion_codes: true,
       subscription_data: {
         metadata: { tenant_id: tenant.id, plan_slug: plan.slug, billing_cycle: cycle },

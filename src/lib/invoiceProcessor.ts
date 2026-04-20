@@ -53,9 +53,15 @@ async function ensureFreshToken(userId: string): Promise<string | null> {
   if (row.token_expiry && new Date(row.token_expiry) > new Date(Date.now() + 5 * 60 * 1000)) return row.access_token;
   if (!row.refresh_token || !row.email) return null;
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
     const res = await fetch(`${SUPABASE_URL}/functions/v1/refresh-token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${session.access_token}`,
+      },
       body: JSON.stringify({ email: row.email }),
     });
     if (!res.ok) {
@@ -67,8 +73,11 @@ async function ensureFreshToken(userId: string): Promise<string | null> {
       });
       return null;
     }
-    const result = await res.json();
-    return result.access_token || null;
+    // Edge Function persiste o novo access_token na BD mas não o devolve na resposta.
+    // Reler da BD para obter o token acabado de renovar.
+    const { data: refreshed } = await supabase.from('user_oauth_tokens')
+      .select('access_token').eq('id', row.id).single();
+    return refreshed?.access_token || null;
   } catch (err) {
     void reportError(err, {
       component: 'invoiceProcessor/ensureFreshToken',

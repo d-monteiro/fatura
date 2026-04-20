@@ -36,6 +36,7 @@ export function InvoiceDocPreview({ invoice }: Props) {
           className="w-full h-full border-0 rounded-lg"
           title="Document Preview"
           allow="autoplay"
+          loading="lazy"
         />
       </div>
     );
@@ -59,6 +60,7 @@ export function InvoiceDocPreview({ invoice }: Props) {
           src={invoice.file_url}
           className="w-full h-full border-0 rounded-lg"
           title="Document Preview"
+          loading="lazy"
         />
       </div>
     );
