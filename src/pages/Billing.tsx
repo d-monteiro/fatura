@@ -1,21 +1,56 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { useTenant } from '@/contexts/TenantContext';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { PlanSelector } from '@/components/billing/PlanSelector';
-import { Sparkles, Clock, Info } from 'lucide-react';
+import { openBillingPortal } from '@/lib/stripe/checkout';
+import { isUnlimitedTrial } from '@/lib/utils/trial';
+import { Sparkles, Clock, Infinity as InfinityIcon, CreditCard, Loader2 } from 'lucide-react';
 
 export default function Billing() {
-  const { tenant, plan } = useTenant();
+  const { tenant, plan, refreshTenant } = useTenant();
+  const [params, setParams] = useSearchParams();
+  const [portalLoading, setPortalLoading] = useState(false);
   const [nowAtMount] = useState(() => Date.now());
+
+  useEffect(() => {
+    const result = params.get('checkout');
+    if (!result) return;
+    if (result === 'success') {
+      toast.success('Pagamento concluído. A subscrição será activada em instantes.');
+      void refreshTenant();
+    } else if (result === 'cancel') {
+      toast.info('Checkout cancelado.');
+    }
+    params.delete('checkout');
+    params.delete('session_id');
+    setParams(params, { replace: true });
+  }, [params, setParams, refreshTenant]);
+
   const trialEndsAt = tenant?.trial_ends_at ?? null;
+  const unlimitedTrial = isUnlimitedTrial(trialEndsAt);
   const { trialEnds, daysLeft } = useMemo(() => {
-    if (!trialEndsAt) return { trialEnds: null, daysLeft: null };
+    if (!trialEndsAt || unlimitedTrial) return { trialEnds: null, daysLeft: null };
     const d = new Date(trialEndsAt);
     return {
       trialEnds: d,
       daysLeft: Math.max(0, Math.ceil((d.getTime() - nowAtMount) / 86_400_000)),
     };
-  }, [trialEndsAt, nowAtMount]);
+  }, [trialEndsAt, nowAtMount, unlimitedTrial]);
+
+  const onPortal = async () => {
+    setPortalLoading(true);
+    try {
+      await openBillingPortal();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao abrir portal');
+      setPortalLoading(false);
+    }
+  };
+
+  const hasCustomer = !!tenant?.stripe_customer_id;
 
   return (
     <div className="max-w-6xl mx-auto p-6 md:p-8 space-y-8">
@@ -41,7 +76,13 @@ export default function Billing() {
                 )}
               </div>
             )}
-            {trialEnds && (
+            {unlimitedTrial && !hasCustomer && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <InfinityIcon className="h-3.5 w-3.5" />
+                <span className="font-medium text-foreground">Teste grátis com duração indefinida</span>
+              </p>
+            )}
+            {trialEnds && !hasCustomer && (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" />
                 Teste grátis até {trialEnds.toLocaleDateString('pt-PT')}
@@ -49,6 +90,18 @@ export default function Billing() {
                   <span className="font-medium text-foreground">· {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'} restantes</span>
                 )}
               </p>
+            )}
+            {hasCustomer && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onPortal}
+                disabled={portalLoading}
+                className="gap-2 mt-2"
+              >
+                {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+                Gerir subscrição e pagamentos
+              </Button>
             )}
           </div>
           <div className="md:min-w-[280px]">
@@ -58,15 +111,6 @@ export default function Billing() {
       </section>
 
       <PlanSelector />
-
-      {!tenant?.stripe_customer_id && (
-        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-          <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-          <p className="text-muted-foreground">
-            A integração com Stripe está a ser preparada. As alterações de plano ficarão disponíveis assim que a faturação online for ativada — contacte-nos entretanto se precisar de mudar de plano.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

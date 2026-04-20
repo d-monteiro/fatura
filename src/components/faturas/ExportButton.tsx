@@ -56,7 +56,7 @@ function buildWorkbook(invoices: Invoice[]): XLSX.WorkBook {
 
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Factures');
+  XLSX.utils.book_append_sheet(wb, ws, 'Faturas');
   return wb;
 }
 
@@ -70,7 +70,7 @@ export function ExportButton({ filters, companyId }: ExportButtonProps) {
       const invoices = await fetchAllFiltered(filters, companyId);
       const wb = buildWorkbook(invoices);
       const today = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `factures_export_${today}.xlsx`);
+      XLSX.writeFile(wb, `faturas_export_${today}.xlsx`);
     } finally {
       setLoading(false);
     }

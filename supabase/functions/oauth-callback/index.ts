@@ -170,6 +170,9 @@ Deno.serve(async (req) => {
           refresh_token: tokens.refresh_token || undefined,
           token_expiry: tokenExpiry,
           scopes,
+          needs_reauth: false,
+          reauth_reason: null,
+          reauth_flagged_at: null,
         })
         .eq("id", existing.id);
       if (updateError) {

@@ -18,6 +18,7 @@ import Onboarding from '@/pages/Onboarding';
 import OnboardingThanks from '@/pages/OnboardingThanks';
 import Landing from '@/pages/Landing';
 import Billing from '@/pages/Billing';
+import AccountSuspended from '@/pages/AccountSuspended';
 import Tickets from '@/pages/Tickets';
 import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms';
@@ -91,6 +92,7 @@ function AppRoutes() {
     <Routes>
       <Route path="onboarding" element={<Onboarding />} />
       <Route path="onboarding/thanks" element={<OnboardingThanks />} />
+      <Route path="account/suspended" element={<AccountSuspended />} />
       <Route path="legal/privacy" element={<Privacy />} />
       <Route path="legal/terms" element={<Terms />} />
       <Route path="admin" element={<AdminLayout />}>

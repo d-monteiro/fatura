@@ -24,6 +24,7 @@ export function LogoUploader({ value, onChange, onPaletteExtracted }: Props) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paletteExtracted, setPaletteExtracted] = useState(false);
 
   const handleFile = async (file: File) => {
     setError(null);
@@ -32,12 +33,16 @@ export function LogoUploader({ value, onChange, onPaletteExtracted }: Props) {
       return;
     }
     setUploading(true);
+    setPaletteExtracted(false);
     try {
       const url = await fileToDataUrl(file);
       onChange(url);
       if (onPaletteExtracted) {
         const palette = await extractLogoColors(url);
-        if (palette) onPaletteExtracted(palette);
+        if (palette) {
+          onPaletteExtracted(palette);
+          setPaletteExtracted(true);
+        }
       }
     } catch {
       setError('Não foi possível ler o ficheiro.');
@@ -48,6 +53,7 @@ export function LogoUploader({ value, onChange, onPaletteExtracted }: Props) {
 
   const handleRemove = () => {
     onChange(null);
+    setPaletteExtracted(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -64,13 +70,24 @@ export function LogoUploader({ value, onChange, onPaletteExtracted }: Props) {
             <img src={value} alt="Logo" className="max-h-full max-w-full object-contain" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Cores detetadas
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Extraímos a paleta da sua marca automaticamente.
-            </p>
+            {paletteExtracted ? (
+              <>
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  Cores detetadas
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Extraímos a paleta da sua marca automaticamente.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium">Logótipo carregado</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Defina as cores manualmente abaixo.
+                </p>
+              </>
+            )}
           </div>
           <Button type="button" variant="ghost" size="sm" onClick={handleRemove} className="gap-1 text-muted-foreground hover:text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> Remover

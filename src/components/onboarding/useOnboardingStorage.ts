@@ -24,6 +24,15 @@ export function clearStoredOnboarding() {
   } catch { /* ignore */ }
 }
 
+// Flush síncrono — usar antes de qualquer redirect (ex: OAuth), já que o
+// useEffect de `useOnboardingStorage` só escreve no próximo ciclo de render.
+export function persistOnboardingNow(data: OnboardingData, step: number) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STEP_KEY, String(step));
+  } catch { /* ignore */ }
+}
+
 /**
  * Persists onboarding data + current step to localStorage so the visitor
  * can close the tab and resume without losing what they've filled in.

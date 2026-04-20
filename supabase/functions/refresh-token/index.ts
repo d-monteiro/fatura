@@ -64,6 +64,11 @@ Deno.serve(async (req) => {
     }
 
     if (!account.refresh_token) {
+      await supabase.from("user_oauth_tokens").update({
+        needs_reauth: true,
+        reauth_reason: "sem_refresh_token",
+        reauth_flagged_at: new Date().toISOString(),
+      }).eq("id", account.id);
       return json(400, { error: "Refresh token indisponível. Re-autentique a conta.", needs_reauth: true }, corsHeaders);
     }
 
@@ -93,6 +98,11 @@ Deno.serve(async (req) => {
       } catch { /* keep raw */ }
 
       if (tokenResponse.status === 400 || tokenResponse.status === 401) {
+        await supabase.from("user_oauth_tokens").update({
+          needs_reauth: true,
+          reauth_reason: googleError.slice(0, 200),
+          reauth_flagged_at: new Date().toISOString(),
+        }).eq("id", account.id);
         return json(401, { error: "Refresh token inválido", needs_reauth: true, detail: googleError.slice(0, 120) }, corsHeaders);
       }
       return json(502, { error: "Falha ao renovar token" }, corsHeaders);
@@ -107,6 +117,9 @@ Deno.serve(async (req) => {
       .update({
         access_token: tokens.access_token,
         token_expiry: newExpiry,
+        needs_reauth: false,
+        reauth_reason: null,
+        reauth_flagged_at: null,
         ...(tokens.refresh_token && { refresh_token: tokens.refresh_token }),
       })
       .eq("id", account.id);

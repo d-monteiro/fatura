@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { Check, ArrowRight } from 'lucide-react';
 import { track } from '@/lib/analytics/track';
 import { EVENTS } from '@/lib/analytics/events';
+import { formatEur } from '@/lib/utils/format';
 import type { Plan } from '@/types/tenant';
 
 export function Pricing() {
@@ -20,10 +21,7 @@ export function Pricing() {
       .then(({ data }) => { if (data) setPlans(data as Plan[]); });
   }, []);
 
-  const formatPrice = (cents: number | null) => {
-    if (cents === null) return 'Sob orçamento';
-    return `${(cents / 100).toFixed(0)} EUR`;
-  };
+  const formatPrice = (cents: number | null) => formatEur(cents) ?? 'Sob orçamento';
 
   return (
     <section id="pricing" className="border-y border-border bg-card py-24 md:py-32">
@@ -66,15 +64,15 @@ export function Pricing() {
           </div>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => {
             const price = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
             return (
               <div
                 key={plan.id}
-                className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                className={`relative flex flex-col rounded-2xl border p-8 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                   plan.is_popular
-                    ? 'border-primary bg-background shadow-[0_30px_60px_-20px_rgba(14,36,53,0.25)] md:-my-4'
+                    ? 'border-primary bg-background shadow-[0_30px_60px_-20px_rgba(14,36,53,0.25)] lg:-my-4'
                     : 'border-border bg-background hover:-translate-y-[2px] hover:border-primary/20'
                 }`}
               >
@@ -102,7 +100,7 @@ export function Pricing() {
                   {(plan.features_list ?? []).map((f, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm text-primary">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
-                      <span className="leading-relaxed">{f}</span>
+                      <span className="leading-relaxed break-words min-w-0">{f}</span>
                     </li>
                   ))}
                 </ul>

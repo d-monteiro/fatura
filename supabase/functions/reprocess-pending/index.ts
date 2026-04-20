@@ -168,12 +168,16 @@ Deno.serve(async (req) => {
   const elapsed = Date.now() - t0;
   console.log(`[reprocess][${runId}] done elapsed=${elapsed}ms ${JSON.stringify(summary)}`);
 
-  await logEdgeError({
-    functionName: "reprocess-pending",
-    level: summary.failed > 0 ? "warn" : "info",
-    message: `Reprocess concluído: ${summary.ok}/${targets.length}`,
-    metadata: { run_id: runId, mode, elapsed_ms: elapsed, summary, total: targets.length },
-  });
+  // Só grava em error_logs se houver falhas reais. Runs limpos (ok + dedup + already_done)
+  // ficam só nos function logs para não poluir /admin/errors com ruído do cron de 15 em 15 min.
+  if (summary.failed > 0) {
+    await logEdgeError({
+      functionName: "reprocess-pending",
+      level: "warn",
+      message: `Reprocess com falhas: ${summary.failed}/${targets.length}`,
+      metadata: { run_id: runId, mode, elapsed_ms: elapsed, summary, total: targets.length },
+    });
+  }
 
   return json(200, {
     success: true,

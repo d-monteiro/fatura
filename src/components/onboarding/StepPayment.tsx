@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase/client';
 import { Check, Sparkles } from 'lucide-react';
 import type { Plan } from '@/types/tenant';
+import { formatEur } from '@/lib/utils/format';
 import type { OnboardingData } from './onboardingTypes';
 
 interface Props {
@@ -24,12 +25,17 @@ export function StepPayment({ data, onChange }: Props) {
       .then(({ data: p }) => { if (p) setPlans(p as Plan[]); });
   }, []);
 
+  const needsEntreprise =
+    data.invoicesPerMonth >= 1000 ||
+    (data.invoicesPerMonth >= 500 && data.emailSync && data.autoReports !== 'never');
   const needsPro =
-    data.invoicesPerMonth > 100 ||
-    data.emailSync ||
-    data.autoReports !== 'never' ||
-    data.documentTypes.length > 2;
-  const recommendedSlug = needsPro ? 'pro' : 'starter';
+    !needsEntreprise && (
+      data.invoicesPerMonth > 100 ||
+      data.emailSync ||
+      data.autoReports !== 'never' ||
+      data.documentTypes.length > 2
+    );
+  const recommendedSlug = needsEntreprise ? 'entreprise' : needsPro ? 'pro' : 'starter';
   const recommendedPlan = plans.find((p) => p.slug === recommendedSlug);
   const companyLabel = data.companyName.trim() || 'sua empresa';
 
@@ -39,10 +45,7 @@ export function StepPayment({ data, onChange }: Props) {
     onChange({ selectedPlan: recommendedPlan.slug });
   }, [recommendedPlan, data.selectedPlan, onChange]);
 
-  const formatPrice = (cents: number | null) => {
-    if (cents === null) return 'Sob orçamento';
-    return `${(cents / 100).toFixed(0)}€`;
-  };
+  const formatPrice = (cents: number | null) => formatEur(cents) ?? 'Sob orçamento';
 
   return (
     <div className="space-y-6">
@@ -78,11 +81,11 @@ export function StepPayment({ data, onChange }: Props) {
         </Button>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
           const price = data.billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
           const perMonth = plan.price_yearly
-            ? `${(plan.price_yearly / 100 / 12).toFixed(0)}€/mês`
+            ? `${formatEur(Math.round(plan.price_yearly / 12))}/mês`
             : null;
           const description = plan.description;
           const features = plan.features_list;
@@ -98,7 +101,7 @@ export function StepPayment({ data, onChange }: Props) {
           return (
             <Card
               key={plan.id}
-              className={`cursor-pointer transition-all ${cardClasses}`}
+              className={`cursor-pointer transition-all min-w-0 ${cardClasses}`}
               onClick={() => onChange({ selectedPlan: plan.slug })}
             >
               <CardHeader className="pb-2">
@@ -131,7 +134,7 @@ export function StepPayment({ data, onChange }: Props) {
                   {(features ?? []).map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
                       <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      <span>{f}</span>
+                      <span className="break-words min-w-0">{f}</span>
                     </li>
                   ))}
                 </ul>

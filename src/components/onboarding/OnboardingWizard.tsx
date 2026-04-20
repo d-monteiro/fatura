@@ -19,6 +19,7 @@ import { type OnboardingData } from './onboardingTypes';
 import {
   loadStoredOnboarding,
   clearStoredOnboarding,
+  persistOnboardingNow,
   useOnboardingStorage,
 } from './useOnboardingStorage';
 import { notifySlack } from '@/lib/slack/notify';
@@ -354,6 +355,7 @@ export function OnboardingWizard() {
             submitting={submitting}
             onAuthenticated={(uid, email) => { void finishStarterPro(uid, email); }}
             onError={(m) => setSubmitError(m)}
+            onBeforeOAuth={() => persistOnboardingNow(data, step)}
           />
         )}
 

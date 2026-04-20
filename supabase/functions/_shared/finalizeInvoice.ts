@@ -199,7 +199,7 @@ export async function finalizeInvoice(
       await admin.storage.from("invoices").remove([invoice.storage_path]);
     }
     log("dedup", "soft-delete (duplicada)", { dup_of: dup });
-    return { ok: false, invoiceId, stage: "dedup", reason: `dup_of:${dup}` };
+    return { ok: true, invoiceId, stage: "dedup", reason: `dup_of:${dup}`, already_done: true };
   }
 
   // 7. Company detection (override via destinataire_name)
@@ -401,6 +401,11 @@ async function ensureFreshAccessToken(
     return row.access_token;
   }
   if (!row.refresh_token) {
+    await admin.from("user_oauth_tokens").update({
+      needs_reauth: true,
+      reauth_reason: "sem_refresh_token",
+      reauth_flagged_at: new Date().toISOString(),
+    }).eq("id", row.id);
     await logEdgeError({
       functionName: "finalize-invoice", level: "warn",
       message: "OAuth token expirado sem refresh_token",
@@ -425,6 +430,13 @@ async function ensureFreshAccessToken(
     });
     if (!resp.ok) {
       const text = await resp.text();
+      if (resp.status === 400 || resp.status === 401) {
+        await admin.from("user_oauth_tokens").update({
+          needs_reauth: true,
+          reauth_reason: text.slice(0, 200),
+          reauth_flagged_at: new Date().toISOString(),
+        }).eq("id", row.id);
+      }
       await logEdgeError({
         functionName: "finalize-invoice", level: "error",
         message: `Refresh token Google falhou (${resp.status})`,
@@ -433,7 +445,7 @@ async function ensureFreshAccessToken(
         metadata: {
           run_id: runId, email: row.email, response: text.slice(0, 500),
           hint: text.includes("invalid_grant")
-            ? "invalid_grant: refresh token revogado ou app em Testing (expira 7d)"
+            ? "invalid_grant: refresh token revogado pelo user ou expirado"
             : undefined,
         },
       });
@@ -445,6 +457,9 @@ async function ensureFreshAccessToken(
     await admin.from("user_oauth_tokens").update({
       access_token: newAccess,
       token_expiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      needs_reauth: false,
+      reauth_reason: null,
+      reauth_flagged_at: null,
     }).eq("id", row.id);
     return newAccess;
   } catch (e) {

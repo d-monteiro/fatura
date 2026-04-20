@@ -29,6 +29,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
     ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview` : null;
 
   const mutation = useMutation({
+    mutationKey: ['invoice-edit', invoice.id],
     mutationFn: async () => {
       const pf = (v: string) => (v ? parseFloat(v) : null);
       const updates: Record<string, unknown> = {

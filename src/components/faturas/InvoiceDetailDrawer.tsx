@@ -61,6 +61,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   });
 
   const approveMutation = useMutation({
+    mutationKey: ['invoice-approve', invoice?.id],
     mutationFn: async () => {
       const { error } = await supabase.from('invoices')
         .update({ status: 'processed', manual_review: false }).eq('id', invoice!.id);
@@ -70,6 +71,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   });
 
   const deleteMutation = useMutation({
+    mutationKey: ['invoice-delete', invoice?.id],
     mutationFn: async () => {
       setIsDeleting(true);
       const { data, error } = await supabase.from('invoices')

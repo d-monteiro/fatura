@@ -54,22 +54,28 @@ export async function extractLogoColors(
   ctx.drawImage(img, 0, 0, size, size);
   const { data } = ctx.getImageData(0, 0, size, size);
 
-  const buckets = new Map<string, { rgb: RGB; count: number }>();
-  for (let i = 0; i < data.length; i += 4) {
-    const a = data[i + 3];
-    if (a < 80) continue;
-    const r = quantize(data[i]);
-    const g = quantize(data[i + 1]);
-    const b = quantize(data[i + 2]);
-    const [, s, l] = rgbToHsl([r, g, b]);
-    if (l > 0.93 || l < 0.07) continue;
-    if (s < 0.12) continue;
-    const key = `${r},${g},${b}`;
-    const existing = buckets.get(key);
-    if (existing) existing.count++;
-    else buckets.set(key, { rgb: [r, g, b], count: 1 });
-  }
+  const collect = (minSat: number) => {
+    const buckets = new Map<string, { rgb: RGB; count: number }>();
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
+      if (a < 80) continue;
+      const r = quantize(data[i]);
+      const g = quantize(data[i + 1]);
+      const b = quantize(data[i + 2]);
+      const [, s, l] = rgbToHsl([r, g, b]);
+      if (l > 0.93 || l < 0.07) continue;
+      if (s < minSat) continue;
+      const key = `${r},${g},${b}`;
+      const existing = buckets.get(key);
+      if (existing) existing.count++;
+      else buckets.set(key, { rgb: [r, g, b], count: 1 });
+    }
+    return buckets;
+  };
 
+  // Primeiro passe com filtro normal; se logo é praticamente B&W, relaxar.
+  let buckets = collect(0.12);
+  if (buckets.size === 0) buckets = collect(0);
   if (buckets.size === 0) return null;
 
   const scored = [...buckets.values()]

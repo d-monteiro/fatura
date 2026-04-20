@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase/client';
+import { isUnlimitedTrial } from '@/lib/utils/trial';
 import type { Tenant } from '@/types/tenant';
 
 interface Props {
@@ -128,6 +129,9 @@ export function TenantBetaControls({ tenant, tenantId }: Props) {
             }
           }}
         />
+        {isUnlimitedTrial(tenant.trial_ends_at) && (
+          <p className="text-xs text-primary font-medium">Atual: duração indefinida</p>
+        )}
         <div className="flex gap-1">
           <Button size="sm" variant="outline" onClick={() => setTrialPreset(7)}>+7d</Button>
           <Button size="sm" variant="outline" onClick={() => setTrialPreset(30)}>+30d</Button>

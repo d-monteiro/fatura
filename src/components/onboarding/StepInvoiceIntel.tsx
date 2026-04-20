@@ -65,12 +65,16 @@ function TagInput({ values, onAdd, onRemove, placeholder }: {
               handleAdd();
             }
           }}
+          onBlur={handleAdd}
           placeholder={placeholder}
         />
-        <Button type="button" variant="outline" size="icon" onClick={handleAdd}>
+        <Button type="button" variant="outline" size="icon" onClick={handleAdd} aria-label="Adicionar">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Carregue <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">Enter</kbd> ou clique no <Plus className="inline h-3 w-3 align-[-2px]" /> para adicionar. Pode juntar várias variações.
+      </p>
       {values.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {values.map((v, i) => (

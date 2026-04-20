@@ -36,13 +36,19 @@ export interface NormalizedError {
   dropped: boolean;
 }
 
+// "Load failed" (Safari/WebKit), "Failed to fetch" (Chrome), "NetworkError" (Firefox) são
+// falhas de rede do cliente (offline, tab em background, DNS, TLS), não bugs da app.
+// Não vale a pena alertar Slack nem marcar como error — baixa para warn.
+const NETWORK_ERROR_PATTERN = /^(load failed|failed to fetch|networkerror)/i;
+
 export async function logErrorCore(rawError: unknown, context?: ErrorContext): Promise<NormalizedError> {
   const error = rawError instanceof Error
     ? rawError
     : new Error(typeof rawError === 'string' ? rawError : JSON.stringify(rawError));
-  const level = context?.level ?? 'error';
+  const isNetworkError = NETWORK_ERROR_PATTERN.test(error.message.trim());
+  const level = context?.level ?? (isNetworkError ? 'warn' : 'error');
   const component = context?.component ?? context?.function;
-  const skipSlack = context?.skipSlack ?? false;
+  const skipSlack = context?.skipSlack ?? isNetworkError;
 
   const key = dedupKey(error.message, component);
   if (isDuplicate(key)) {

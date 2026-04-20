@@ -16,6 +16,7 @@ export function useBulkActions() {
   }, [queryClient]);
 
   const bulkApprove = useMutation({
+    mutationKey: ['invoices-bulk-approve'],
     mutationFn: async (ids: string[]) => {
       const { error } = await supabase
         .from('invoices')
@@ -27,6 +28,7 @@ export function useBulkActions() {
   });
 
   const bulkDelete = useMutation({
+    mutationKey: ['invoices-bulk-delete'],
     mutationFn: async (ids: string[]) => {
       const { data, error } = await supabase
         .from('invoices')

@@ -11,9 +11,10 @@ interface Props {
   submitting: boolean;
   onAuthenticated: (userId: string, email: string) => void;
   onError: (message: string) => void;
+  onBeforeOAuth?: () => void;
 }
 
-export function AccountInlinePanel({ submitting, onAuthenticated, onError }: Props) {
+export function AccountInlinePanel({ submitting, onAuthenticated, onError, onBeforeOAuth }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -46,6 +47,7 @@ export function AccountInlinePanel({ submitting, onAuthenticated, onError }: Pro
     }
     try {
       setLocalSubmitting(true);
+      onBeforeOAuth?.();
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: `${window.location.origin}/onboarding` },

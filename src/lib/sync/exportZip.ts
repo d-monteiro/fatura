@@ -5,12 +5,13 @@ import { toast } from 'sonner';
 import type { Invoice } from '@/types/database';
 
 const MONTH_NAMES = [
-  '', 'Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre',
-];
+  '', 'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+] as const;
+// Sem diacrítico propositalmente — evita encodings partidos em ZIP entries antigos.
 
 function folderForInvoice(inv: Invoice): string {
-  if (!inv.doc_date) return 'Sans date';
+  if (!inv.doc_date) return 'Sem data';
   const d = new Date(inv.doc_date);
   const year = d.getFullYear();
   const month = d.getMonth() + 1;
@@ -34,7 +35,7 @@ function buildSummaryWorkbook(invoices: Invoice[]): ArrayBuffer {
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Factures');
+  XLSX.utils.book_append_sheet(wb, ws, 'Faturas');
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
 }
 
@@ -43,12 +44,12 @@ export async function exportInvoicesToZip(
   accessToken: string,
 ): Promise<void> {
   if (!invoices.length) {
-    toast.error('Aucune facture a exporter');
+    toast.error('Sem faturas para exportar');
     return;
   }
 
   const zip = new JSZip();
-  toast.info(`Preparation de ${invoices.length} factures...`);
+  toast.info(`A preparar ${invoices.length} faturas...`);
 
   let ok = 0;
   let fail = 0;
@@ -66,9 +67,9 @@ export async function exportInvoicesToZip(
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         const folder = folderForInvoice(inv);
-        const supplier = (inv.supplier_name ?? 'inconnu').replace(/[/\\?%*:|"<>]/g, '_');
+        const supplier = (inv.supplier_name ?? 'desconhecido').replace(/[/\\?%*:|"<>]/g, '_');
         const amount = (inv.montant_ttc ?? 0).toFixed(2);
-        const name = `${inv.doc_date ?? 'nd'}_${supplier}_${amount}.pdf`;
+        const name = `${inv.doc_date ?? 'sd'}_${supplier}_${amount}.pdf`;
         zip.file(`${folder}/${name}`, blob);
         ok++;
       } catch { fail++; }
@@ -77,7 +78,7 @@ export async function exportInvoicesToZip(
 
   // Add Excel summary
   const xlsxBuf = buildSummaryWorkbook(invoices);
-  zip.file('resume_factures.xlsx', xlsxBuf);
+  zip.file('resumo_faturas.xlsx', xlsxBuf);
 
   if (ok === 0 && fail > 0) {
     toast.error('Não foi possível descarregar os ficheiros.');

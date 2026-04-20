@@ -306,6 +306,11 @@ async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<Acc
   const expired = token.token_expiry && new Date(token.token_expiry) < new Date();
   if (expired) {
     if (!token.refresh_token) {
+      await supabase.from("user_oauth_tokens").update({
+        needs_reauth: true,
+        reauth_reason: "sem_refresh_token",
+        reauth_flagged_at: new Date().toISOString(),
+      }).eq("id", account.oauth_token_id);
       await logEdgeError({
         functionName: "sync-email",
         level: "warn",
@@ -329,6 +334,13 @@ async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<Acc
       });
       if (!refreshResp.ok) {
         const errText = await refreshResp.text();
+        if (refreshResp.status === 400 || refreshResp.status === 401) {
+          await supabase.from("user_oauth_tokens").update({
+            needs_reauth: true,
+            reauth_reason: errText.slice(0, 200),
+            reauth_flagged_at: new Date().toISOString(),
+          }).eq("id", account.oauth_token_id);
+        }
         await logEdgeError({
           functionName: "sync-email",
           level: "error",
@@ -339,10 +351,8 @@ async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<Acc
           metadata: {
             run_id: runId, email: account.email,
             response: errText.slice(0, 500),
-            // Em Google OAuth, refresh em Testing expira em 7 dias.
-            // `invalid_grant` costuma significar revogação ou expiração.
             hint: errText.includes("invalid_grant")
-              ? "invalid_grant: app em Testing no Google Cloud (tokens expiram em 7 dias) ou utilizador revogou acesso"
+              ? "invalid_grant: refresh token revogado pelo user ou expirado"
               : undefined,
           },
         });
@@ -353,6 +363,9 @@ async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<Acc
       await supabase.from("user_oauth_tokens").update({
         access_token: tokens.access_token,
         token_expiry: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
+        needs_reauth: false,
+        reauth_reason: null,
+        reauth_flagged_at: null,
       }).eq("id", account.oauth_token_id);
       console.log(`[sync-email][${runId}] account=${account.email} token_refreshed`);
     } catch (e) {

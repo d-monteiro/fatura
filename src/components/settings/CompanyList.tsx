@@ -44,6 +44,7 @@ export function CompanyList() {
   });
 
   const createCompany = useMutation({
+    mutationKey: ['company-create'],
     mutationFn: async () => {
       if (!tenant?.id) throw new Error('Sem tenant activo');
       if (!name.trim()) throw new Error('Nome é obrigatório');

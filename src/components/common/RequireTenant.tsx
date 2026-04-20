@@ -29,6 +29,12 @@ export function RequireTenant({ children }: RequireTenantProps) {
     return <Navigate to="/onboarding" replace />;
   }
 
+  if (!tenant.is_active || tenant.plan_status === 'paused') {
+    if (location.pathname !== '/account/suspended') {
+      return <Navigate to="/account/suspended" replace />;
+    }
+  }
+
   if (tenant.plan_status === 'canceled' || tenant.plan_status === 'past_due') {
     if (location.pathname !== '/billing') {
       return <Navigate to="/billing" replace />;

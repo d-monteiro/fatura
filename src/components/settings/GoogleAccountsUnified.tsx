@@ -53,6 +53,7 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
   });
 
   const deleteToken = useMutation({
+    mutationKey: ['google-token-revoke'],
     mutationFn: async (tokenId: string) => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
@@ -80,6 +81,7 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
   });
 
   const linkToCompany = useMutation({
+    mutationKey: ['google-link-company'],
     mutationFn: async ({ tokenId, email, companyId }: { tokenId: string; email: string; companyId: string }) => {
       if (!tenant?.id) throw new Error('Sem tenant activo');
       const { data: existing } = await supabase
