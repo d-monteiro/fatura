@@ -74,6 +74,9 @@ export function StepReview({ data, onGoToStep }: Props) {
         <Section title="Dashboard" step={4} onEdit={onGoToStep}>
           <Row label="Moeda" value={data.currency} />
           <Row label="Relatórios" value={REPORT_LABELS[data.autoReports] ?? data.autoReports} />
+          {data.autoReports !== 'never' && data.reportEmail && (
+            <Row label="Email do relatório" value={data.reportEmail} />
+          )}
         </Section>
 
         <Section title="Automação" step={5} onEdit={onGoToStep}>

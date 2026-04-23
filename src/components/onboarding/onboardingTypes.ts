@@ -106,6 +106,7 @@ export interface OnboardingData {
   // Block 4: Dashboard
   currency: string;
   autoReports: 'never' | 'weekly' | 'monthly';
+  reportEmail: string;
 
   // Block 5: Automation
   emailSync: boolean;
@@ -136,6 +137,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingData = {
 
   currency: 'EUR',
   autoReports: 'never',
+  reportEmail: '',
 
   emailSync: false,
   emailAddresses: [],

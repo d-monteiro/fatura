@@ -155,6 +155,8 @@ export function OnboardingWizard() {
         folder_structure: data.folderStructure,
         auto_sheets: data.autoSheets,
         auto_reports: data.autoReports,
+        report_email: data.reportEmail.trim() || null,
+        timezone: 'Europe/Lisbon',
         invoice_name_variations: data.invoiceNameVariations ?? [],
         onboarding_data: {
           documentTypes: data.documentTypes,

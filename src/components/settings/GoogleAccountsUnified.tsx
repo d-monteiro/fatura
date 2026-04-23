@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { Globe, Trash2, Plus, Mail } from 'lucide-react';
@@ -121,6 +121,21 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
     void redirectToGoogleOAuth({ source: 'settings', promptSelect: true })
       .catch((e: unknown) => toast.error(e instanceof Error ? e.message : 'Falha ao iniciar OAuth'));
   };
+
+  // Auto-link: se há exactamente 1 empresa e 1 conta Gmail sem ligação, ligar sem perguntar.
+  const autoLinkedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || !tenant?.id) return;
+    if (tokens.length !== 1 || companies.length !== 1) return;
+    const token = tokens[0];
+    if (!token.email || !hasGmailScopes(token.scopes)) return;
+    const alreadyLinked = token.email_accounts?.some((e) => e.is_active);
+    if (alreadyLinked) return;
+    const key = `${token.id}:${companies[0].id}`;
+    if (autoLinkedRef.current === key || linkToCompany.isPending) return;
+    autoLinkedRef.current = key;
+    linkToCompany.mutate({ tokenId: token.id, email: token.email, companyId: companies[0].id });
+  }, [isLoading, tenant?.id, tokens, companies, linkToCompany]);
 
   return (
     <div id="google-accounts" className="border border-border rounded-xl p-6 scroll-mt-6">

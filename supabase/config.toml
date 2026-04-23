@@ -37,3 +37,6 @@ verify_jwt = false
 
 [functions.stripe-portal]
 verify_jwt = false
+
+[functions.send-auto-reports]
+verify_jwt = false

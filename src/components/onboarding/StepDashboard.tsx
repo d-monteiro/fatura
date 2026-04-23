@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CURRENCIES, type OnboardingData } from './onboardingTypes';
@@ -9,11 +10,13 @@ interface Props {
 
 const REPORT_OPTIONS = [
   { value: 'never', label: 'Nunca', desc: 'Sem relatórios automáticos' },
-  { value: 'weekly', label: 'Semanal', desc: 'Relatório enviado todas as segundas' },
-  { value: 'monthly', label: 'Mensal', desc: 'Relatório enviado no 1.º de cada mês' },
+  { value: 'weekly', label: 'Semanal', desc: 'Recebe segunda de manhã, sobre a semana anterior' },
+  { value: 'monthly', label: 'Mensal', desc: 'Recebe dia 1 de cada mês, sobre o mês anterior' },
 ] as const;
 
 export function StepDashboard({ data, onChange }: Props) {
+  const needsEmail = data.autoReports !== 'never';
+
   return (
     <div className="space-y-6">
       <div>
@@ -54,6 +57,22 @@ export function StepDashboard({ data, onChange }: Props) {
             ))}
           </div>
         </div>
+
+        {needsEmail && (
+          <div className="space-y-2">
+            <Label htmlFor="report-email">Email para receber o relatório</Label>
+            <Input
+              id="report-email"
+              type="email"
+              placeholder="Deixe vazio para usar o email da conta"
+              value={data.reportEmail}
+              onChange={(e) => onChange({ reportEmail: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Se deixar vazio, o relatório vai para o email com que criou a conta.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

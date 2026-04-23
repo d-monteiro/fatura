@@ -7,6 +7,7 @@ import { BusinessProfileCard } from '@/components/settings/BusinessProfileCard';
 import { CategoriesCard } from '@/components/settings/CategoriesCard';
 import { GoogleAccountsUnified } from '@/components/settings/GoogleAccountsUnified';
 import { PasswordCard } from '@/components/settings/PasswordCard';
+import { ReportsCard } from '@/components/settings/ReportsCard';
 import { useI18n } from '@/contexts/I18nContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
@@ -37,6 +38,7 @@ export default function Settings() {
       <h1 className="text-xl font-bold sm:text-2xl">{t('nav.settings')}</h1>
       <BusinessProfileCard />
       <CategoriesCard />
+      <ReportsCard />
       {user && <GoogleAccountsUnified userId={user.id} />}
       <CompanyList />
       <PasswordCard />

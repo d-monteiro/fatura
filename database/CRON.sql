@@ -34,3 +34,27 @@ SELECT cron.schedule(
 -- 1) Actualizar CRON_SECRET no dashboard da Edge Function sync-email
 -- 2) SELECT cron.unschedule('sync-email-daily');
 -- 3) Re-executar o bloco acima com o novo valor
+
+-- ============================================
+-- Relatórios automáticos (hora cheia UTC)
+-- ============================================
+-- Corre todas as horas. A Edge Function `send-auto-reports` filtra os tenants
+-- em função do timezone local (envia seg 08h local para weekly, dia 1 08h
+-- local para monthly). Idempotência via report_deliveries.
+SELECT cron.schedule(
+  'send-auto-reports-hourly',
+  '0 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/send-auto-reports',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cron-secret', '<CRON_SECRET_VALUE>'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+-- Para remover:
+-- SELECT cron.unschedule('send-auto-reports-hourly');

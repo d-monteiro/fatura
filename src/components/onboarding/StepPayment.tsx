@@ -105,15 +105,15 @@ export function StepPayment({ data, onChange }: Props) {
               onClick={() => onChange({ selectedPlan: plan.slug })}
             >
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   {isRecommended ? (
-                    <Badge className="gap-1">
+                    <Badge className="gap-1 whitespace-nowrap shrink-0">
                       <Sparkles className="h-3 w-3" />
                       Recomendado para si
                     </Badge>
                   ) : plan.is_popular ? (
-                    <Badge variant="secondary">Popular</Badge>
+                    <Badge variant="secondary" className="whitespace-nowrap shrink-0">Popular</Badge>
                   ) : null}
                 </div>
                 <div className="text-2xl font-bold">

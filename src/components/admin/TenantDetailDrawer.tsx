@@ -26,6 +26,18 @@ interface TenantDetails {
   plan: { id: string; name: string; slug: string } | null;
 }
 
+interface ReportDelivery {
+  id: string;
+  period_kind: 'weekly' | 'monthly';
+  period_start: string;
+  period_end: string;
+  status: 'sent' | 'failed';
+  error: string | null;
+  sent_at: string;
+  email_to: string;
+  invoices_count: number;
+}
+
 const PLAN_STATUS: PlanStatus[] = ['trialing', 'active', 'past_due', 'canceled', 'paused', 'pending_contact'];
 
 interface Props { tenantId: string | null; onClose: () => void; }
@@ -59,6 +71,21 @@ export function TenantDetailDrawer({ tenantId, onClose }: Props) {
       const { data, error } = await supabase.rpc('get_tenant_details', { target_tenant: tenantId });
       if (error) throw error;
       return data as TenantDetails;
+    },
+  });
+
+  const { data: deliveries = [] } = useQuery<ReportDelivery[]>({
+    queryKey: ['admin-report-deliveries', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('report_deliveries')
+        .select('id, period_kind, period_start, period_end, status, error, sent_at, email_to, invoices_count')
+        .eq('tenant_id', tenantId!)
+        .order('sent_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as ReportDelivery[];
     },
   });
 
@@ -157,6 +184,28 @@ export function TenantDetailDrawer({ tenantId, onClose }: Props) {
               )}
 
               <ConfigSection tenant={tenant} />
+
+              {deliveries.length > 0 && (
+                <section className="space-y-2">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Relatórios enviados</div>
+                  <div className="rounded-md border divide-y">
+                    {deliveries.map((d) => (
+                      <div key={d.id} className="p-2 text-xs flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate">
+                            {d.period_kind === 'weekly' ? 'Semanal' : 'Mensal'} · {d.period_start.split('-').reverse().join('/')} a {d.period_end.split('-').reverse().join('/')}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {new Date(d.sent_at).toLocaleString('pt-PT')} · {d.email_to} · {d.invoices_count} faturas
+                            {d.status === 'failed' && d.error ? ` · ${d.error}` : ''}
+                          </div>
+                        </div>
+                        <Badge variant={d.status === 'sent' ? 'default' : 'destructive'}>{d.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {tenant.setup_error && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs">
