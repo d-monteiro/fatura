@@ -6,23 +6,7 @@ import { supabase } from '@/lib/supabase/client';
 import { TenantDetailDrawer } from '@/components/admin/TenantDetailDrawer';
 import { sectorLabel } from '@/lib/admin/labels';
 import { ChevronRight } from 'lucide-react';
-
-interface TenantOverview {
-  id: string;
-  name: string;
-  slug: string;
-  country: string;
-  sector: string | null;
-  nif: string | null;
-  plan_status: string;
-  is_active: boolean;
-  setup_status: string;
-  created_at: string;
-  invoices_total: number;
-  invoices_this_month: number;
-  suppliers_total: number;
-  companies_total: number;
-}
+import type { TenantOverview } from '@/types/admin';
 
 export default function AdminTenants() {
   const [selectedId, setSelectedId] = useState<string | null>(null);

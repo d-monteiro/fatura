@@ -2,10 +2,11 @@
 // Redireciona a janela actual para o URL devolvido pelo Stripe.
 
 import { supabase } from "@/lib/supabase/client";
+import type { BillingCycle } from "@/types/billing";
 
 interface CheckoutInput {
   planSlug: string;
-  billingCycle: "monthly" | "yearly";
+  billingCycle: BillingCycle;
 }
 
 export async function startCheckout({ planSlug, billingCycle }: CheckoutInput): Promise<void> {

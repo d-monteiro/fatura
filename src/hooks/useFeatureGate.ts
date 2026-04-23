@@ -1,6 +1,6 @@
 import { useTenant } from '@/contexts/TenantContext';
 
-type Feature =
+export type Feature =
   | 'email_sync'
   | 'auto_sheets'
   | 'reports'

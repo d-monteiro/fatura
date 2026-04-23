@@ -7,10 +7,11 @@ import { track } from '@/lib/analytics/track';
 import { EVENTS } from '@/lib/analytics/events';
 import { formatEur } from '@/lib/utils/format';
 import type { Plan } from '@/types/tenant';
+import type { BillingCycle } from '@/types/billing';
 
 export function Pricing() {
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [cycle, setCycle] = useState<BillingCycle>('monthly');
 
   useEffect(() => {
     supabase

@@ -1,3 +1,5 @@
+import type { BillingCycle } from '@/types/billing';
+
 export const SECTORS = [
   { value: 'construction', label: 'Construção Civil' },
   { value: 'commerce', label: 'Comércio / Retalho' },
@@ -114,7 +116,7 @@ export interface OnboardingData {
 
   // Step 7: Plan
   selectedPlan: string;
-  billingCycle: 'monthly' | 'yearly';
+  billingCycle: BillingCycle;
 }
 
 export const DEFAULT_ONBOARDING_DATA: OnboardingData = {

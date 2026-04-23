@@ -12,6 +12,7 @@ import {
 } from '@/lib/admin/labels';
 import { TenantBetaControls } from '@/components/admin/TenantBetaControls';
 import type { Tenant, PlanStatus } from '@/types/tenant';
+import type { ReportDelivery } from '@/types/admin';
 
 interface Plan { id: string; slug: string; name: string; }
 interface Member { user_id: string; email: string; role: string; is_active: boolean; accepted_at: string | null; }
@@ -24,18 +25,6 @@ interface TenantDetails {
   members: Member[];
   recent_errors: RecentError[];
   plan: { id: string; name: string; slug: string } | null;
-}
-
-interface ReportDelivery {
-  id: string;
-  period_kind: 'weekly' | 'monthly';
-  period_start: string;
-  period_end: string;
-  status: 'sent' | 'failed';
-  error: string | null;
-  sent_at: string;
-  email_to: string;
-  invoices_count: number;
 }
 
 const PLAN_STATUS: PlanStatus[] = ['trialing', 'active', 'past_due', 'canceled', 'paused', 'pending_contact'];

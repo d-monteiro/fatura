@@ -8,16 +8,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 import type { AutoReports } from '@/types/tenant';
+import type { ReportDelivery } from '@/types/admin';
 
-interface LastDelivery {
-  period_kind: 'weekly' | 'monthly';
-  period_start: string;
-  period_end: string;
-  status: 'sent' | 'failed';
-  error: string | null;
-  sent_at: string;
-  email_to: string;
-}
+type LastDelivery = Omit<ReportDelivery, 'id' | 'invoices_count'>;
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });

@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { translateAuthError } from '@/lib/utils/authErrors';
+import { reportError } from '@/lib/errors/errorReporter';
 
 const GoogleIcon = () => (
   <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -34,62 +36,64 @@ export function StepAccount({ onContinue }: Props) {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const reset = () => {
+    setError(null);
+    setInfo(null);
+  };
+
+  const handleAuthFailure = (err: unknown, component: string) => {
+    const { message, level } = translateAuthError(err);
+    setError(message);
+    void reportError(err, { component, level, skipSlack: level === 'warn' });
+  };
 
   const handleOAuth = async (provider: 'google' | 'azure') => {
-    setError(null);
+    reset();
     setSubmitting(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/onboarding`,
-        },
-      });
-      if (error) throw error;
-      // Browser will redirect to provider; nothing else to do.
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao autenticar.');
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/onboarding` },
+    });
+    if (oauthErr) {
+      handleAuthFailure(oauthErr, 'StepAccount.oauth');
       setSubmitting(false);
     }
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    if (!email.trim() || password.length < 6) {
-      setError('Introduza um email válido e uma palavra-passe com pelo menos 6 caracteres.');
+    reset();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || password.length < 6) {
+      setError('Introduz um email válido e uma palavra-passe com pelo menos 6 caracteres.');
       return;
     }
     setSubmitting(true);
     try {
       if (mode === 'signup') {
-        const { data: signupData, error: signupErr } = await supabase.auth.signUp({
-          email: email.trim(),
+        const { data, error: signupErr } = await supabase.auth.signUp({
+          email: trimmedEmail,
           password,
         });
         if (signupErr) throw signupErr;
-        if (!signupData.session) {
-          // If email confirmation is on, try direct sign-in as fallback.
-          const { error: signInErr } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-          });
-          if (signInErr) {
-            throw new Error(
-              'A confirmação de email está ativa no projeto. Desative "Confirm email" em Supabase → Authentication → Providers → Email para continuar sem confirmação.',
-            );
-          }
+        if (!data.session) {
+          setInfo(
+            'Conta criada. Enviámos um email para confirmares o teu endereço — abre-o para continuar o onboarding.',
+          );
+          return;
         }
       } else {
         const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
         });
         if (signInErr) throw signInErr;
       }
       onContinue();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao autenticar.');
+    } catch (err) {
+      handleAuthFailure(err, `StepAccount.${mode}`);
     } finally {
       setSubmitting(false);
     }
@@ -178,6 +182,12 @@ export function StepAccount({ onContinue }: Props) {
               </div>
             )}
 
+            {info && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
+                {info}
+              </div>
+            )}
+
             <Button type="submit" disabled={submitting} className="w-full gap-2 h-11">
               {submitting
                 ? 'A processar...'
@@ -193,7 +203,7 @@ export function StepAccount({ onContinue }: Props) {
                 Já tem conta?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('login'); setError(null); }}
+                  onClick={() => { setMode('login'); reset(); }}
                   className="text-primary font-medium hover:underline"
                 >
                   Entrar
@@ -204,7 +214,7 @@ export function StepAccount({ onContinue }: Props) {
                 Ainda não tem conta?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('signup'); setError(null); }}
+                  onClick={() => { setMode('signup'); reset(); }}
                   className="text-primary font-medium hover:underline"
                 >
                   Criar conta

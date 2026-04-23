@@ -1,15 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { COST_TYPE_LABELS, METIER_LABELS, NATURE_LABELS } from '@/lib/constants';
-import type { Metier, NatureDepense, CostType } from '@/types/database';
+import type { Category as DbCategory, Metier, NatureDepense, CostType } from '@/types/database';
 
-export interface Category {
-  id: string;
-  axis: 'cost_type' | 'metier' | 'nature_depense';
-  code: string;
-  label: string;
-  sort_order: number;
-}
+export type Category = Pick<DbCategory, 'id' | 'axis' | 'code' | 'label' | 'sort_order'>;
 
 export interface CategoriesByAxis {
   cost_type: Category[];

@@ -1,16 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
-
-interface TenantOverview {
-  id: string;
-  name: string;
-  is_active: boolean;
-  plan_status: string;
-  invoices_total: number;
-  invoices_this_month: number;
-  suppliers_total: number;
-  companies_total: number;
-}
+import type { TenantOverview } from '@/types/admin';
 
 export default function AdminUsage() {
   const { data: tenants = [], isLoading } = useQuery<TenantOverview[]>({

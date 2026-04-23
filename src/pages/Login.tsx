@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase/client';
 import { FileText, Loader2 } from 'lucide-react';
 import { OAUTH_PROVIDERS, type OAuthProviderId } from '@/components/common/oauthProviders';
 import { toast } from 'sonner';
+import { translateAuthError } from '@/lib/utils/authErrors';
+import { reportError } from '@/lib/errors/errorReporter';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,6 +13,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProviderId | null>(null);
   const [resetting, setResetting] = useState(false);
+
+  const showAuthError = (err: unknown, component: string) => {
+    const { message, level } = translateAuthError(err);
+    setError(message);
+    void reportError(err, { component, level, skipSlack: level === 'warn' });
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,14 +31,14 @@ export default function Login() {
     });
 
     if (authError) {
-      setError(authError.message);
+      showAuthError(authError, 'Login.signIn');
     }
     setLoading(false);
   };
 
   const handlePasswordReset = async () => {
     if (!email) {
-      setError('Introduz o teu email primeiro para recuperar a palavra-passe.');
+      setError('Introduz o teu email primeiro para recuperarmos a palavra-passe.');
       return;
     }
     setError(null);
@@ -40,10 +48,10 @@ export default function Login() {
     });
     setResetting(false);
     if (resetError) {
-      setError(resetError.message);
+      showAuthError(resetError, 'Login.resetPassword');
       return;
     }
-    toast.success('Email de recuperação enviado. Verifica a tua caixa.');
+    toast.success('Email de recuperação enviado. Verifica a tua caixa de entrada (e spam).');
   };
 
   const handleOAuth = async (provider: OAuthProviderId) => {
@@ -54,7 +62,7 @@ export default function Login() {
       options: { redirectTo: window.location.origin },
     });
     if (oauthError) {
-      setError(oauthError.message);
+      showAuthError(oauthError, 'Login.oauth');
       setOauthLoading(null);
     }
   };

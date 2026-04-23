@@ -7,13 +7,12 @@ import { toast } from 'sonner';
 import { startCheckout } from '@/lib/stripe/checkout';
 import { formatEur } from '@/lib/utils/format';
 import type { Plan } from '@/types/tenant';
-
-type Cycle = 'monthly' | 'yearly';
+import type { BillingCycle } from '@/types/billing';
 
 export function PlanSelector() {
   const { plan: currentPlan, tenant } = useTenant();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [cycle, setCycle] = useState<Cycle>('monthly');
+  const [cycle, setCycle] = useState<BillingCycle>('monthly');
   const [busySlug, setBusySlug] = useState<string | null>(null);
 
   useEffect(() => {

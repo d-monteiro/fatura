@@ -2,6 +2,8 @@
  * FaturaAI - Multi-Tenant Types
  */
 
+import type { BillingCycle } from './billing';
+
 export type PlanSlug = 'starter' | 'pro' | 'entreprise';
 export type PlanStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'paused' | 'pending_contact';
 export type SetupStatus = 'pending' | 'provisioning' | 'ready' | 'error';
@@ -152,7 +154,7 @@ export interface OnboardingSubmission {
   logo_url: string | null;
 
   selected_plan: PlanSlug | null;
-  billing_cycle: 'monthly' | 'yearly';
+  billing_cycle: BillingCycle;
 
   provisioning_started_at: string | null;
   provisioning_completed_at: string | null;
