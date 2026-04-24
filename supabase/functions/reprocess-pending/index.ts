@@ -15,8 +15,10 @@ import { logEdgeError } from "../_shared/logError.ts";
 import { finalizeInvoice, type FinalizeResult } from "../_shared/finalizeInvoice.ts";
 
 const MAX_PER_RUN = 50;
-const CONCURRENCY = 3;
+// 2 em vez de 3: boot concurrency do edge runtime devolvia 503 em bursts
+const CONCURRENCY = 2;
 const STUCK_SINCE_MINUTES = 5;
+const ANALYZE_RETRY_DELAYS_MS = [1000, 3000, 8000];
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -126,17 +128,26 @@ Deno.serve(async (req) => {
       try {
         if (needs_gemini) {
           // Chama analyze-document (que agora chama finalizeInvoice internamente)
-          const resp = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-internal-secret": serviceKey,
-            },
-            body: JSON.stringify({ invoice_id: id }),
-          });
-          if (!resp.ok) {
-            const txt = await resp.text();
-            results.push({ ok: false, invoiceId: id, stage: "analyze_document", reason: `${resp.status}: ${txt.slice(0, 120)}` });
+          // Retry apenas para 5xx (boot cold-start do edge runtime) — 4xx propaga
+          let resp: Response | null = null;
+          for (let attempt = 0; attempt <= ANALYZE_RETRY_DELAYS_MS.length; attempt++) {
+            resp = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-internal-secret": serviceKey,
+              },
+              body: JSON.stringify({ invoice_id: id }),
+            });
+            if (resp.ok || resp.status < 500 || resp.status >= 600) break;
+            if (attempt < ANALYZE_RETRY_DELAYS_MS.length) {
+              await new Promise((r) => setTimeout(r, ANALYZE_RETRY_DELAYS_MS[attempt]));
+            }
+          }
+          if (!resp || !resp.ok) {
+            const txt = resp ? await resp.text() : "";
+            const status = resp?.status ?? 0;
+            results.push({ ok: false, invoiceId: id, stage: "analyze_document", reason: `${status}: ${txt.slice(0, 120)}` });
             continue;
           }
           const payload = await resp.json();
