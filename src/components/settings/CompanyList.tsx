@@ -11,8 +11,6 @@ import { queryKeys } from '@/lib/queryKeys';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type CompanyWithToken = Company & { token_expiry?: string | null };
-
 export function CompanyList() {
   const { t } = useI18n();
   const { tenant } = useTenant();
@@ -31,13 +29,13 @@ export function CompanyList() {
         .order('is_default', { ascending: false })
         .order('name');
 
-      return (data || []).map((c: Record<string, unknown>) => {
-        const token = c.user_oauth_tokens as Record<string, unknown> | null;
-        return {
-          ...c,
-          token_expiry: token?.token_expiry ?? null,
-        };
-      }) as CompanyWithToken[];
+      type CompanyJoined = Company & {
+        user_oauth_tokens: { token_expiry: string | null } | null;
+      };
+      return ((data ?? []) as CompanyJoined[]).map((c) => ({
+        ...c,
+        token_expiry: c.user_oauth_tokens?.token_expiry ?? null,
+      }));
     },
     enabled: !!tenant?.id,
     placeholderData: keepPreviousData,

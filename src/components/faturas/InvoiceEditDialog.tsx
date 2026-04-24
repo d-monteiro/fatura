@@ -32,13 +32,19 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
     mutationKey: ['invoice-edit', invoice.id],
     mutationFn: async () => {
       const pf = (v: string) => (v ? parseFloat(v) : null);
-      const updates: Record<string, unknown> = {
-        supplier_name: form.supplier_name || null, supplier_nif: form.supplier_nif || null,
-        doc_number: form.doc_number || null, doc_date: form.doc_date || null,
-        montant_ht: pf(form.montant_ht), montant_tva: pf(form.montant_tva),
-        montant_ttc: pf(form.montant_ttc), taux_tva: pf(form.taux_tva),
-        metier: form.metier || null, nature_depense: form.nature_depense || null,
-        cost_type: form.cost_type || null, summary: form.summary || null,
+      const updates: Partial<Invoice> = {
+        supplier_name: form.supplier_name || null,
+        supplier_nif: form.supplier_nif || null,
+        doc_number: form.doc_number || null,
+        doc_date: form.doc_date || null,
+        montant_ht: pf(form.montant_ht),
+        montant_tva: pf(form.montant_tva),
+        montant_ttc: pf(form.montant_ttc),
+        taux_tva: pf(form.taux_tva),
+        metier: (form.metier || null) as Invoice['metier'],
+        nature_depense: (form.nature_depense || null) as Invoice['nature_depense'],
+        cost_type: (form.cost_type || null) as Invoice['cost_type'],
+        summary: form.summary || null,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase.from('invoices').update(updates).eq('id', invoice.id);
