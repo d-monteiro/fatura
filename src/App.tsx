@@ -48,6 +48,8 @@ const queryClient = new QueryClient({
   },
   queryCache: new QueryCache({
     onError: (error, query) => {
+      // AbortError é cancelamento (unmount, queryKey change), não falha
+      if (error instanceof Error && error.name === 'AbortError') return;
       void reportError(error, {
         component: 'react-query/query',
         extra: { queryKey: query.queryKey },
@@ -56,6 +58,7 @@ const queryClient = new QueryClient({
   }),
   mutationCache: new MutationCache({
     onError: (error, _vars, _ctx, mutation) => {
+      if (error instanceof Error && error.name === 'AbortError') return;
       void reportError(error, {
         component: 'react-query/mutation',
         extra: { mutationKey: mutation.options.mutationKey },
