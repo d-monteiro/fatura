@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
+import { StatusBadge } from './StatusBadge';
 import type { Invoice } from '@/types/database';
 
 interface MobileInvoiceCardProps {
@@ -26,11 +27,7 @@ export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) 
             <span className="truncate font-semibold text-gray-900">
               {invoice.supplier_name ?? '\u2014'}
             </span>
-            {invoice.status === 'review' && (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                A rever
-              </span>
-            )}
+            <StatusBadge invoice={invoice} />
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span>{formatDatePT(invoice.doc_date)}</span>
