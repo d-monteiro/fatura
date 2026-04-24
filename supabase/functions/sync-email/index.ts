@@ -587,7 +587,13 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
       ? (/\.pdf$/i.test(filename) ? "application/pdf" : /\.png$/i.test(filename) ? "image/png" : "image/jpeg")
       : mime;
 
-    const fileName = `${m.tenantId}/email_${msgId}_${attachmentId}_${filename}`;
+    // Path derivado do hash (ASCII, curto, previsível). Anexos com nomes
+    // em PT (ç, º, í, espaços) ou attachmentId base64 longo eram rejeitados
+    // pelo Storage com "Invalid key". O filename original é preservado no
+    // insert da invoice.
+    const extMatch = filename.match(/\.([a-z0-9]{1,8})$/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : "bin";
+    const fileName = `${m.tenantId}/email/${msgId}/${attachmentHash.slice(0, 16)}.${ext}`;
     const { data: storageData, error: storageErr } = await supabase.storage
       .from("invoices")
       .upload(fileName, fileBytes, { contentType: effectiveMime });
