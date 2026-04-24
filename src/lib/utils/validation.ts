@@ -56,23 +56,6 @@ export function validateMontants(
   return { valid: errors.length === 0, errors, warnings };
 }
 
-/** Parse formato PT: "1 234,56" -> 1234.56 */
-export function parsePtNumber(value: string | null): number | null {
-  if (!value) return null;
-  const cleaned = value.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
-}
-
-/** 1234.56 -> "1 234,56" */
-export function formatPtNumber(value: number | null, decimals = 2): string {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('pt-PT', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
 /** 1234.56 -> "1 234,56 €" */
 export function formatEUR(value: number | null): string {
   if (value === null || value === undefined) return '—';
