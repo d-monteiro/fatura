@@ -32,22 +32,3 @@ export function useCompanyFilter() {
   return { companyId, companies };
 }
 
-type QueryBuilder = {
-  eq: (column: string, value: unknown) => QueryBuilder;
-  is: (column: string, value: unknown) => QueryBuilder;
-};
-
-/**
- * Applies the company_id + deleted_at IS NULL filters to a supabase query builder.
- * Pass the result of supabase.from('invoices').select(...) as `query`.
- */
-export function applyInvoiceFilters<T extends QueryBuilder>(
-  query: T,
-  companyId: string | null,
-): T {
-  let q = query.is('deleted_at', null);
-  if (companyId) {
-    q = q.eq('company_id', companyId);
-  }
-  return q as T;
-}

@@ -19,10 +19,6 @@ export async function reportError(error: unknown, context?: ErrorContext): Promi
   }
 }
 
-export async function reportWarning(message: string, context?: ErrorContext): Promise<void> {
-  await reportError(new Error(message), { ...context, level: 'warn' });
-}
-
 let globalHandlersInstalled = false;
 
 export function installGlobalErrorHandlers(): void {

@@ -20,7 +20,7 @@ const HEADERS_BY_LANG: Record<string, string[]> = {
   en: ['Doc Date', 'Supplier', 'Tax ID', 'Category', 'Nature', 'Cost Type', 'Doc Number', 'Net Amount', 'VAT', 'Gross Amount', 'VAT Rate', 'Summary', 'PDF Link', 'Processed At'],
 };
 
-export function getSheetHeaders(language: string): string[] {
+function getSheetHeaders(language: string): string[] {
   return HEADERS_BY_LANG[language] ?? HEADERS_BY_LANG.pt;
 }
 
