@@ -108,6 +108,30 @@ export interface Invoice {
 }
 
 // ==========================================
+// SYNC RUNS (sincronização de email)
+// ==========================================
+export type SyncRunStatus = 'running' | 'done' | 'error';
+export type SyncRunTrigger = 'cron' | 'manual' | 'admin';
+
+export interface SyncRun {
+  id: string;
+  tenant_id: string;
+  user_id: string | null;
+  trigger: SyncRunTrigger;
+  status: SyncRunStatus;
+  started_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  total_messages: number;
+  total_discovered: number;
+  total_duplicates: number;
+  total_rejected: number;
+  total_skipped: number;
+  total_errors: number;
+  error_message: string | null;
+}
+
+// ==========================================
 // LINHAS DE FATURA
 // ==========================================
 export interface InvoiceLineItem {

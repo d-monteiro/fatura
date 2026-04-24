@@ -18,6 +18,8 @@ export const queryKeys = {
   tickets: ['tickets'] as const,
   lineItems: (invoiceId: string) => ['line-items', invoiceId] as const,
   company: (companyId: string) => ['company', companyId] as const,
+  syncRuns: ['sync-runs'] as const,
+  syncRunsLatest: (tenantId: string | null) => ['sync-runs', 'latest', tenantId] as const,
 };
 
 const INVOICE_LIST_KEYS = [
