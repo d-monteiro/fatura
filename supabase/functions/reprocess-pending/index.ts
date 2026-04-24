@@ -170,7 +170,9 @@ Deno.serve(async (req) => {
     already_done: results.filter((r) => r.already_done).length,
     failed: results.filter((r) => !r.ok).length,
     by_stage: results.reduce<Record<string, number>>((acc, r) => {
-      const k = r.ok ? "ok" : `fail:${r.stage}`;
+      const k = r.ok
+        ? (r.already_done ? `done:${r.stage}` : "ok")
+        : `fail:${r.stage}`;
       acc[k] = (acc[k] || 0) + 1;
       return acc;
     }, {}),
