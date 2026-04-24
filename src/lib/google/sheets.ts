@@ -102,82 +102,80 @@ async function ensureSheetHasHeader(
   sheetName: string,
   headers: string[],
 ): Promise<void> {
-  try {
-    const metaResponse = await fetch(
+  const metaResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!metaResponse.ok) return;
+
+  const metaData = await metaResponse.json();
+  const sheetExists = metaData.sheets?.some(
+    (s: { properties: { title: string } }) => s.properties.title === sheetName
+  );
+
+  if (!sheetExists) {
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetName } } }] }),
+      }
+    );
+  }
+
+  const checkResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1:N1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!checkResponse.ok) return;
+
+  const checkData = await checkResponse.json();
+  const existingRow = checkData.values?.[0] || [];
+
+  if (existingRow.length === 0 || existingRow[0] !== headers[0]) {
+    const metaResponse2 = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (!metaResponse.ok) return;
-
-    const metaData = await metaResponse.json();
-    const sheetExists = metaData.sheets?.some(
+    const metaData2 = await metaResponse2.json();
+    const sheet = metaData2.sheets?.find(
       (s: { properties: { title: string } }) => s.properties.title === sheetName
     );
+    if (!sheet) return;
+    const sheetId = sheet.properties.sheetId;
 
-    if (!sheetExists) {
-      await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetName } } }] }),
-        }
-      );
-    }
-
-    const checkResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1:N1`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [{
+            updateCells: {
+              range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: COLUMN_COUNT },
+              rows: [{
+                values: headers.map(h => ({
+                  userEnteredValue: { stringValue: h },
+                  userEnteredFormat: {
+                    backgroundColor: { red: 0.13, green: 0.17, blue: 0.26 },
+                    textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } },
+                    horizontalAlignment: 'CENTER',
+                  }
+                }))
+              }],
+              fields: 'userEnteredValue,userEnteredFormat'
+            }
+          }, {
+            updateSheetProperties: {
+              properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+              fields: 'gridProperties.frozenRowCount'
+            }
+          }]
+        }),
+      }
     );
-    if (!checkResponse.ok) return;
-
-    const checkData = await checkResponse.json();
-    const existingRow = checkData.values?.[0] || [];
-
-    if (existingRow.length === 0 || existingRow[0] !== headers[0]) {
-      const metaResponse2 = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const metaData2 = await metaResponse2.json();
-      const sheet = metaData2.sheets?.find(
-        (s: { properties: { title: string } }) => s.properties.title === sheetName
-      );
-      if (!sheet) return;
-      const sheetId = sheet.properties.sheetId;
-
-      await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requests: [{
-              updateCells: {
-                range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: COLUMN_COUNT },
-                rows: [{
-                  values: headers.map(h => ({
-                    userEnteredValue: { stringValue: h },
-                    userEnteredFormat: {
-                      backgroundColor: { red: 0.13, green: 0.17, blue: 0.26 },
-                      textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } },
-                      horizontalAlignment: 'CENTER',
-                    }
-                  }))
-                }],
-                fields: 'userEnteredValue,userEnteredFormat'
-              }
-            }, {
-              updateSheetProperties: {
-                properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
-                fields: 'gridProperties.frozenRowCount'
-              }
-            }]
-          }),
-        }
-      );
-    }
-  } catch { /* silently fail */ }
+  }
 }
 
 export async function setupSpreadsheetHeaders(

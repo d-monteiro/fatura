@@ -143,42 +143,6 @@ export async function ensureFolder(
 }
 
 /**
- * Move um ficheiro para uma pasta diferente
- */
-export async function moveFile(
-  accessToken: string,
-  fileId: string,
-  newParentId: string
-): Promise<boolean> {
-  try {
-    await driveLimiter.waitForSlot();
-    const t1 = createTimeoutSignal(DRIVE_TIMEOUT_MS);
-    const getResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`,
-      { headers: { Authorization: `Bearer ${accessToken}` }, signal: t1.signal }
-    );
-    t1.clear();
-
-    if (!getResponse.ok) return false;
-
-    const fileData = await getResponse.json();
-    const previousParents = fileData.parents?.join(',') || '';
-
-    await driveLimiter.waitForSlot();
-    const t2 = createTimeoutSignal(DRIVE_TIMEOUT_MS);
-    const moveResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${newParentId}&removeParents=${previousParents}`,
-      { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}` }, signal: t2.signal }
-    );
-    t2.clear();
-
-    return moveResponse.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Verifica se um ficheiro existe numa pasta
  */
 export async function checkFileExists(
@@ -202,47 +166,6 @@ export async function checkFileExists(
 
   const data = await response.json();
   return data.files && data.files.length > 0 ? data.files[0].id : null;
-}
-
-/**
- * Copia um ficheiro
- */
-export async function copyFile(
-  accessToken: string,
-  sourceFileId: string,
-  newName: string,
-  destinationFolderId: string
-): Promise<{ id: string; webViewLink: string } | null> {
-  try {
-    await driveLimiter.waitForSlot();
-    const t = createTimeoutSignal(DRIVE_TIMEOUT_MS);
-    const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${sourceFileId}/copy`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newName,
-          parents: [destinationFolderId],
-        }),
-        signal: t.signal,
-      }
-    );
-    t.clear();
-
-    if (!response.ok) return null;
-    const data = await response.json();
-
-    return {
-      id: data.id,
-      webViewLink: data.webViewLink || `https://docs.google.com/spreadsheets/d/${data.id}/edit`,
-    };
-  } catch {
-    return null;
-  }
 }
 
 import { setupSpreadsheetHeaders, getMonthSheetName } from './sheets';
@@ -288,7 +211,7 @@ export async function createNewSpreadsheet(
 
   await setupSpreadsheetHeaders(accessToken, spreadsheetId, language);
 
-  // Mover para a pasta correta
+  // Mover para a pasta correta — se falhar, o sheet fica na raiz do Drive (degradação aceitável).
   try {
     await driveLimiter.waitForSlot();
     const mt = createTimeoutSignal(DRIVE_TIMEOUT_MS);
@@ -305,8 +228,12 @@ export async function createNewSpreadsheet(
         webViewLink: moveData.webViewLink || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
       };
     }
-  } catch {
-    // Continue without moving
+  } catch (err) {
+    void reportError(err, {
+      component: 'google/createNewSpreadsheet/move',
+      level: 'warn',
+      extra: { spreadsheetId },
+    });
   }
 
   return {
