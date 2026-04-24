@@ -92,6 +92,34 @@ export interface UploadResult {
   success: boolean; invoice?: Invoice; error?: string; isDuplicate?: boolean; warnings?: string[];
 }
 
+async function computeFileHash(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+interface AttachmentDuplicate {
+  doc_number: string | null;
+  doc_date: string | null;
+  supplier_name: string | null;
+  montant_ttc: number | null;
+}
+
+async function findByAttachmentHash(tenantId: string, hash: string): Promise<AttachmentDuplicate | null> {
+  const { data } = await supabase.from('invoices')
+    .select('doc_number, doc_date, supplier_name, montant_ttc')
+    .eq('tenant_id', tenantId).eq('attachment_hash', hash).is('deleted_at', null).limit(1).maybeSingle();
+  return (data as AttachmentDuplicate | null) ?? null;
+}
+
+function formatDuplicateMessage(d: AttachmentDuplicate): string {
+  const parts = [d.supplier_name, d.doc_date, d.montant_ttc != null ? `${d.montant_ttc.toFixed(2)} €` : null]
+    .filter(Boolean);
+  const label = parts.length ? ` (${parts.join(' · ')})` : '';
+  return `Anexo já processado${label}. Fatura existente não foi reprocessada.`;
+}
+
 async function detectCompanyId(tenantId: string, dest: string | null, fallback?: string): Promise<string | null> {
   if (dest) {
     const { data } = await supabase.from('companies')
@@ -150,6 +178,7 @@ function buildFolderPath(structure: string, root: string, companyName: string, y
 
 async function processSingle(
   g: GeminiInvoiceData, file: File, cid: string, userId: string | null, token: string, tenant: TenantContext,
+  attachmentHash: string | null,
 ): Promise<UploadResult> {
   const w: string[] = [];
   g.supplier_name = normalizeSupplierName(g.supplier_name, tenant.knownSuppliers);
@@ -210,6 +239,7 @@ async function processSingle(
     autoliquidation: g.autoliquidation, payment_method: g.payment_method, supplier_iban: g.supplier_iban,
     summary: g.summary, confidence_score: g.confidence_score,
     status: review ? 'review' : 'inbox', manual_review: review, review_reason: reviewReason,
+    attachment_hash: attachmentHash,
   }).select().single();
   if (err) {
     track(EVENTS.INVOICE_ANALYZE_FAILED, {
@@ -275,6 +305,14 @@ export async function processInvoiceUpload(
     const tenant = await loadTenantContext(tenantId);
     if (!tenant) return [{ success: false, error: 'Configuração do tenant não encontrada.' }];
 
+    // Pré-check por hash do anexo: evita chamada Gemini se o mesmo binário já foi processado.
+    const attachmentHash = await computeFileHash(file);
+    const existing = await findByAttachmentHash(tenantId, attachmentHash);
+    if (existing) {
+      track(EVENTS.INVOICE_DUPLICATE_BLOCKED, { tenant_id: tenantId, reason: 'attachment_hash' });
+      return [{ success: false, isDuplicate: true, error: formatDuplicateMessage(existing) }];
+    }
+
     let token = accessToken;
     if (userId) {
       const fresh = await ensureFreshToken(userId);
@@ -299,10 +337,15 @@ export async function processInvoiceUpload(
       throw e;
     }
     const results: UploadResult[] = [];
+    // Unique index (tenant_id, attachment_hash) → só a 1ª invoice persistida leva o hash.
+    let hashAssigned = false;
     for (const g of invoices) {
       const cid = await detectCompanyId(tenantId, g.destinataire_name, defaultCompanyId ?? undefined);
       if (!cid) { results.push({ success: false, error: 'Empresa não encontrada para este tenant. Crie pelo menos uma empresa em Definições.' }); continue; }
-      results.push(await processSingle(g, file, cid, userId, token!, tenant));
+      const hashForThis = hashAssigned ? null : attachmentHash;
+      const result = await processSingle(g, file, cid, userId, token!, tenant, hashForThis);
+      if (result.success && hashForThis) hashAssigned = true;
+      results.push(result);
     }
     return results;
   } catch (error) {

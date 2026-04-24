@@ -102,6 +102,9 @@ export interface Invoice {
 
   // SPREADSHEET
   spreadsheet_id: string | null;
+
+  // DEDUP
+  attachment_hash: string | null;  // SHA-256 hex do binário original; unique por (tenant_id, attachment_hash)
 }
 
 // ==========================================
