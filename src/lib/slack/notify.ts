@@ -1,13 +1,5 @@
-/**
- * Frontend wrapper for the `slack-notify` edge function.
- * Silent-fail: if Slack is not configured or errors out, we log and move on —
- * the UX must never break because of a missing notification.
- *
- * A edge function exige JWT de user válido (ver supabase/functions/slack-notify/index.ts),
- * por isso fazemos skip se a sessão ainda não estiver propagada em vez de mandar
- * um request com o ANON_KEY (gera 401 no console).
- */
-
+// Silent-fail: UX não pode partir por causa duma notificação. A edge function
+// exige JWT (não ANON_KEY) — skip se a sessão ainda não estiver propagada.
 import { supabase } from '@/lib/supabase/client';
 import { logErrorCore } from '@/lib/errors/errorLog';
 

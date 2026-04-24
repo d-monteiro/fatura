@@ -1,11 +1,7 @@
-/**
- * FaturaAI - Validações (NIF, IVA) e formatação PT-PT.
- */
+const VALID_IVA_RATES = [0, 6, 13, 23]; // PT: isento/reduzido/intermédio/normal
+const IVA_TOLERANCE = 0.02; // EUR — margem para arredondamentos do emissor
 
-const VALID_IVA_RATES = [0, 6, 13, 23]; // PT
-const IVA_TOLERANCE = 0.02; // EUR
-
-/** NIF PT: 9 dígitos, módulo 11. */
+// NIF PT: 9 dígitos, último é checksum módulo 11.
 export function isValidNif(nif: string | null): boolean {
   if (!nif) return false;
   const clean = nif.replace(/\s/g, '');
@@ -17,7 +13,7 @@ export function isValidNif(nif: string | null): boolean {
   return expected === parseInt(clean[8]);
 }
 
-/** Valida coerência HT + IVA = TTC (aka líquido + IVA = bruto). */
+// Valida coerência líquido + IVA = bruto dentro de IVA_TOLERANCE.
 export function validateMontants(
   ht: number | null,
   iva: number | null,
@@ -56,30 +52,11 @@ export function validateMontants(
   return { valid: errors.length === 0, errors, warnings };
 }
 
-/** Parse formato PT: "1 234,56" -> 1234.56 */
-export function parsePtNumber(value: string | null): number | null {
-  if (!value) return null;
-  const cleaned = value.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
-}
-
-/** 1234.56 -> "1 234,56" */
-export function formatPtNumber(value: number | null, decimals = 2): string {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('pt-PT', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-/** 1234.56 -> "1 234,56 €" */
 export function formatEUR(value: number | null): string {
   if (value === null || value === undefined) return '—';
   return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
 }
 
-/** "2026-03-15" -> "15/03/2026" */
 export function formatDatePT(dateStr: string | null): string {
   if (!dateStr) return '—';
   try {

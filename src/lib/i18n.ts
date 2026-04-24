@@ -309,10 +309,6 @@ const translations = {
 
 export type TranslationKey = keyof typeof translations;
 
-// Kept for non-React code (edge cases). Prefer useI18n() hook in components.
-export function setLang(_lang: Lang) { /* no-op: só PT */ }
-export function getLang(): Lang { return 'pt'; }
-
 function resolve(key: TranslationKey): string {
   const entry = translations[key];
   return entry?.pt ?? key;
@@ -322,7 +318,7 @@ export function t(key: TranslationKey): string {
   return resolve(key);
 }
 
-// React-aware translation (lang ignorado — só PT por agora)
+// `lang` mantido na assinatura para não partir call-sites; só PT está implementado.
 export function translate(key: TranslationKey, _lang: Lang): string {
   return resolve(key);
 }

@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { applyBranding, clearBranding } from '@/lib/branding/applyBranding';
 import { identifyTenant } from '@/lib/analytics/track';
+import { reportError } from '@/lib/errors/errorReporter';
 import type { Tenant, Plan, TenantRole } from '@/types/tenant';
 
 interface TenantSummary {
@@ -145,7 +146,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       } else {
         setPlan(null);
       }
-    } catch {
+    } catch (err) {
+      void reportError(err, { component: 'TenantContext/loadTenant', userId: user?.id });
       setTenant(null);
       setPlan(null);
     } finally {

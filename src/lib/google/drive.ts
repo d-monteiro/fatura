@@ -1,17 +1,9 @@
-/**
- * GOOGLE DRIVE REST API (Browser-Compatible)
- * Gestao de pastas hierarquicas e upload de ficheiros.
- *
- * Estrutura de pastas:
- *   FATURAS > {ANO} > {TIPO_CUSTO}
- *   Ex: FATURAS > 2026 > Custos Fixos > 2026-03-15_GALP_85.00.pdf
- */
-
+// Estrutura canónica: FATURAS / {ano} / {tipo_custo} / {data}_{fornecedor}_{valor}.pdf
 import { driveLimiter } from '@/lib/rateLimiter';
 import { reportError } from '@/lib/errors/errorReporter';
 
-const DRIVE_TIMEOUT_MS = 30_000;     // 30s para operacoes normais
-const DRIVE_UPLOAD_TIMEOUT_MS = 120_000; // 2min para uploads
+const DRIVE_TIMEOUT_MS = 30_000;
+const DRIVE_UPLOAD_TIMEOUT_MS = 120_000;
 
 function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController();
@@ -48,9 +40,6 @@ export async function getTokenInfo(accessToken: string): Promise<{ scopes: strin
   }
 }
 
-/**
- * Encontra ou cria uma pasta (com parent opcional)
- */
 export async function ensureFolder(
   accessToken: string,
   folderName: string,
@@ -107,7 +96,6 @@ export async function ensureFolder(
     return searchData.files[0].id;
   }
 
-  // Criar pasta
   const createResponse = await fetch(
     'https://www.googleapis.com/drive/v3/files',
     {
@@ -142,9 +130,6 @@ export async function ensureFolder(
   return createData.id;
 }
 
-/**
- * Move um ficheiro para uma pasta diferente
- */
 export async function moveFile(
   accessToken: string,
   fileId: string,
@@ -173,14 +158,12 @@ export async function moveFile(
     t2.clear();
 
     return moveResponse.ok;
-  } catch {
+  } catch (err) {
+    void reportError(err, { component: 'google/moveFile', level: 'warn', extra: { fileId, newParentId } });
     return false;
   }
 }
 
-/**
- * Verifica se um ficheiro existe numa pasta
- */
 export async function checkFileExists(
   accessToken: string,
   fileName: string,
@@ -204,9 +187,6 @@ export async function checkFileExists(
   return data.files && data.files.length > 0 ? data.files[0].id : null;
 }
 
-/**
- * Copia um ficheiro
- */
 export async function copyFile(
   accessToken: string,
   sourceFileId: string,
@@ -240,16 +220,15 @@ export async function copyFile(
       id: data.id,
       webViewLink: data.webViewLink || `https://docs.google.com/spreadsheets/d/${data.id}/edit`,
     };
-  } catch {
+  } catch (err) {
+    void reportError(err, { component: 'google/copyFile', level: 'warn', extra: { sourceFileId, destinationFolderId } });
     return null;
   }
 }
 
 import { setupSpreadsheetHeaders, getMonthSheetName } from './sheets';
 
-/**
- * Cria um novo Google Sheet com 12 abas mensais.
- */
+// Cria spreadsheet com uma aba por mês no idioma do tenant.
 export async function createNewSpreadsheet(
   accessToken: string,
   title: string,
@@ -288,7 +267,6 @@ export async function createNewSpreadsheet(
 
   await setupSpreadsheetHeaders(accessToken, spreadsheetId, language);
 
-  // Mover para a pasta correta
   try {
     await driveLimiter.waitForSlot();
     const mt = createTimeoutSignal(DRIVE_TIMEOUT_MS);
@@ -305,8 +283,9 @@ export async function createNewSpreadsheet(
         webViewLink: moveData.webViewLink || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
       };
     }
-  } catch {
-    // Continue without moving
+  } catch (err) {
+    // Sheet criada; se o move falhar, fica na raiz do Drive — degradação aceitável.
+    void reportError(err, { component: 'google/createNewSpreadsheet/move', level: 'warn', extra: { spreadsheetId } });
   }
 
   return {
@@ -315,9 +294,6 @@ export async function createNewSpreadsheet(
   };
 }
 
-/**
- * Obtem ou cria o Excel anual (EXTRATO_YEAR)
- */
 export async function getOrCreateYearlySheet(
   accessToken: string,
   year: number,
@@ -333,9 +309,6 @@ export async function getOrCreateYearlySheet(
   return newSheet.id;
 }
 
-/**
- * Upload de ficheiro para o Google Drive
- */
 export async function uploadInvoiceToDrive(
   accessToken: string,
   fileData: Uint8Array | Blob,

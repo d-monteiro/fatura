@@ -1,7 +1,3 @@
-/**
- * FaturaAI - Multi-Tenant Types
- */
-
 import type { BillingCycle } from './billing';
 
 export type PlanSlug = 'starter' | 'pro' | 'entreprise';

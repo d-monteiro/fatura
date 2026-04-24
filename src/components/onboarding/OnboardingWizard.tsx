@@ -49,7 +49,6 @@ export function OnboardingWizard() {
     if (isAdmin) navigate('/admin', { replace: true });
   }, [isAdmin, navigate]);
 
-  // Restore any previous progress from localStorage on first render.
   const stored = loadStoredOnboarding();
   const [step, setStep] = useState(stored.step);
   const [maxReachedStep, setMaxReachedStep] = useState(stored.step);
@@ -58,7 +57,6 @@ export function OnboardingWizard() {
   const [showEnterpriseForm, setShowEnterpriseForm] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Persist data + step to localStorage on every change.
   useOnboardingStorage(data, step);
 
   const stepEnteredAt = useRef<number>(0);
@@ -195,11 +193,8 @@ export function OnboardingWizard() {
     });
   }, [data]);
 
-  /**
-   * Final submit for Starter / Pro.
-   * Must be called with an already-authenticated user; the inline panel
-   * handles sign-up/sign-in and then invokes this through `onAuthenticated`.
-   */
+  // Pressupõe utilizador já autenticado: o AccountInlinePanel trata sign-up/sign-in
+  // e só depois invoca esta via onAuthenticated.
   const finishStarterPro = useCallback(async (activeUserId: string, activeEmail: string) => {
     if (submitting) return;
     setSubmitError(null);
@@ -231,7 +226,6 @@ export function OnboardingWizard() {
     }
   }, [submitting, createTenantForCurrentUser, navigate, refreshTenant, data.selectedPlan, data.country, data.sector, data.billingCycle, data.storageProvider, data.emailSync]);
 
-  // Triggered by the main "Começar teste grátis" button at the bottom.
   const handleSubmit = async () => {
     setSubmitError(null);
 

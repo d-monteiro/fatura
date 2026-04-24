@@ -1,10 +1,7 @@
-/**
- * Google Sheets REST API — extrato anual com aba por mês.
- * Headers e nomes de meses são determinados pelo idioma do tenant.
- */
-
+// Extrato anual com uma aba por mês; headers/nomes de mês dependem do idioma do tenant.
 import { sheetsLimiter } from '@/lib/rateLimiter';
 import { getMonthName } from '@/lib/utils/months';
+import { reportError } from '@/lib/errors/errorReporter';
 
 const SHEETS_TIMEOUT_MS = 30_000;
 const COLUMN_COUNT = 14;
@@ -177,7 +174,10 @@ async function ensureSheetHasHeader(
         }
       );
     }
-  } catch { /* silently fail */ }
+  } catch (err) {
+    // Não propaga: o append corre a seguir e falha com mensagem útil se for fatal.
+    void reportError(err, { component: 'google/ensureSheetHasHeader', level: 'warn', extra: { spreadsheetId, sheetName } });
+  }
 }
 
 export async function setupSpreadsheetHeaders(

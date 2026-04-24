@@ -1,9 +1,3 @@
-/**
- * Hook que resolve dependências da página Upload:
- * - UUID da empresa (optional, vem do `?company=` na URL)
- * - Access token Google + scopes do token primário
- * - Flags de estado: ready / noGoogle / needsReauth
- */
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';

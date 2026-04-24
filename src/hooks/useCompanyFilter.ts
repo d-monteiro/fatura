@@ -4,10 +4,7 @@ import { supabase } from '@/lib/supabase/client';
 import type { Company } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
 
-/**
- * Reads `?company=<UUID>` from the URL (set by the Sidebar).
- * Returns the active company UUID (or null when "all") and the list of companies.
- */
+// Lê `?company=<UUID>` (posto pelo Sidebar); null = "todas".
 export function useCompanyFilter() {
   const [searchParams] = useSearchParams();
   const raw = searchParams.get('company');
@@ -37,10 +34,7 @@ type QueryBuilder = {
   is: (column: string, value: unknown) => QueryBuilder;
 };
 
-/**
- * Applies the company_id + deleted_at IS NULL filters to a supabase query builder.
- * Pass the result of supabase.from('invoices').select(...) as `query`.
- */
+// Aplica soft-delete + filtro por company ao query builder do Supabase.
 export function applyInvoiceFilters<T extends QueryBuilder>(
   query: T,
   companyId: string | null,

@@ -1,7 +1,3 @@
-/**
- * FaturaAI - Billing & Stripe Types
- */
-
 export type BillingCycle = 'monthly' | 'yearly';
 
 export interface StripeCheckoutRequest {
