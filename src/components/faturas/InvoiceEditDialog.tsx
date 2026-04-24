@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { X, ExternalLink, Save, XCircle } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
 import { invalidateInvoiceLists } from '@/lib/queryKeys';
+import { updateInvoiceEverywhere, type InvoicePatch } from '@/lib/sync/updateInvoice';
+import { useUploadDeps } from '@/hooks/useUploadDeps';
+import { useTenant } from '@/contexts/TenantContext';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
 import { InvoiceEditFormFields } from './InvoiceEditForm';
 import type { Invoice } from '@/types/database';
@@ -15,6 +18,8 @@ const n = (v: number | null): string => (v != null ? String(v) : '');
 export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const { accessToken } = useUploadDeps();
+  const { tenant } = useTenant();
   const [form, setForm] = useState({
     supplier_name: invoice.supplier_name ?? '', supplier_nif: invoice.supplier_nif ?? '',
     doc_number: invoice.doc_number ?? '', doc_date: invoice.doc_date ?? '',
@@ -32,7 +37,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
     mutationKey: ['invoice-edit', invoice.id],
     mutationFn: async () => {
       const pf = (v: string) => (v ? parseFloat(v) : null);
-      const updates: Partial<Invoice> = {
+      const updates: InvoicePatch = {
         supplier_name: form.supplier_name || null,
         supplier_nif: form.supplier_nif || null,
         doc_number: form.doc_number || null,
@@ -45,14 +50,21 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
         nature_depense: (form.nature_depense || null) as Invoice['nature_depense'],
         cost_type: (form.cost_type || null) as Invoice['cost_type'],
         summary: form.summary || null,
-        updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from('invoices').update(updates).eq('id', invoice.id);
-      if (error) throw error;
+      const res = await updateInvoiceEverywhere({
+        invoice, updates, accessToken, language: tenant?.language ?? 'pt',
+      });
+      if (!res.success) throw new Error(res.error ?? 'Erro a guardar');
+      return res;
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       invalidateInvoiceLists(qc);
+      if (res.warning) toast.warning(res.warning);
+      else toast.success('Fatura atualizada.');
       onClose();
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Erro a guardar');
     },
   });
 
