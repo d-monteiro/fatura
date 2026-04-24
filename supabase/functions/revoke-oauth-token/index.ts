@@ -9,6 +9,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 
 function json(status: number, body: unknown, cors: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
@@ -75,6 +76,14 @@ Deno.serve(async (req) => {
     return json(200, { revoked: true }, corsHeaders);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Erro interno";
+    await logEdgeError({
+      functionName: "revoke-oauth-token",
+      message: msg,
+      error,
+      httpMethod: req.method,
+      httpPath: new URL(req.url).pathname,
+      httpStatus: 500,
+    });
     return json(500, { error: msg }, corsHeaders);
   }
 });

@@ -10,6 +10,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { logEdgeError } from "../_shared/logError.ts";
 import { buildHogQL, VALID_QUERY_IDS, type QueryId } from "./queries.ts";
 
 const POSTHOG_HOST = Deno.env.get("POSTHOG_HOST") ?? "https://eu.posthog.com";
@@ -118,6 +119,14 @@ Deno.serve(async (req) => {
     return json(200, { ...result, cached: false }, cors);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
+    await logEdgeError({
+      functionName: "analytics-query",
+      message: msg,
+      error: e,
+      httpMethod: req.method,
+      httpPath: new URL(req.url).pathname,
+      httpStatus: 500,
+    });
     return json(500, { error: msg }, cors);
   }
 });

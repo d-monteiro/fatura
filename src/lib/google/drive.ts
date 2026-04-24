@@ -208,7 +208,7 @@ async function createNewSpreadsheet(
 
   await setupSpreadsheetHeaders(accessToken, spreadsheetId, language);
 
-  // Mover para a pasta correta
+  // Mover para a pasta correta — se falhar, o sheet fica na raiz do Drive (degradação aceitável).
   try {
     await driveLimiter.waitForSlot();
     const mt = createTimeoutSignal(DRIVE_TIMEOUT_MS);
@@ -225,8 +225,12 @@ async function createNewSpreadsheet(
         webViewLink: moveData.webViewLink || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
       };
     }
-  } catch {
-    // Continue without moving
+  } catch (err) {
+    void reportError(err, {
+      component: 'google/createNewSpreadsheet/move',
+      level: 'warn',
+      extra: { spreadsheetId },
+    });
   }
 
   return {

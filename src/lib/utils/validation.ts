@@ -65,11 +65,9 @@ export function formatEUR(value: number | null): string {
 /** "2026-03-15" -> "15/03/2026" */
 export function formatDatePT(dateStr: string | null): string {
   if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('pt-PT', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('pt-PT', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
 }
