@@ -3,6 +3,7 @@ import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { MobileInvoiceCard } from './MobileInvoiceCard';
+import { StatusBadge } from './StatusBadge';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
 import type { Invoice } from '@/types/database';
@@ -90,7 +91,12 @@ export function FaturasTable({
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               </td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{formatDatePT(inv.doc_date)}</td>
-              <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>{inv.supplier_name ?? '\u2014'}</td>
+              <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>
+                <div className="flex items-center gap-2">
+                  <StatusBadge invoice={inv} />
+                  <span>{inv.supplier_name ?? '\u2014'}</span>
+                </div>
+              </td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{labelFor('metier', inv.metier) || '\u2014'}</td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{labelFor('nature_depense', inv.nature_depense) || '\u2014'}</td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>
