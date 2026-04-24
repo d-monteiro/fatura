@@ -23,6 +23,9 @@ let globalHandlersInstalled = false;
 
 export function installGlobalErrorHandlers(): void {
   if (globalHandlersInstalled || typeof window === 'undefined') return;
+  // HMR em dev re-cria React contexts e dispara "useX must be used within Provider"
+  // transitoriamente. Evita poluir error_logs de produção com ruído de dev.
+  if (import.meta.env.DEV) return;
   globalHandlersInstalled = true;
 
   window.addEventListener('error', (event) => {
