@@ -33,10 +33,8 @@ export function persistOnboardingNow(data: OnboardingData, step: number) {
   } catch { /* ignore */ }
 }
 
-/**
- * Persists onboarding data + current step to localStorage so the visitor
- * can close the tab and resume without losing what they've filled in.
- */
+// Permite retomar o wizard depois de fechar o separador. Skip no primeiro render
+// para não sobrescrever o que foi restaurado em loadStoredOnboarding.
 export function useOnboardingStorage(data: OnboardingData, step: number) {
   const firstRender = useRef(true);
 

@@ -1,9 +1,5 @@
-/**
- * Client frontend pour Edge Function analyze-document (Gemini 2.5 Pro)
- * API key JAMAIS dans le frontend — uniquement dans l'Edge Function.
- * Returns GeminiInvoiceData[] (one PDF can contain multiple invoices).
- */
-
+// Proxy para Edge Function analyze-document. A API key do OpenRouter só existe
+// na Edge Function (Deno.env) — nunca é exposta ao browser.
 import { geminiLimiter } from '@/lib/rateLimiter';
 import { supabase } from '@/lib/supabase/client';
 import type { GeminiInvoiceData } from '@/types/database';

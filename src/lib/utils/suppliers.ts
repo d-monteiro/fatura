@@ -1,8 +1,4 @@
-/**
- * Normalização de fornecedores baseada em config do tenant.
- * O mapping vem de tenant.suppliers (variantes registadas).
- */
-
+// Mapping vem de tenant.suppliers (variantes registadas por cliente).
 export interface KnownSupplier {
   normalized: string;
   variations: string[];

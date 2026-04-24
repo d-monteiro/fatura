@@ -58,10 +58,7 @@ interface FilterSelectProps {
   disabled?: boolean;
 }
 
-/**
- * Filter-oriented select. Empty string means "no filter".
- * When `allOptionLabel` is provided, renders a top item that resets the filter.
- */
+// value='' significa "sem filtro"; `allOptionLabel` renderiza item de topo que faz reset.
 export function FilterSelect({
   value,
   onValueChange,

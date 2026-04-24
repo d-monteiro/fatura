@@ -3,7 +3,6 @@ import { type Lang, type TranslationKey, translate } from '@/lib/i18n';
 
 interface I18nContextType {
   lang: Lang;
-  setLang: (lang: Lang) => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -11,11 +10,10 @@ const I18nContext = createContext<I18nContextType | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const lang: Lang = 'pt';
-  const setLang = useCallback((_next: Lang) => { /* só PT */ }, []);
   const t = useCallback((key: TranslationKey) => translate(key, lang), [lang]);
 
   return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
+    <I18nContext.Provider value={{ lang, t }}>
       {children}
     </I18nContext.Provider>
   );

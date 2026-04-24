@@ -1,4 +1,4 @@
-/** Pipeline factures tenant-aware: Gemini → auto-detect company → Drive → DB → Sheets */
+// Pipeline: Gemini → detect company → Drive upload → DB insert → Sheets append.
 import { supabase } from '@/lib/supabase/client';
 import { analyzeInvoiceWithGemini, fileToBase64 } from '@/lib/gemini';
 import { uploadInvoiceToDrive, ensureFolder, getOrCreateYearlySheet } from '@/lib/google/drive';

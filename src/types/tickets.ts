@@ -1,7 +1,3 @@
-/**
- * FaturaAI - Ticket & Feedback Types
- */
-
 export type TicketCategory = 'general' | 'bug' | 'feature' | 'billing' | 'integration';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type TicketStatus = 'open' | 'in_progress' | 'waiting_customer' | 'resolved' | 'closed';

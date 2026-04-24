@@ -1,8 +1,3 @@
-/**
- * Rate limiter simples para chamadas a APIs externas.
- * Previne spam de requests e protege quotas.
- */
-
 interface RateLimiterConfig {
   maxRequests: number;
   windowMs: number;
@@ -18,10 +13,7 @@ class RateLimiter {
     this.windowMs = config.windowMs;
   }
 
-  /**
-   * Verifica se pode fazer request. Se nao puder, espera automaticamente.
-   * Retorna o tempo que esperou (0 se nao esperou).
-   */
+  // Bloqueia até haver slot livre; devolve ms esperados (0 = sem espera).
   async waitForSlot(): Promise<number> {
     const now = Date.now();
     this.timestamps = this.timestamps.filter(t => now - t < this.windowMs);
@@ -42,7 +34,6 @@ class RateLimiter {
     return 0;
   }
 
-  /** Verifica se pode fazer request sem bloquear */
   canProceed(): boolean {
     const now = Date.now();
     this.timestamps = this.timestamps.filter(t => now - t < this.windowMs);
@@ -50,11 +41,8 @@ class RateLimiter {
   }
 }
 
-// Gemini: 60 requests/min (conservador - API suporta mais)
+// Tectos reais: Gemini (via OpenRouter) 60/min, Drive 12k/min, Sheets 300/min.
+// Aplicamos margens para picos concorrentes e retries automáticos.
 export const geminiLimiter = new RateLimiter({ maxRequests: 60, windowMs: 60_000 });
-
-// Google Drive: 100 requests/min (API suporta 12000/min)
 export const driveLimiter = new RateLimiter({ maxRequests: 100, windowMs: 60_000 });
-
-// Google Sheets: 100 requests/min (API suporta 300/min)
 export const sheetsLimiter = new RateLimiter({ maxRequests: 100, windowMs: 60_000 });

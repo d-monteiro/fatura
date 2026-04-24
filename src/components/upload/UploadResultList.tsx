@@ -12,7 +12,7 @@ export interface UploadFileState {
   supplierName?: string;
   montantTtc?: number;
   message?: string;
-  /** Original File reference, used during processing queue */
+  // Referência ao File original — só existe enquanto está na fila de processamento.
   file?: File;
 }
 

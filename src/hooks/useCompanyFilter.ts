@@ -4,10 +4,7 @@ import { supabase } from '@/lib/supabase/client';
 import type { Company } from '@/types/database';
 import { queryKeys } from '@/lib/queryKeys';
 
-/**
- * Reads `?company=<UUID>` from the URL (set by the Sidebar).
- * Returns the active company UUID (or null when "all") and the list of companies.
- */
+// Lê `?company=<UUID>` (posto pelo Sidebar); null = "todas".
 export function useCompanyFilter() {
   const [searchParams] = useSearchParams();
   const raw = searchParams.get('company');
