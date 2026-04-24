@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote:*)",
+      "Bash(curl -s -X POST \"https://sxfwprydmllovnxxjhrh.supabase.co/functions/v1/slack-notify\" -H \"Content-Type: application/json\" -H \"Origin: http://localhost:5173\" -d '{\"channel\":\"lead\",\"payload\":{\"company_name\":\"TEST\",\"contact_name\":\"debug\",\"email\":\"d@d.pt\"}}')",
+      "Bash(curl -s -X POST \"https://sxfwprydmllovnxxjhrh.supabase.co/functions/v1/slack-notify\" -H \"Content-Type: application/json\" -H \"Origin: http://localhost:5173\" -d '{\"channel\":\"lead\",\"payload\":{\"company_name\":\"TEST2\",\"contact_name\":\"debug\",\"email\":\"d@d.pt\"}}')",
+      "Bash(curl -s -X POST \"https://sxfwprydmllovnxxjhrh.supabase.co/functions/v1/slack-notify\" -H \"Content-Type: application/json\" -H \"Origin: http://localhost:5173\" -d '{\"channel\":\"lead\",\"payload\":{\"company_name\":\"POS-REDEPLOY\",\"contact_name\":\"debug\",\"email\":\"d@d.pt\"}}')",
+      "Bash(curl -si -X OPTIONS \"https://sxfwprydmllovnxxjhrh.supabase.co/functions/v1/slack-notify\" -H \"Origin: http://localhost:5174\" -H \"Access-Control-Request-Method: POST\")",
+      "Bash(node -e ':*)",
+      "Bash(npx tsc:*)",
+      "Bash(xargs sed:*)",
+      "Bash(find /home/up202306122/Flowzi/fatura/src -type f -name \"*.tsx\" -exec grep -l \"toast\\\\|notifySlack\\\\|console.error\" {} \\\\;)",
+      "Bash(export PATH=\"$HOME/.nvm/versions/node/v22.22.2/bin:$PATH\")",
+      "mcp__supabase__list_edge_functions",
+      "mcp__supabase__list_migrations",
+      "Bash(wc -l /home/up202306122/Flowzi/fatura/src/components/onboarding/*.tsx)",
+      "Bash(curl -s -X POST https://sxfwprydmllovnxxjhrh.supabase.co/functions/v1/slack-test-run)",
+      "Bash(python3 -c \"import sys,json; print\\(json.dumps\\(sys.stdin.read\\(\\)\\)\\)\")",
+      "Bash(npx eslint:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
