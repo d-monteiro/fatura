@@ -240,3 +240,7 @@ export function useTenant() {
   }
   return context;
 }
+
+export function useTenantOptional() {
+  return useContext(TenantContext) ?? null;
+}

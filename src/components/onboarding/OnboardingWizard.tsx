@@ -282,6 +282,14 @@ export function OnboardingWizard() {
 
   const wideStep = (step === 7 && !showEnterpriseForm) || step === 1;
 
+  // User OAuth que acabou de criar a conta neste round-trip. A janela de 15s
+  // cobre o callback do Google sem apanhar quem volta minutos depois.
+  const isFreshOAuthUser = !!user && (() => {
+    const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0;
+    const lastSignInMs = user.last_sign_in_at ? new Date(user.last_sign_in_at).getTime() : 0;
+    return createdMs > 0 && Math.abs(lastSignInMs - createdMs) < 15_000;
+  })();
+
   // Enterprise flow: dedicated form (handles account-free submission too).
   if (showEnterpriseForm) {
     return (
@@ -322,7 +330,11 @@ export function OnboardingWizard() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">FaturaAI</h1>
-            <p className="text-sm text-muted-foreground mt-1">Configuração do seu espaço</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isFreshOAuthUser ? (
+                <>Bem-vindo, <strong className="text-foreground">{user?.email}</strong>. Vamos configurar o teu espaço.</>
+              ) : 'Configuração do seu espaço'}
+            </p>
           </div>
           {!user && (
             <Link to="/login" className="text-xs text-muted-foreground hover:text-foreground">

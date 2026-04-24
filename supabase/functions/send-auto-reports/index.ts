@@ -9,7 +9,7 @@
 // ============================================
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 import { logEdgeError } from "../_shared/logError.ts";
 import {
@@ -175,8 +175,7 @@ interface ProcessArgs {
   nowUtc: Date;
   forceTenantId: string | null;
   dryRun: boolean;
-  // deno-lint-ignore no-explicit-any
-  supabase: any;
+  supabase: SupabaseClient;
   fromEmail: string;
   frontendUrl: string;
   runId: string;

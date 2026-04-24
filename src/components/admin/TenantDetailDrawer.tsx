@@ -11,10 +11,10 @@ import {
   currencyLabel, AUTO_REPORTS_LABEL, STORAGE_PROVIDER_LABEL,
 } from '@/lib/admin/labels';
 import { TenantBetaControls } from '@/components/admin/TenantBetaControls';
-import type { Tenant, PlanStatus } from '@/types/tenant';
+import type { Tenant, Plan, PlanStatus } from '@/types/tenant';
 import type { ReportDelivery } from '@/types/admin';
 
-interface Plan { id: string; slug: string; name: string; }
+type PlanSummary = Pick<Plan, 'id' | 'slug' | 'name'>;
 interface Member { user_id: string; email: string; role: string; is_active: boolean; accepted_at: string | null; }
 interface RecentError { id: string; level: string; message: string; source: string; created_at: string; resolved: boolean; }
 interface TenantDetails {
@@ -24,7 +24,7 @@ interface TenantDetails {
   suppliers_total: number;
   members: Member[];
   recent_errors: RecentError[];
-  plan: { id: string; name: string; slug: string } | null;
+  plan: PlanSummary | null;
 }
 
 const PLAN_STATUS: PlanStatus[] = ['trialing', 'active', 'past_due', 'canceled', 'paused', 'pending_contact'];
@@ -44,12 +44,12 @@ export function TenantDetailDrawer({ tenantId, onClose }: Props) {
     },
   });
 
-  const { data: plans = [] } = useQuery<Plan[]>({
+  const { data: plans = [] } = useQuery<PlanSummary[]>({
     queryKey: ['admin-plans'],
     queryFn: async () => {
       const { data, error } = await supabase.from('plans').select('id, slug, name').eq('is_active', true).order('price_monthly', { nullsFirst: false });
       if (error) throw error;
-      return (data ?? []) as Plan[];
+      return (data ?? []) as PlanSummary[];
     },
   });
 

@@ -50,7 +50,7 @@ export function AccountInlinePanel({ submitting, onAuthenticated, onError, onBef
       onBeforeOAuth?.();
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/onboarding` },
+        options: { redirectTo: `${window.location.origin}/auth/callback?intent=signup` },
       });
       if (error) throw error;
     } catch (e) {

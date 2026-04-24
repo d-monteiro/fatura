@@ -59,7 +59,7 @@ export default function Login() {
     setOauthLoading(provider);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/auth/callback?intent=login` },
     });
     if (oauthError) {
       showAuthError(oauthError, 'Login.oauth');

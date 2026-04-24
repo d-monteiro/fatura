@@ -5,13 +5,9 @@ import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 import { queryKeys } from '@/lib/queryKeys';
 import { AlertOctagon } from 'lucide-react';
 import { toast } from 'sonner';
+import type { OAuthToken } from '@/types/database';
 
-interface ReauthToken {
-  id: string;
-  email: string | null;
-  reauth_reason: string | null;
-  reauth_flagged_at: string | null;
-}
+type ReauthToken = Pick<OAuthToken, 'id' | 'email' | 'reauth_reason' | 'reauth_flagged_at'>;
 
 async function reconnect(email: string | null) {
   try {

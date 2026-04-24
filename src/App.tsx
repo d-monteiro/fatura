@@ -32,6 +32,7 @@ import AdminUsage from '@/pages/admin/AdminUsage';
 import AdminOnboarding from '@/pages/admin/AdminOnboarding';
 import AdminAdmins from '@/pages/admin/AdminAdmins';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics';
+import AuthCallback from '@/pages/AuthCallback';
 import NotFound from '@/pages/NotFound';
 import { usePageViews } from '@/lib/analytics/usePageViews';
 
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route index element={<Landing />} />
         <Route path="login" element={<Login />} />
         <Route path="onboarding" element={<Onboarding />} />
+        <Route path="auth/callback" element={<AuthCallback />} />
         <Route path="legal/privacy" element={<Privacy />} />
         <Route path="legal/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -92,6 +94,7 @@ function AppRoutes() {
     <Routes>
       <Route path="onboarding" element={<Onboarding />} />
       <Route path="onboarding/thanks" element={<OnboardingThanks />} />
+      <Route path="auth/callback" element={<AuthCallback />} />
       <Route path="account/suspended" element={<AccountSuspended />} />
       <Route path="legal/privacy" element={<Privacy />} />
       <Route path="legal/terms" element={<Terms />} />
@@ -128,8 +131,10 @@ export default function App() {
               <BrowserRouter>
                 <AppRoutes />
               </BrowserRouter>
+              <ErrorBoundary fallback={null}>
+                <FeedbackWidget />
+              </ErrorBoundary>
             </ErrorBoundary>
-            <FeedbackWidget />
             <Toaster richColors position="top-right" />
           </TenantProvider>
         </AuthProvider>

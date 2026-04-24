@@ -135,7 +135,10 @@ export async function createNewSpreadsheet(
         webViewLink: moveData.webViewLink || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
       };
     }
-  } catch { /* ignore */ }
+  } catch (err) {
+    // Sheet criada com sucesso; o move failure só deixa o ficheiro na raiz do Drive.
+    console.warn(`[drive] move_sheet_to_folder failed spreadsheet=${spreadsheetId}`, err instanceof Error ? err.message : err);
+  }
 
   return {
     id: spreadsheetId,

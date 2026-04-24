@@ -6,8 +6,9 @@ import { hasStorageScopes } from '@/lib/google/scopes';
 import { queryKeys } from '@/lib/queryKeys';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import type { OAuthToken } from '@/types/database';
 
-type PrimaryToken = { scopes: string[] | null; email: string | null } | null;
+type PrimaryToken = Pick<OAuthToken, 'scopes' | 'email'> | null;
 
 async function startOAuth(loginHint?: string) {
   try {

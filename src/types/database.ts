@@ -189,6 +189,9 @@ export interface OAuthToken {
   scopes: string[] | null;
   email: string | null;
   is_primary_storage: boolean;
+  needs_reauth: boolean;
+  reauth_reason: string | null;
+  reauth_flagged_at: string | null;
 }
 
 // ==========================================

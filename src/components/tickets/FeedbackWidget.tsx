@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTenant } from '@/contexts/TenantContext';
+import { useAuthOptional } from '@/contexts/AuthContext';
+import { useTenantOptional } from '@/contexts/TenantContext';
 import { notifySlack } from '@/lib/slack/notify';
 import { MessageCircleQuestion, X, Send } from 'lucide-react';
 
 type FeedbackType = 'bug' | 'feature' | 'feedback';
 
 export function FeedbackWidget() {
-  const { user } = useAuth();
-  const { tenant } = useTenant();
+  const auth = useAuthOptional();
+  const tenantCtx = useTenantOptional();
+  const user = auth?.user ?? null;
+  const tenant = tenantCtx?.tenant ?? null;
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState<FeedbackType | null>(null);
   const [message, setMessage] = useState('');
