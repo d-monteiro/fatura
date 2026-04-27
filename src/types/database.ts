@@ -1,6 +1,6 @@
 // FaturaAI — tipos da BD. Multi-tenant, multi-empresa, line items.
-// Nota: algumas colunas SQL mantêm nomes herdados (montant_ht, taux_tva, etc.).
-// Renomear exige migration — ver CLAUDE.md dívida técnica.
+// Schema 100% PT (rename FR→PT em 2026-04-25). Categoria única substitui
+// metier+nature_depense+cost_type — taxonomia gerida na tabela `categories`.
 
 // ==========================================
 // COMPANIES
@@ -22,28 +22,9 @@ export interface Company {
 // ==========================================
 // INVOICES (FATURAS)
 // ==========================================
-export type DocumentType = 'facture' | 'avoir' | 'recu' | 'autre';
-export type CostType = 'cout_fixe' | 'cout_variable';
+export type DocumentType = 'fatura' | 'nota_credito' | 'recibo' | 'outro';
 export type InvoiceStatus = 'pending' | 'analyzing' | 'inbox' | 'processed' | 'review' | 'failed';
-
-export type Metier =
-  | 'electricite'
-  | 'plomberie'
-  | 'chauffage'
-  | 'platrerie'
-  | 'autre';
-
-export type NatureDepense =
-  | 'materiaux'
-  | 'sous_traitants'
-  | 'location_materiel'
-  | 'restauration'
-  | 'carburant'
-  | 'atelier'
-  | 'assurances'
-  | 'comptabilite'
-  | 'fournitures_bureau'
-  | 'autre';
+export type InvoiceSource = 'upload' | 'email' | 'photo';
 
 export interface Invoice {
   id: string;
@@ -54,10 +35,13 @@ export interface Invoice {
   user_id: string | null;
   company_id: string;
 
-  // SOURCE
-  source: 'upload' | 'email' | 'photo';
-  email_message_id: string | null;  // Gmail message ID (dedup)
-  email_attachment_id: string | null; // Gmail attachment ID (dedup por anexo)
+  // ORIGEM
+  source: InvoiceSource;
+  email_message_id: string | null;
+  email_attachment_id: string | null;
+  email_subject: string | null;
+  email_from: string | null;
+  email_received_at: string | null;
 
   // STORAGE
   file_url: string;
@@ -67,48 +51,75 @@ export interface Invoice {
   drive_link: string | null;
   drive_file_id: string | null;
 
-  // AI EXTRACTED DATA
+  // DADOS EXTRAÍDOS PELA IA
   document_type: DocumentType | null;
-  cost_type: CostType | null;
-  metier: Metier | null;
-  nature_depense: NatureDepense | null;
+  category: string | null;        // FK lógica para categories.code (axis='category')
 
   doc_date: string | null;        // YYYY-MM-DD
   doc_year: number | null;
-  date_echeance: string | null;   // data vencimento
+  data_vencimento: string | null; // data de vencimento
 
   supplier_name: string | null;   // MAIÚSCULAS
   supplier_nif: string | null;
-  supplier_id: string | null;     // FK suppliers (após matching)
+  supplier_id: string | null;
 
   doc_number: string | null;
 
-  // Valores monetários (colunas herdadas com nomes FR)
-  montant_ht: number | null;      // valor sem IVA
-  taux_tva: number | null;        // taxa IVA: 23, 13, 6, 0
-  montant_tva: number | null;     // montante IVA
-  montant_ttc: number | null;     // valor com IVA
-  autoliquidation: boolean;       // autoliquidação IVA (subempreiteiro)
+  // VALORES MONETÁRIOS
+  valor_sem_iva: number | null;
+  taxa_iva: number | null;        // 23, 13, 6, 0
+  valor_iva: number | null;
+  valor_total: number | null;
+  autoliquidacao: boolean;        // autoliquidação IVA (subempreitada)
 
   payment_method: string | null;
   supplier_iban: string | null;
 
-  summary: string | null;         // máx. 5 palavras
+  summary: string | null;
   confidence_score: number | null;
 
   status: InvoiceStatus;
   manual_review: boolean;
   review_reason: string | null;
+  destinatario_nome: string | null;
 
-  // SPREADSHEET
+  // SHEET
   spreadsheet_id: string | null;
 
   // DEDUP
-  attachment_hash: string | null;  // SHA-256 hex do binário original; unique por (tenant_id, attachment_hash)
+  attachment_hash: string | null;
+
+  // PAGAMENTOS
+  paid_at: string | null;
+  payment_notified_at: string | null;
 }
 
 // ==========================================
-// SYNC RUNS (sincronização de email)
+// DUPLICADOS
+// ==========================================
+export interface DismissedDuplicate {
+  id: string;
+  created_at: string;
+  tenant_id: string;
+  invoice_a_id: string;
+  invoice_b_id: string;
+  dismissed_by: string | null;
+}
+
+export interface PotentialDuplicateRow {
+  invoice_a_id: string;
+  invoice_b_id: string;
+  match_kind: 'doc_number' | 'amount_date';
+  doc_number: string | null;
+  supplier_name: string | null;
+  supplier_id: string | null;
+  company_id: string;
+  valor_total: number | null;
+  doc_date: string | null;
+}
+
+// ==========================================
+// SYNC RUNS
 // ==========================================
 export type SyncRunStatus = 'running' | 'done' | 'error';
 export type SyncRunTrigger = 'cron' | 'manual' | 'admin';
@@ -142,10 +153,10 @@ export interface InvoiceLineItem {
   line_number: number;
   description: string | null;
   quantity: number | null;
-  unit: string | null;           // m2, ml, un, h, kg, etc.
-  unit_price_ht: number | null;
-  total_ht: number | null;
-  taux_tva: number | null;
+  unit: string | null;
+  preco_unitario: number | null;
+  total_sem_iva: number | null;
+  taxa_iva: number | null;
 }
 
 // ==========================================
@@ -169,18 +180,19 @@ export interface Supplier {
 }
 
 // ==========================================
-// CATEGORIES
+// CATEGORIES — taxonomia única customizável por tenant
 // ==========================================
-export type CategoryAxis = 'cost_type' | 'metier' | 'nature_depense';
+export type CategoryAxis = 'category';
 
 export interface Category {
   id: string;
-  tenant_id: string;
+  tenant_id: string | null;
   axis: CategoryAxis;
   code: string;
   label: string;
   sort_order: number;
   is_active: boolean;
+  is_fixed: boolean; // true = custo fixo (renda, seguros) — substitui o antigo cost_type
 }
 
 // ==========================================
@@ -191,13 +203,13 @@ export interface EmailAccount {
   created_at: string;
   tenant_id: string;
   user_id: string;
-  email: string;                 // Gmail address
+  email: string;
   provider: 'gmail';
-  oauth_token_id: string | null; // FK user_oauth_tokens
+  oauth_token_id: string | null;
   last_sync_at: string | null;
-  last_history_id: string | null; // Gmail history ID
+  last_history_id: string | null;
   is_active: boolean;
-  company_id: string | null;     // Default company for invoices from this email
+  company_id: string | null;
 }
 
 // ==========================================
@@ -243,27 +255,25 @@ export interface AuditLog {
 // ==========================================
 export interface GeminiInvoiceData {
   is_valid_document: boolean;
-  rejection_reason: 'pas_un_document' | 'document_illisible' | 'pas_une_facture' | null;
+  rejection_reason: 'nao_e_documento' | 'documento_ilegivel' | 'nao_e_fatura' | 'fatura_propria' | null;
 
   document_type: DocumentType | null;
-  cost_type: CostType | null;
-  metier: Metier | null;
-  nature_depense: NatureDepense | null;
+  category: string | null;
 
   doc_year: number | null;
   doc_date: string | null;
-  date_echeance: string | null;
+  data_vencimento: string | null;
 
   supplier_name: string | null;
   supplier_nif: string | null;
   doc_number: string | null;
-  destinataire_name: string | null;
+  destinatario_nome: string | null;
 
-  montant_ht: number | null;
-  taux_tva: number | null;
-  montant_tva: number | null;
-  montant_ttc: number | null;
-  autoliquidation: boolean;
+  valor_sem_iva: number | null;
+  taxa_iva: number | null;
+  valor_iva: number | null;
+  valor_total: number | null;
+  autoliquidacao: boolean;
 
   payment_method: string | null;
   supplier_iban: string | null;
@@ -275,8 +285,8 @@ export interface GeminiInvoiceData {
     description: string | null;
     quantity: number | null;
     unit: string | null;
-    unit_price_ht: number | null;
-    total_ht: number | null;
-    taux_tva: number | null;
+    preco_unitario: number | null;
+    total_sem_iva: number | null;
+    taxa_iva: number | null;
   }[];
 }

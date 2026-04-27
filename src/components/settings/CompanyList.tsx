@@ -19,12 +19,14 @@ export function CompanyList() {
   const [name, setName] = useState('');
   const [nif, setNif] = useState('');
 
-  const { data: companies = [] } = useQuery({
-    queryKey: queryKeys.companies,
+  const { data: companies = [], isLoading } = useQuery({
+    queryKey: [...queryKeys.companies, tenant?.id],
     queryFn: async () => {
+      if (!tenant?.id) return [];
       const { data } = await supabase
         .from('companies')
         .select('*, user_oauth_tokens!oauth_token_id(token_expiry)')
+        .eq('tenant_id', tenant.id)
         .eq('is_active', true)
         .order('is_default', { ascending: false })
         .order('name');
@@ -127,7 +129,12 @@ export function CompanyList() {
         </div>
       )}
 
-      {companies.length === 0 && !creating ? (
+      {isLoading ? (
+        <div className="space-y-3">
+          <div className="h-20 rounded-xl bg-muted/40 animate-pulse" />
+          <div className="h-20 rounded-xl bg-muted/40 animate-pulse" />
+        </div>
+      ) : companies.length === 0 && !creating ? (
         <p className="text-sm text-muted-foreground">
           Ainda não tens empresas. Cria uma para começar a processar faturas.
         </p>

@@ -20,7 +20,7 @@ import {
 } from "../_shared/periodWindow.ts";
 import { sendEmail } from "../_shared/resend.ts";
 import { renderReportEmail } from "../_shared/reportEmail.ts";
-import { fetchPreviousTotalTtc, fetchReportData } from "../_shared/reportQueries.ts";
+import { fetchPreviousTotalGross, fetchReportData } from "../_shared/reportQueries.ts";
 
 interface TenantRow {
   id: string;
@@ -219,7 +219,7 @@ async function processTenant(a: ProcessArgs): Promise<RunResult> {
 
   const data = await fetchReportData(supabase, tenant.id, win.periodStart, win.periodEnd);
   const prev = computePreviousWindow(kind, win.periodStart);
-  const prevTotal = await fetchPreviousTotalTtc(supabase, tenant.id, prev.start, prev.end);
+  const prevTotal = await fetchPreviousTotalGross(supabase, tenant.id, prev.start, prev.end);
 
   const email = renderReportEmail({
     tenantName: tenant.name,
@@ -232,9 +232,8 @@ async function processTenant(a: ProcessArgs): Promise<RunResult> {
     currency: tenant.currency ?? "EUR",
     kpis: data.kpis,
     topSuppliers: data.topSuppliers,
-    costTypeBreakdown: data.costTypeBreakdown,
-    metierBreakdown: data.metierBreakdown,
-    previousPeriodTotalTtc: prevTotal,
+    categoryBreakdown: data.categoryBreakdown,
+    previousPeriodTotalGross: prevTotal,
     dashboardUrl: frontendUrl,
     settingsUrl: `${frontendUrl}/settings`,
   });
@@ -264,7 +263,7 @@ async function processTenant(a: ProcessArgs): Promise<RunResult> {
     error: send.ok ? null : (send.error ?? "unknown").slice(0, 500),
     message_id: send.messageId ?? null,
     invoices_count: data.kpis.invoicesCount,
-    total_ttc: data.kpis.totalTtc,
+    total_ttc: data.kpis.totalGross,
   });
 
   if (!send.ok) {

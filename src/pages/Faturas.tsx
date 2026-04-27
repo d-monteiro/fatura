@@ -10,10 +10,14 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useBulkActions } from '@/hooks/useBulkActions';
 import { useInvoicesRealtime } from '@/hooks/useInvoicesRealtime';
 import { FaturasFilters, type FaturasFilterState } from '@/components/faturas/FaturasFilters';
+import { NO_SUPPLIER_VALUE } from '@/components/faturas/SupplierCombobox';
+import { computeDateRange } from '@/lib/faturas/dateRange';
 import { FaturasTable, type SortField, type SortDir } from '@/components/faturas/FaturasTable';
 import { IgnoradasTable } from '@/components/faturas/IgnoradasTable';
 import { ExportButton } from '@/components/faturas/ExportButton';
 import { ZipExportButton } from '@/components/faturas/ZipExportButton';
+import { SaftExportDialog } from '@/components/faturas/SaftExportDialog';
+import { FileArchive } from 'lucide-react';
 import { BulkActionBar } from '@/components/faturas/BulkActionBar';
 import { InvoiceDetailDrawer } from '@/components/faturas/InvoiceDetailDrawer';
 import { cn } from '@/lib/cn';
@@ -43,7 +47,8 @@ export default function Faturas() {
   const tab = parseTab(searchParams.get('tab'));
 
   const [filters, setFilters] = useState<FaturasFilterState>({
-    search: '', year: '', month: '', metier: '', nature: '', costType: '',
+    search: '', year: '', month: '', dateStart: '', dateEnd: '', supplierId: '',
+    category: '',
   });
   const [sortField, setSortField] = useState<SortField>('doc_date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -51,6 +56,7 @@ export default function Faturas() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [recoveringId, setRecoveringId] = useState<string | null>(null);
+  const [saftOpen, setSaftOpen] = useState(false);
 
   const bulk = useBulkActions();
 
@@ -93,10 +99,18 @@ export default function Faturas() {
 
       if (companyId) query = query.eq('company_id', companyId);
       if (filters.search) query = query.ilike('supplier_name', `%${escapeLike(filters.search)}%`);
-      if (filters.year) query = query.eq('doc_year', parseInt(filters.year));
-      if (filters.metier) query = query.eq('metier', filters.metier);
-      if (filters.nature) query = query.eq('nature_depense', filters.nature);
-      if (filters.costType) query = query.eq('cost_type', filters.costType);
+
+      const { start, end } = computeDateRange(filters);
+      if (start) query = query.gte('doc_date', start);
+      if (end) query = query.lte('doc_date', end);
+
+      if (filters.supplierId === NO_SUPPLIER_VALUE) {
+        query = query.is('supplier_id', null);
+      } else if (filters.supplierId) {
+        query = query.eq('supplier_id', filters.supplierId);
+      }
+
+      if (filters.category) query = query.eq('category', filters.category);
 
       const { data: rows, count, error } = await query;
       if (error) throw error;
@@ -176,6 +190,13 @@ export default function Faturas() {
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('nav.invoices')}</h1>
         {tab === 'active' && (
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSaftOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              <FileArchive className="h-4 w-4" /> SAF-T
+            </button>
             <ZipExportButton invoices={invoices} />
             <ExportButton filters={filters} companyId={companyId} />
           </div>
@@ -260,6 +281,8 @@ export default function Faturas() {
         open={drawerOpen}
         onClose={() => { setDrawerOpen(false); setSelectedInvoice(null); }}
       />
+
+      <SaftExportDialog open={saftOpen} onOpenChange={setSaftOpen} />
 
       {tab === 'active' && bulk.selectedIds.size > 0 && (
         <BulkActionBar

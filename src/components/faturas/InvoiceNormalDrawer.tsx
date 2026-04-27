@@ -1,4 +1,4 @@
-import { ExternalLink, Building2, Calendar, Hash, Tag, Wrench, FileText, Table2, Pencil, Trash2 } from 'lucide-react';
+import { ExternalLink, Building2, Calendar, Hash, Tag, FileText, Table2, Pencil, Trash2 } from 'lucide-react';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { LineItemsTable } from './LineItemsTable';
 import { useTenant } from '@/contexts/TenantContext';
@@ -31,39 +31,37 @@ interface ContentProps {
 export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
   const { tenant } = useTenant();
   const { labelFor } = useCategories(tenant?.id);
-  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
+  const categoryLabel = labelFor(invoice.category) || null;
 
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
-      <DetailRow icon={Building2} label={t('inv.supplier')} value={invoice.supplier_name || '\u2014'} />
+      <DetailRow icon={Building2} label={t('inv.supplier')} value={invoice.supplier_name || '—'} />
       {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
       <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
       {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
-      {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={labelFor('metier', invoice.metier)} />}
-      {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={labelFor('nature_depense', invoice.nature_depense)} />}
-      {costLabel && <DetailRow icon={Tag} label={t('inv.cost_type')} value={costLabel} />}
-      {invoice.taux_tva != null && (
-        <DetailRow icon={Hash} label={t('inv.tva_rate')} value={`${invoice.taux_tva}%`} />
+      {categoryLabel && <DetailRow icon={Tag} label={t('inv.category')} value={categoryLabel} />}
+      {invoice.taxa_iva != null && (
+        <DetailRow icon={Hash} label={t('inv.iva_rate')} value={`${invoice.taxa_iva}%`} />
       )}
 
       <div className="border-t my-3" />
 
       <div className="space-y-1">
-        {invoice.montant_ht != null && (
+        {invoice.valor_sem_iva != null && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('inv.amount_ht')}</span>
-            <span className="font-medium text-gray-700">{formatEUR(invoice.montant_ht)}</span>
+            <span className="text-gray-500">{t('inv.amount_net')}</span>
+            <span className="font-medium text-gray-700">{formatEUR(invoice.valor_sem_iva)}</span>
           </div>
         )}
-        {invoice.montant_tva != null && (
+        {invoice.valor_iva != null && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('inv.tva')}</span>
-            <span className="font-medium text-gray-700">{formatEUR(invoice.montant_tva)}</span>
+            <span className="text-gray-500">{t('inv.iva')}</span>
+            <span className="font-medium text-gray-700">{formatEUR(invoice.valor_iva)}</span>
           </div>
         )}
         <div className="flex items-center justify-between py-2">
           <span className="text-base font-semibold text-gray-500">{t('drawer.total')}</span>
-          <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.montant_ttc)}</span>
+          <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.valor_total)}</span>
         </div>
       </div>
 
@@ -97,13 +95,19 @@ interface FooterProps {
 }
 
 export function NormalDrawerFooter({ invoice, t, onEdit, onDelete }: FooterProps) {
+  // Para faturas ignoradas (deleted_at != null) não há Drive — mostrar
+  // antes o file_url do bucket Supabase.
+  const fileLink = invoice.drive_link || invoice.file_url || null;
+  const isStorageOnly = !invoice.drive_link && !!invoice.file_url;
+
   return (
     <div className="border-t px-5 py-3 space-y-2">
       <div className="flex gap-2">
-        {invoice.drive_link && (
-          <a href={invoice.drive_link} target="_blank" rel="noopener noreferrer"
+        {fileLink && (
+          <a href={fileLink} target="_blank" rel="noopener noreferrer"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <ExternalLink className="h-4 w-4" /> {t('drawer.view_pdf')}
+            <ExternalLink className="h-4 w-4" />
+            {isStorageOnly ? t('drawer.view_file') : t('drawer.view_pdf')}
           </a>
         )}
         {invoice.spreadsheet_id && (

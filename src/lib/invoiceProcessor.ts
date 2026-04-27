@@ -73,8 +73,6 @@ async function ensureFreshToken(userId: string): Promise<string | null> {
       });
       return null;
     }
-    // Edge Function persiste o novo access_token na BD mas não o devolve na resposta.
-    // Reler da BD para obter o token acabado de renovar.
     const { data: refreshed } = await supabase.from('user_oauth_tokens')
       .select('access_token').eq('id', row.id).single();
     return refreshed?.access_token || null;
@@ -103,18 +101,18 @@ interface AttachmentDuplicate {
   doc_number: string | null;
   doc_date: string | null;
   supplier_name: string | null;
-  montant_ttc: number | null;
+  valor_total: number | null;
 }
 
 async function findByAttachmentHash(tenantId: string, hash: string): Promise<AttachmentDuplicate | null> {
   const { data } = await supabase.from('invoices')
-    .select('doc_number, doc_date, supplier_name, montant_ttc')
+    .select('doc_number, doc_date, supplier_name, valor_total')
     .eq('tenant_id', tenantId).eq('attachment_hash', hash).is('deleted_at', null).limit(1).maybeSingle();
   return (data as AttachmentDuplicate | null) ?? null;
 }
 
 function formatDuplicateMessage(d: AttachmentDuplicate): string {
-  const parts = [d.supplier_name, d.doc_date, d.montant_ttc != null ? `${d.montant_ttc.toFixed(2)} €` : null]
+  const parts = [d.supplier_name, d.doc_date, d.valor_total != null ? `${d.valor_total.toFixed(2)} €` : null]
     .filter(Boolean);
   const label = parts.length ? ` (${parts.join(' · ')})` : '';
   return `Anexo já processado${label}. Fatura existente não foi reprocessada.`;
@@ -136,7 +134,7 @@ async function detectCompanyId(tenantId: string, dest: string | null, fallback?:
 }
 
 async function checkDuplicate(tenantId: string, g: GeminiInvoiceData, cid: string): Promise<string | null> {
-  const label = `${g.supplier_name} - ${g.doc_date} (${g.montant_ttc?.toFixed(2)} €)`;
+  const label = `${g.supplier_name} - ${g.doc_date} (${g.valor_total?.toFixed(2)} €)`;
   if (g.doc_number) {
     const { data } = await supabase.from('invoices').select('id').eq('tenant_id', tenantId).eq('company_id', cid)
       .ilike('doc_number', g.doc_number).is('deleted_at', null).limit(1);
@@ -144,7 +142,7 @@ async function checkDuplicate(tenantId: string, g: GeminiInvoiceData, cid: strin
   } else {
     const { data } = await supabase.from('invoices').select('id, summary').eq('tenant_id', tenantId).eq('company_id', cid)
       .ilike('supplier_name', g.supplier_name || '').eq('doc_date', g.doc_date)
-      .eq('montant_ttc', g.montant_ttc).is('deleted_at', null).limit(5);
+      .eq('valor_total', g.valor_total).is('deleted_at', null).limit(5);
     if (data?.some(d => ((d.summary as string) || '').toLowerCase().trim() === (g.summary || '').toLowerCase().trim()))
       return `Fatura duplicada: ${label}`;
   }
@@ -159,15 +157,15 @@ async function matchOrCreateSupplier(g: GeminiInvoiceData, invId: string, tenant
   const { data: ns } = await supabase.from('suppliers').insert({
     tenant_id: tenantId,
     name: g.supplier_name, display_name: g.supplier_name, nif: g.supplier_nif ?? null,
-    is_subcontractor: g.autoliquidation,
+    is_subcontractor: g.autoliquidacao,
   }).select('id').single();
   if (ns) await supabase.from('invoices').update({ supplier_id: ns.id }).eq('id', invId);
 }
 
-function buildFolderPath(structure: string, root: string, companyName: string, year: number, monthLabel: string, costTypeLabel: string, supplierName: string): string[] {
+function buildFolderPath(structure: string, root: string, companyName: string, year: number, monthLabel: string, categoryLabel: string, supplierName: string): string[] {
   switch (structure) {
     case 'year_type':
-      return [root, companyName, String(year), costTypeLabel || 'Outros'];
+      return [root, companyName, String(year), categoryLabel || 'Outros'];
     case 'year_supplier':
       return [root, companyName, String(year), supplierName || 'OUTROS'];
     case 'year_month':
@@ -182,7 +180,7 @@ async function processSingle(
 ): Promise<UploadResult> {
   const w: string[] = [];
   g.supplier_name = normalizeSupplierName(g.supplier_name, tenant.knownSuppliers);
-  const v = validateMontants(g.montant_ht, g.montant_tva, g.montant_ttc, g.taux_tva);
+  const v = validateMontants(g.valor_sem_iva, g.valor_iva, g.valor_total, g.taxa_iva);
   if (!v.valid) w.push(...v.errors);
   if (v.warnings.length) w.push(...v.warnings);
 
@@ -200,16 +198,15 @@ async function processSingle(
   const year = g.doc_year || new Date().getFullYear();
   const monthIdx = g.doc_date ? new Date(g.doc_date).getMonth() : new Date().getMonth();
   const monthLabel = formatMonthFolder(monthIdx, tenant.language);
-  const costTypeLabel = g.cost_type ? g.cost_type.charAt(0).toUpperCase() + g.cost_type.slice(1).replace(/_/g, ' ') : 'Outros';
+  const categoryLabel = g.category ? g.category.charAt(0).toUpperCase() + g.category.slice(1).replace(/_/g, ' ') : 'Outros';
 
-  const path = buildFolderPath(tenant.folderStructure, tenant.rootFolderName, coName, year, monthLabel, costTypeLabel, g.supplier_name || 'OUTROS');
+  const path = buildFolderPath(tenant.folderStructure, tenant.rootFolderName, coName, year, monthLabel, categoryLabel, g.supplier_name || 'OUTROS');
 
   let parentId = '';
   for (const segment of path) {
     parentId = await ensureFolder(token, segment, parentId || undefined);
   }
 
-  // Sheet anual fica na pasta do ano (segundo nível abaixo da empresa)
   let sheetId: string | null = null;
   if (tenant.autoSheets) {
     const yearFolder = await ensureFolder(token, String(year), await ensureFolder(token, coName, await ensureFolder(token, tenant.rootFolderName)));
@@ -217,12 +214,11 @@ async function processSingle(
   }
 
   const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
-  const fName = `${g.doc_date}_${g.supplier_name}_${g.montant_ttc?.toFixed(2) || '0.00'}.${ext}`.replace(/[/\\?%*:|"<>]/g, '_');
+  const fName = `${g.doc_date}_${g.supplier_name}_${g.valor_total?.toFixed(2) || '0.00'}.${ext}`.replace(/[/\\?%*:|"<>]/g, '_');
   const buf = await file.arrayBuffer();
   const df = await uploadInvoiceToDrive(token, new Uint8Array(buf), fName, parentId, file.type);
 
   const curYear = new Date().getFullYear();
-  // Gemini devolve confidence em 0-1
   const CONFIDENCE_THRESHOLD = 0.8;
   const review = g.confidence_score < CONFIDENCE_THRESHOLD || (g.doc_year !== null && g.doc_year < curYear - 1) || !v.valid;
   const reviewReason = review
@@ -232,11 +228,11 @@ async function processSingle(
   const { data: inv, error: err } = await supabase.from('invoices').insert({
     tenant_id: tenant.id, user_id: userId, company_id: cid, source: 'upload',
     file_url: df.webViewLink, drive_link: df.webViewLink, drive_file_id: df.id, spreadsheet_id: sheetId,
-    document_type: g.document_type, cost_type: g.cost_type, metier: g.metier, nature_depense: g.nature_depense,
-    doc_date: g.doc_date, doc_year: g.doc_year, date_echeance: g.date_echeance,
+    document_type: g.document_type, category: g.category,
+    doc_date: g.doc_date, doc_year: g.doc_year, data_vencimento: g.data_vencimento,
     supplier_name: g.supplier_name, supplier_nif: g.supplier_nif, doc_number: g.doc_number,
-    montant_ht: g.montant_ht, taux_tva: g.taux_tva, montant_tva: g.montant_tva, montant_ttc: g.montant_ttc,
-    autoliquidation: g.autoliquidation, payment_method: g.payment_method, supplier_iban: g.supplier_iban,
+    valor_sem_iva: g.valor_sem_iva, taxa_iva: g.taxa_iva, valor_iva: g.valor_iva, valor_total: g.valor_total,
+    autoliquidacao: g.autoliquidacao, payment_method: g.payment_method, supplier_iban: g.supplier_iban,
     summary: g.summary, confidence_score: g.confidence_score,
     status: review ? 'review' : 'inbox', manual_review: review, review_reason: reviewReason,
     attachment_hash: attachmentHash,
@@ -253,7 +249,7 @@ async function processSingle(
   track(EVENTS.INVOICE_SAVED, {
     tenant_id: tenant.id,
     company_id: cid,
-    cost_type: g.cost_type,
+    category: g.category,
     document_type: g.document_type,
     needs_review: review,
     confidence_score: g.confidence_score,
@@ -264,7 +260,8 @@ async function processSingle(
     await supabase.from('invoice_line_items').insert(g.line_items.map((li, i) => ({
       tenant_id: tenant.id,
       invoice_id: inv.id, line_number: i + 1, description: li.description,
-      quantity: li.quantity, unit: li.unit, unit_price_ht: li.unit_price_ht, total_ht: li.total_ht, taux_tva: li.taux_tva,
+      quantity: li.quantity, unit: li.unit,
+      preco_unitario: li.preco_unitario, total_sem_iva: li.total_sem_iva, taxa_iva: li.taxa_iva,
     })));
   }
   await matchOrCreateSupplier(g, (inv as { id: string }).id, tenant.id);
@@ -273,9 +270,9 @@ async function processSingle(
     try {
       await appendInvoiceToSheet(token, sheetId, {
         doc_date: g.doc_date, supplier_name: g.supplier_name, supplier_nif: g.supplier_nif,
-        metier: g.metier, nature_depense: g.nature_depense, cost_type: g.cost_type, doc_number: g.doc_number,
-        montant_ht: g.montant_ht, montant_tva: g.montant_tva, montant_ttc: g.montant_ttc,
-        taux_tva: g.taux_tva, summary: g.summary, drive_link: df.webViewLink,
+        category: g.category, doc_number: g.doc_number,
+        valor_sem_iva: g.valor_sem_iva, valor_iva: g.valor_iva, valor_total: g.valor_total,
+        taxa_iva: g.taxa_iva, summary: g.summary, drive_link: df.webViewLink,
       }, tenant.language);
     } catch (err) {
       void reportError(err, {
@@ -305,7 +302,6 @@ export async function processInvoiceUpload(
     const tenant = await loadTenantContext(tenantId);
     if (!tenant) return [{ success: false, error: 'Configuração do tenant não encontrada.' }];
 
-    // Pré-check por hash do anexo: evita chamada Gemini se o mesmo binário já foi processado.
     const attachmentHash = await computeFileHash(file);
     const existing = await findByAttachmentHash(tenantId, attachmentHash);
     if (existing) {
@@ -337,10 +333,9 @@ export async function processInvoiceUpload(
       throw e;
     }
     const results: UploadResult[] = [];
-    // Unique index (tenant_id, attachment_hash) → só a 1ª invoice persistida leva o hash.
     let hashAssigned = false;
     for (const g of invoices) {
-      const cid = await detectCompanyId(tenantId, g.destinataire_name, defaultCompanyId ?? undefined);
+      const cid = await detectCompanyId(tenantId, g.destinatario_nome, defaultCompanyId ?? undefined);
       if (!cid) { results.push({ success: false, error: 'Empresa não encontrada para este tenant. Crie pelo menos uma empresa em Definições.' }); continue; }
       const hashForThis = hashAssigned ? null : attachmentHash;
       const result = await processSingle(g, file, cid, userId, token!, tenant, hashForThis);

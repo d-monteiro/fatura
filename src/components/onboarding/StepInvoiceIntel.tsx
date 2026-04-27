@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -87,6 +87,22 @@ function TagInput({ values, onAdd, onRemove, placeholder }: {
 }
 
 export function StepInvoiceIntel({ data, onChange }: Props) {
+  // Ao entrar no step pela primeira vez com variações vazias, pré-popular a partir
+  // do companyName. User pode apagar/editar. Garante prompt Gemini nunca fica sem
+  // marca da empresa — o campo mais crítico para anti-misclassification.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (data.invoiceNameVariations.length > 0) {
+      seededRef.current = true;
+      return;
+    }
+    const trimmed = data.companyName.trim();
+    if (!trimmed) return;
+    seededRef.current = true;
+    onChange({ invoiceNameVariations: [trimmed.toUpperCase()] });
+  }, [data.companyName, data.invoiceNameVariations.length, onChange]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -98,7 +114,11 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
 
       <div className="space-y-5">
         <div className="space-y-2">
-          <Label>Nome da sua empresa como aparece nas faturas</Label>
+          <Label>Nome da sua empresa como aparece nas faturas *</Label>
+          <p className="text-xs text-muted-foreground">
+            Adicione todas as formas como o nome aparece nos documentos (com e sem "Lda", abreviaturas, etc.).
+            Pelo menos uma variação é obrigatória.
+          </p>
           <TagInput
             values={data.invoiceNameVariations}
             onAdd={(v) => onChange({ invoiceNameVariations: [...data.invoiceNameVariations, v] })}

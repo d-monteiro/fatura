@@ -12,7 +12,7 @@ import { UploadResultList } from '@/components/upload/UploadResultList';
 import { ProcessingOverlay } from '@/components/upload/ProcessingOverlay';
 import { InstructionsCard } from '@/components/upload/InstructionsCard';
 import { useUploadDeps } from '@/hooks/useUploadDeps';
-import { useUploadQueue } from '@/hooks/useUploadQueue';
+import { useUploadQueue } from '@/contexts/UploadQueueContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -43,8 +43,11 @@ export default function Upload() {
   const {
     files, isProcessing, currentIndex, rateLimitError,
     completedCount, errorCount, totalCount, progress,
-    handleFiles, resetUpload, dismissRateLimit,
-  } = useUploadQueue(userId, accessToken, companyId, t, tenant?.id);
+    handleFiles: triggerHandle, resetUpload, dismissRateLimit,
+  } = useUploadQueue();
+
+  const handleFiles = (newFiles: File[]) =>
+    triggerHandle(newFiles, { userId, accessToken, companyId, tenantId: tenant?.id });
 
   const hasFiles = files.length > 0;
 

@@ -14,9 +14,8 @@ export interface ReportEmailInput {
   currency: string;
   kpis: PeriodKpis;
   topSuppliers: SupplierRow[];
-  costTypeBreakdown: BreakdownRow[];
-  metierBreakdown: BreakdownRow[];
-  previousPeriodTotalTtc: number;
+  categoryBreakdown: BreakdownRow[];
+  previousPeriodTotalGross: number;
   dashboardUrl: string;
   settingsUrl: string;
 }
@@ -84,7 +83,7 @@ function renderSuppliersTable(rows: SupplierRow[], currency: string): string {
   const body = rows.map((s) => `<tr style="border-top:1px solid #e5e7eb;">
     <td style="padding:8px 10px;">${esc(s.name)}</td>
     <td style="padding:8px 10px;text-align:right;">${s.invoicesCount}</td>
-    <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtMoney(s.totalTtc, currency))}</td>
+    <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtMoney(s.totalGross, currency))}</td>
   </tr>`).join("");
   return `<h2 style="margin:0 0 10px;font-size:14px;font-weight:600;">Principais fornecedores</h2>
   <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">${head}${body}</table>`;
@@ -92,9 +91,9 @@ function renderSuppliersTable(rows: SupplierRow[], currency: string): string {
 
 function renderBreakdown(title: string, rows: BreakdownRow[], currency: string, accent: string): string {
   if (rows.length === 0) return "";
-  const total = rows.reduce((a, b) => a + b.totalTtc, 0);
+  const total = rows.reduce((a, b) => a + b.totalGross, 0);
   const items = rows.slice(0, 6).map((r) => {
-    const pct = total > 0 ? Math.round((r.totalTtc / total) * 100) : 0;
+    const pct = total > 0 ? Math.round((r.totalGross / total) * 100) : 0;
     return `<tr>
       <td style="padding:6px 0;font-size:13px;width:40%;">${esc(r.label)}</td>
       <td style="padding:6px 8px;width:40%;">
@@ -102,7 +101,7 @@ function renderBreakdown(title: string, rows: BreakdownRow[], currency: string, 
           <div style="background:${accent};width:${pct}%;height:8px;"></div>
         </div>
       </td>
-      <td style="padding:6px 0;font-size:13px;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtMoney(r.totalTtc, currency))}</td>
+      <td style="padding:6px 0;font-size:13px;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtMoney(r.totalGross, currency))}</td>
     </tr>`;
   }).join("");
   return `<h2 style="margin:0 0 10px;font-size:14px;font-weight:600;">${esc(title)}</h2>
@@ -125,7 +124,7 @@ function renderSummary(kpis: PeriodKpis, delta: Delta, currency: string): string
   if (kpis.invoicesCount === 0) {
     return "Nenhuma fatura registada neste período.";
   }
-  const base = `${kpis.invoicesCount} ${kpis.invoicesCount === 1 ? "fatura registada" : "faturas registadas"}, ${fmtMoney(kpis.totalTtc, currency)}`;
+  const base = `${kpis.invoicesCount} ${kpis.invoicesCount === 1 ? "fatura registada" : "faturas registadas"}, ${fmtMoney(kpis.totalGross, currency)}`;
   if (!delta.hasPrevious) return `${base}.`;
   const trend = delta.label.startsWith("+") ? "acima" : delta.label.startsWith("-") ? "abaixo" : "idêntico";
   return `${base} (${delta.label} ${trend} do período anterior).`;
@@ -138,9 +137,9 @@ function renderTextPlain(input: ReportEmailInput, delta: Delta): string {
     `Período: ${periodStartLabel} a ${periodEndLabel}`,
     "",
     `Faturas: ${kpis.invoicesCount}`,
-    `Total HT: ${fmtMoney(kpis.totalHt, currency)}`,
-    `Total IVA: ${fmtMoney(kpis.totalTva, currency)}`,
-    `Total TTC: ${fmtMoney(kpis.totalTtc, currency)}`,
+    `Total s/ IVA: ${fmtMoney(kpis.totalNet, currency)}`,
+    `Total IVA: ${fmtMoney(kpis.totalIva, currency)}`,
+    `Total: ${fmtMoney(kpis.totalGross, currency)}`,
   ];
   if (delta.hasPrevious) lines.push(`Variação vs período anterior: ${delta.label}`);
   if (kpis.pendingCount > 0) lines.push(`Por validar: ${kpis.pendingCount}`);
@@ -152,7 +151,7 @@ function renderTextPlain(input: ReportEmailInput, delta: Delta): string {
 export function renderReportEmail(input: ReportEmailInput): ReportEmailOutput {
   const primary = safeColor(input.primaryColor, "#0E2435");
   const secondary = safeColor(input.secondaryColor, "#BBB388");
-  const delta = computeDelta(input.kpis.totalTtc, input.previousPeriodTotalTtc);
+  const delta = computeDelta(input.kpis.totalGross, input.previousPeriodTotalGross);
 
   const subject = input.periodKind === "weekly"
     ? `Relatório semanal ${input.periodStartLabel} – ${input.periodEndLabel}`
@@ -165,11 +164,8 @@ export function renderReportEmail(input: ReportEmailInput): ReportEmailOutput {
   const suppliersRow = input.topSuppliers.length > 0
     ? `<tr><td style="padding:0 24px 20px;">${renderSuppliersTable(input.topSuppliers, input.currency)}</td></tr>`
     : "";
-  const costTypeRow = input.costTypeBreakdown.length > 0
-    ? `<tr><td style="padding:0 24px 20px;">${renderBreakdown("Por tipo de custo", input.costTypeBreakdown, input.currency, primary)}</td></tr>`
-    : "";
-  const metierRow = input.metierBreakdown.length > 0
-    ? `<tr><td style="padding:0 24px 20px;">${renderBreakdown("Por categoria", input.metierBreakdown, input.currency, secondary)}</td></tr>`
+  const categoryRow = input.categoryBreakdown.length > 0
+    ? `<tr><td style="padding:0 24px 20px;">${renderBreakdown("Por categoria", input.categoryBreakdown, input.currency, secondary)}</td></tr>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -193,20 +189,19 @@ export function renderReportEmail(input: ReportEmailInput): ReportEmailOutput {
 <tr><td style="padding:12px 24px 20px;">
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
     <tr>
-      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total HT", fmtMoney(input.kpis.totalHt, input.currency))}</td>
-      <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("Total IVA", fmtMoney(input.kpis.totalTva, input.currency))}</td>
+      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total s/ IVA", fmtMoney(input.kpis.totalNet, input.currency))}</td>
+      <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("Total IVA", fmtMoney(input.kpis.totalIva, input.currency))}</td>
     </tr>
     <tr><td colspan="2" style="height:12px;line-height:12px;">&nbsp;</td></tr>
     <tr>
-      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total TTC", fmtMoney(input.kpis.totalTtc, input.currency))}</td>
+      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total", fmtMoney(input.kpis.totalGross, input.currency))}</td>
       <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("vs período anterior", delta.label, delta.color)}</td>
     </tr>
   </table>
 </td></tr>
 
 ${suppliersRow}
-${costTypeRow}
-${metierRow}
+${categoryRow}
 
 <tr><td style="padding:0 24px 20px;">${renderAlert(input.kpis, input.dashboardUrl, primary)}</td></tr>
 

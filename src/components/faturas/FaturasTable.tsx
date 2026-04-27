@@ -8,7 +8,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
 import type { Invoice } from '@/types/database';
 
-export type SortField = 'doc_date' | 'supplier_name' | 'metier' | 'nature_depense' | 'cost_type' | 'montant_ttc';
+export type SortField = 'doc_date' | 'supplier_name' | 'category' | 'valor_total';
 export type SortDir = 'asc' | 'desc';
 
 interface FaturasTableProps {
@@ -25,10 +25,8 @@ interface FaturasTableProps {
 const COLUMNS: { field: SortField; label: string; align?: 'right' }[] = [
   { field: 'doc_date', label: 'inv.date' },
   { field: 'supplier_name', label: 'inv.supplier' },
-  { field: 'metier', label: 'inv.metier' },
-  { field: 'nature_depense', label: 'inv.nature' },
-  { field: 'cost_type', label: 'inv.cost_type' },
-  { field: 'montant_ttc', label: 'inv.amount_ttc', align: 'right' },
+  { field: 'category', label: 'inv.category' },
+  { field: 'valor_total', label: 'inv.amount_total', align: 'right' },
 ];
 
 export function FaturasTable({
@@ -41,7 +39,6 @@ export function FaturasTable({
   const { labelFor } = useCategories(tenant?.id);
   const allSelected = invoices.length > 0 && invoices.every((inv) => selectedIds.has(inv.id));
 
-  // Mobile card view
   if (isMobile) {
     return (
       <div className="space-y-3">
@@ -58,7 +55,6 @@ export function FaturasTable({
     );
   }
 
-  // Desktop table view
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-card -mx-4 sm:mx-0">
       <table className="w-full min-w-[700px] text-sm">
@@ -94,21 +90,19 @@ export function FaturasTable({
               <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>
                 <div className="flex items-center gap-2">
                   <StatusBadge invoice={inv} />
-                  <span>{inv.supplier_name ?? '\u2014'}</span>
+                  <span>{inv.supplier_name ?? '—'}</span>
                 </div>
               </td>
-              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{labelFor('metier', inv.metier) || '\u2014'}</td>
-              <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{labelFor('nature_depense', inv.nature_depense) || '\u2014'}</td>
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>
-                {labelFor('cost_type', inv.cost_type) || '\u2014'}
+                {labelFor(inv.category) || '—'}
               </td>
               <td className="px-4 py-3 text-right font-medium text-gray-900" onClick={() => onRowClick(inv)}>
-                {formatEUR(inv.montant_ttc)}
+                {formatEUR(inv.valor_total)}
               </td>
             </tr>
           ))}
           {invoices.length === 0 && (
-            <tr><td colSpan={7} className="py-12 text-center text-gray-400">{t('inbox.empty')}</td></tr>
+            <tr><td colSpan={5} className="py-12 text-center text-gray-400">{t('inbox.empty')}</td></tr>
           )}
         </tbody>
       </table>

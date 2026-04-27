@@ -58,3 +58,29 @@ SELECT cron.schedule(
 
 -- Para remover:
 -- SELECT cron.unschedule('send-auto-reports-hourly');
+
+-- ============================================
+-- Alerta de prazos de pagamento (08h UTC diário)
+-- ============================================
+-- A Edge Function `check-due-dates` selecciona faturas por pagar com
+-- data_vencimento <= today+3d (ou já vencidas), ainda sem payment_notified_at,
+-- e envia 1 email consolidado por tenant. O trigger
+-- trg_reset_payment_notified em invoices reactiva notificação se o user
+-- editar data_vencimento.
+SELECT cron.schedule(
+  'check-due-dates-daily',
+  '0 8 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/check-due-dates',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cron-secret', '<CRON_SECRET_VALUE>'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+-- Para remover:
+-- SELECT cron.unschedule('check-due-dates-daily');

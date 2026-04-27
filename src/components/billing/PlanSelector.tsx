@@ -29,7 +29,7 @@ export function PlanSelector() {
 
   const onChoose = async (plan: Plan) => {
     if (plan.is_custom_pricing) {
-      window.location.href = 'mailto:comercial@flowzi.pt?subject=Plano%20Empresarial%20FaturaAI';
+      window.location.assign('mailto:comercial@flowzi.pt?subject=Plano%20Empresarial%20FaturaAI');
       return;
     }
     setBusySlug(plan.slug);

@@ -10,7 +10,7 @@ export interface UploadFileState {
   progress: number;
   error?: string;
   supplierName?: string;
-  montantTtc?: number;
+  valorTotal?: number;
   message?: string;
   // Referência ao File original — só existe enquanto está na fila de processamento.
   file?: File;
@@ -70,7 +70,7 @@ export function UploadResultList({ files, isProcessing, onClear }: Props) {
 
 function StatusMessage({ file, t }: { file: UploadFileState; t: (k: TranslationKey) => string }) {
   if (file.status === 'success' && file.supplierName) {
-    return <p className="text-xs text-gray-500">{file.supplierName} &middot; {formatEUR(file.montantTtc ?? null)}</p>;
+    return <p className="text-xs text-gray-500">{file.supplierName} &middot; {formatEUR(file.valorTotal ?? null)}</p>;
   }
   if (file.status === 'error' && file.error) {
     return <p className="text-xs text-red-500">{file.error}</p>;

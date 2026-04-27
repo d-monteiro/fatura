@@ -132,15 +132,29 @@ Deno.serve(async (req) => {
     }
     const tenantId = tenantUser.tenant_id;
 
-    if (companyId) {
+    let resolvedCompanyId: string | null = companyId ?? null;
+
+    if (resolvedCompanyId) {
       const { data: company } = await supabase
         .from("companies")
         .select("id")
-        .eq("id", companyId)
+        .eq("id", resolvedCompanyId)
         .eq("tenant_id", tenantId)
         .maybeSingle();
       if (!company) {
         return redirectWithError(frontendUrl, redirectPath, "Empresa inacessível");
+      }
+    } else {
+      // OAuth sem empresa explícita (ex.: vindo do onboarding). Se o tenant só
+      // tem 1 empresa activa, ligar automaticamente — caso contrário sync-email
+      // fica preso em "no_accounts" porque email_accounts nunca é criada.
+      const { data: companies } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true);
+      if (companies?.length === 1) {
+        resolvedCompanyId = companies[0].id;
       }
     }
 
@@ -223,11 +237,11 @@ Deno.serve(async (req) => {
       tokenRowId = inserted.id;
     }
 
-    if (companyId && tokenRowId) {
+    if (resolvedCompanyId && tokenRowId) {
       await supabase
         .from("companies")
         .update({ email: userInfo.email, oauth_token_id: tokenRowId })
-        .eq("id", companyId)
+        .eq("id", resolvedCompanyId)
         .eq("tenant_id", tenantId);
 
       const { data: existingEA } = await supabase
@@ -238,7 +252,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (existingEA) {
         await supabase.from("email_accounts").update({
-          company_id: companyId, oauth_token_id: tokenRowId, is_active: true,
+          company_id: resolvedCompanyId, oauth_token_id: tokenRowId, is_active: true,
         }).eq("id", existingEA.id);
       } else {
         await supabase.from("email_accounts").insert({
@@ -246,7 +260,7 @@ Deno.serve(async (req) => {
           user_id: userId,
           email: userInfo.email,
           provider: "gmail",
-          company_id: companyId,
+          company_id: resolvedCompanyId,
           oauth_token_id: tokenRowId,
           is_active: true,
         });

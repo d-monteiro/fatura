@@ -13,7 +13,7 @@ interface MobileInvoiceCardProps {
 export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) {
   const { tenant } = useTenant();
   const { labelFor } = useCategories(tenant?.id);
-  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
+  const categoryLabel = labelFor(invoice.category) || null;
 
   return (
     <div
@@ -25,17 +25,17 @@ export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="truncate font-semibold text-gray-900">
-              {invoice.supplier_name ?? '\u2014'}
+              {invoice.supplier_name ?? '—'}
             </span>
             <StatusBadge invoice={invoice} />
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span>{formatDatePT(invoice.doc_date)}</span>
-            {costLabel && (
+            {categoryLabel && (
               <>
-                <span>&middot;</span>
+                <span>·</span>
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                  {costLabel}
+                  {categoryLabel}
                 </span>
               </>
             )}
@@ -43,7 +43,7 @@ export function MobileInvoiceCard({ invoice, onClick }: MobileInvoiceCardProps) 
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className="text-base font-bold text-gray-900">
-            {formatEUR(invoice.montant_ttc)}
+            {formatEUR(invoice.valor_total)}
           </span>
           <ChevronRight className="h-5 w-5 text-gray-400" />
         </div>

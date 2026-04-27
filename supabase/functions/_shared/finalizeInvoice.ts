@@ -1,18 +1,15 @@
-// ============================================
 // finalizeInvoice — completa o pipeline depois do Gemini:
 //   dedup → company detect → supplier match → validate → Drive hierarchy →
 //   upload Drive → Sheets append → (opcional) limpa Storage.
 // Chamado por analyze-document (fim do modo by-invoice) e por reprocess-pending.
 // Idempotente: se drive_file_id já existe, salta upload/sheets.
-// ============================================
 
 import type { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  ensureFolder,
   fileExistsById,
-  getOrCreateYearlySheet,
   uploadInvoiceToDrive,
 } from "./drive.ts";
+import { ensureFolderPath, ensureYearlySheet } from "./driveFolders.ts";
 import { appendInvoiceToSheet } from "./sheets.ts";
 import { formatMonthFolder } from "./months.ts";
 import { normalizeSupplierName, type KnownSupplier } from "./suppliers.ts";
@@ -22,7 +19,6 @@ import { logEdgeError } from "./logError.ts";
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
 export interface FinalizeOptions {
-  // Se true, remove o ficheiro do bucket após Drive confirmado.
   deleteStorageAfterDrive?: boolean;
 }
 
@@ -53,15 +49,13 @@ interface InvoiceRow {
   supplier_name: string | null;
   supplier_nif: string | null;
   supplier_id: string | null;
-  cost_type: string | null;
-  metier: string | null;
-  nature_depense: string | null;
-  montant_ht: number | null;
-  montant_tva: number | null;
-  montant_ttc: number | null;
-  taux_tva: number | null;
+  category: string | null;
+  valor_sem_iva: number | null;
+  valor_iva: number | null;
+  valor_total: number | null;
+  taxa_iva: number | null;
   summary: string | null;
-  destinataire_name: string | null;
+  destinatario_nome: string | null;
   review_reason: string | null;
   manual_review: boolean | null;
 }
@@ -71,6 +65,7 @@ interface TenantRow {
   language: string | null;
   folder_structure: string | null;
   drive_root_folder_name: string | null;
+  drive_root_folder_id: string | null;
   auto_sheets: boolean | null;
 }
 
@@ -95,10 +90,9 @@ export async function finalizeInvoice(
 
   log("start", "begin", { opts });
 
-  // 1. Load invoice
   const { data: invRaw, error: invErr } = await admin
     .from("invoices")
-    .select("id, tenant_id, user_id, company_id, status, source, storage_path, file_url, drive_file_id, drive_link, spreadsheet_id, doc_date, doc_year, doc_number, supplier_name, supplier_nif, supplier_id, cost_type, metier, nature_depense, montant_ht, montant_tva, montant_ttc, taux_tva, summary, destinataire_name, review_reason, manual_review")
+    .select("id, tenant_id, user_id, company_id, status, source, storage_path, file_url, drive_file_id, drive_link, spreadsheet_id, doc_date, doc_year, doc_number, supplier_name, supplier_nif, supplier_id, category, valor_sem_iva, valor_iva, valor_total, taxa_iva, summary, destinatario_nome, review_reason, manual_review")
     .eq("id", invoiceId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -113,21 +107,18 @@ export async function finalizeInvoice(
   }
   const invoice = invRaw as unknown as InvoiceRow;
 
-  // Idempotência: se já tem drive_file_id, salta — só faz sheets se faltar.
   if (invoice.drive_file_id) {
     log("idempotent", "drive_file_id já existe");
     return { ok: true, invoiceId, stage: "already_done", drive_file_id: invoice.drive_file_id, already_done: true };
   }
 
-  if (!invoice.supplier_name && !invoice.montant_ttc) {
-    // Sem dados do Gemini — nada a fazer aqui.
+  if (!invoice.supplier_name && !invoice.valor_total) {
     return { ok: false, invoiceId, stage: "no_gemini_data", reason: "Gemini não preencheu os dados" };
   }
 
-  // 2. Load tenant
   const { data: tenantRaw } = await admin
     .from("tenants")
-    .select("id, language, folder_structure, drive_root_folder_name, auto_sheets")
+    .select("id, language, folder_structure, drive_root_folder_name, drive_root_folder_id, auto_sheets")
     .eq("id", invoice.tenant_id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -141,7 +132,6 @@ export async function finalizeInvoice(
   const rootFolderName = tenant.drive_root_folder_name ?? "FATURAS";
   const autoSheets = tenant.auto_sheets !== false;
 
-  // 3. OAuth token (primary Google account do user)
   const userId = invoice.user_id;
   if (!userId) {
     await markReason(admin, invoiceId, "Invoice sem user_id");
@@ -154,7 +144,6 @@ export async function finalizeInvoice(
   }
   log("token", "ok");
 
-  // 4. Load companies + suppliers para matching
   const { data: companiesRaw } = await admin
     .from("companies")
     .select("id, name, short_name, is_active, is_default")
@@ -179,14 +168,9 @@ export async function finalizeInvoice(
     variations: s.name_variations ?? [],
   }));
 
-  // 5. Normalizar supplier_name (contra lista do tenant)
   const normalizedSupplier = normalizeSupplierName(invoice.supplier_name, knownSuppliers);
   const supplierChanged = normalizedSupplier !== invoice.supplier_name;
 
-  // 6. Dedup por doc_number OR (supplier, data, total) — soft-delete em vez de
-  // status=failed: o ficheiro original já está na invoice "vencedora", esta
-  // linha é só ruído. Mantém o registo para audit mas tira-o do UI e liberta
-  // o Storage. reprocess-pending ignora (só apanha deleted_at IS NULL).
   const dup = await findDuplicate(admin, invoice, normalizedSupplier);
   if (dup) {
     await admin.from("invoices").update({
@@ -202,8 +186,7 @@ export async function finalizeInvoice(
     return { ok: true, invoiceId, stage: "dedup", reason: `dup_of:${dup}`, already_done: true };
   }
 
-  // 7. Company detection (override via destinataire_name)
-  const detectedCompanyId = detectCompany(companies, invoice.destinataire_name, invoice.company_id);
+  const detectedCompanyId = detectCompany(companies, invoice.destinatario_nome, invoice.company_id);
   if (!detectedCompanyId) {
     await markReason(admin, invoiceId, "Não foi possível detectar a empresa");
     return { ok: false, invoiceId, stage: "company_detect", reason: "no_company" };
@@ -211,7 +194,6 @@ export async function finalizeInvoice(
   const company = companies.find((c) => c.id === detectedCompanyId)!;
   log("company", `id=${detectedCompanyId} name=${company.name}`);
 
-  // 8. Supplier match/create
   let supplierId = invoice.supplier_id;
   if (!supplierId && normalizedSupplier) {
     supplierId = await matchOrCreateSupplier(
@@ -219,39 +201,48 @@ export async function finalizeInvoice(
     );
   }
 
-  // 9. validateMontants
-  const vm = validateMontants(invoice.montant_ht, invoice.montant_tva, invoice.montant_ttc, invoice.taux_tva);
+  const vm = validateMontants(invoice.valor_sem_iva, invoice.valor_iva, invoice.valor_total, invoice.taxa_iva);
   const needsReviewFromValidation = !vm.valid;
 
-  // 10. Folder path
   const coName = (company.short_name || company.name || "EMPRESA").trim();
   const yearCandidate = invoice.doc_year || (invoice.doc_date ? new Date(invoice.doc_date).getFullYear() : new Date().getFullYear());
   const monthIdx = invoice.doc_date ? new Date(invoice.doc_date).getMonth() : new Date().getMonth();
   const monthLabel = formatMonthFolder(monthIdx, language);
-  const costTypeLabel = invoice.cost_type
-    ? invoice.cost_type.charAt(0).toUpperCase() + invoice.cost_type.slice(1).replace(/_/g, " ")
+  const categoryLabel = invoice.category
+    ? invoice.category.charAt(0).toUpperCase() + invoice.category.slice(1).replace(/_/g, " ")
     : "Outros";
-  const path = buildFolderPath(folderStructure, rootFolderName, coName, yearCandidate, monthLabel, costTypeLabel, normalizedSupplier || "OUTROS");
+  const path = buildFolderPath(folderStructure, rootFolderName, coName, yearCandidate, monthLabel, categoryLabel, normalizedSupplier || "OUTROS");
 
-  let parentId = "";
+  let parentId: string;
+  let yearFolderId: string;
   try {
-    for (const segment of path) {
-      parentId = await ensureFolder(accessToken, segment, parentId || null);
-    }
-    log("folders", `path=${path.join("/")} parent=${parentId}`);
+    const { leafId, segmentIds } = await ensureFolderPath(admin, invoice.tenant_id, path, accessToken);
+    parentId = leafId;
+    yearFolderId = segmentIds[2] ?? leafId;
+    log("folders", `path=${path.join("/")} leaf=${parentId} year=${yearFolderId}`);
   } catch (e) {
     await logAndReview(admin, invoiceId, runId, invoice.tenant_id, "drive_folders", e);
     return { ok: false, invoiceId, stage: "drive_folders", reason: errString(e) };
   }
 
-  // 11. Yearly sheet
+  if (!tenant.drive_root_folder_id) {
+    const { data: rootRow } = await admin
+      .from("drive_folders")
+      .select("folder_id")
+      .eq("tenant_id", invoice.tenant_id)
+      .eq("path", rootFolderName)
+      .not("folder_id", "is", null)
+      .maybeSingle();
+    const rootId = (rootRow as { folder_id: string } | null)?.folder_id;
+    if (rootId) {
+      await admin.from("tenants").update({ drive_root_folder_id: rootId }).eq("id", invoice.tenant_id);
+    }
+  }
+
   let sheetId: string | null = invoice.spreadsheet_id;
   if (autoSheets && !sheetId) {
     try {
-      const yearRoot = await ensureFolder(accessToken, rootFolderName, null);
-      const coFolder = await ensureFolder(accessToken, coName, yearRoot);
-      const yearFolder = await ensureFolder(accessToken, String(yearCandidate), coFolder);
-      sheetId = await getOrCreateYearlySheet(accessToken, yearCandidate, yearFolder, language);
+      sheetId = await ensureYearlySheet(admin, invoice.tenant_id, yearCandidate, yearFolderId, accessToken, language);
       log("sheets", `sheet_id=${sheetId}`);
     } catch (e) {
       await logEdgeError({
@@ -264,7 +255,6 @@ export async function finalizeInvoice(
     }
   }
 
-  // 12. Download Storage → Upload Drive
   if (!invoice.storage_path) {
     await markReason(admin, invoiceId, "Sem storage_path para upload ao Drive");
     return { ok: false, invoiceId, stage: "download", reason: "no_storage_path" };
@@ -279,7 +269,7 @@ export async function finalizeInvoice(
   const bytes = new Uint8Array(await file.arrayBuffer());
   const mime = (file.type || "application/pdf").toLowerCase();
   const ext = mime.includes("pdf") ? "pdf" : mime.includes("png") ? "png" : "jpg";
-  const safeName = `${invoice.doc_date || "sem-data"}_${normalizedSupplier || "SEM_FORNECEDOR"}_${(invoice.montant_ttc ?? 0).toFixed(2)}.${ext}`
+  const safeName = `${invoice.doc_date || "sem-data"}_${normalizedSupplier || "SEM_FORNECEDOR"}_${(invoice.valor_total ?? 0).toFixed(2)}.${ext}`
     .replace(/[/\\?%*:|"<>]/g, "_");
 
   let driveFileId = "";
@@ -294,7 +284,6 @@ export async function finalizeInvoice(
     return { ok: false, invoiceId, stage: "drive_upload", reason: errString(e) };
   }
 
-  // 13. Persist IDs ANTES de Sheets/Storage cleanup — garante que não perdemos o Drive ID
   const updateBeforeSheets: Record<string, unknown> = {
     drive_file_id: driveFileId,
     drive_link: driveLink,
@@ -316,24 +305,20 @@ export async function finalizeInvoice(
       error: updErr, userId, tenantId: invoice.tenant_id,
       metadata: { run_id: runId, invoice_id: invoiceId, drive_file_id: driveFileId },
     });
-    // Não retornamos — o Drive já foi feito. Continuamos para Sheets.
   }
 
-  // 14. Append Sheets
   if (sheetId) {
     try {
       await appendInvoiceToSheet(accessToken, sheetId, {
         doc_date: invoice.doc_date,
         supplier_name: normalizedSupplier,
         supplier_nif: invoice.supplier_nif,
-        metier: invoice.metier,
-        nature_depense: invoice.nature_depense,
-        cost_type: invoice.cost_type,
+        category: invoice.category,
         doc_number: invoice.doc_number,
-        montant_ht: invoice.montant_ht,
-        montant_tva: invoice.montant_tva,
-        montant_ttc: invoice.montant_ttc,
-        taux_tva: invoice.taux_tva,
+        valor_sem_iva: invoice.valor_sem_iva,
+        valor_iva: invoice.valor_iva,
+        valor_total: invoice.valor_total,
+        taxa_iva: invoice.taxa_iva,
         summary: invoice.summary,
         drive_link: driveLink,
       }, language);
@@ -348,13 +333,11 @@ export async function finalizeInvoice(
     }
   }
 
-  // 15. Cleanup Storage — só depois de confirmar que o file existe no Drive
   if (opts.deleteStorageAfterDrive) {
     try {
       const exists = await fileExistsById(accessToken, driveFileId);
       if (exists) {
         await admin.storage.from("invoices").remove([invoice.storage_path]);
-        // file_url passa a Drive link; storage_path null indica "não está cá"
         await admin.from("invoices").update({
           file_url: driveLink,
           storage_path: null,
@@ -376,8 +359,6 @@ export async function finalizeInvoice(
   log("done", `drive=${driveFileId}`);
   return { ok: true, invoiceId, stage: "done", drive_file_id: driveFileId };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function ensureFreshAccessToken(
   admin: SupabaseAdmin,
@@ -478,7 +459,6 @@ async function findDuplicate(
   invoice: InvoiceRow,
   normalizedSupplier: string | null,
 ): Promise<string | null> {
-  // Doc number — match exacto dentro do tenant+company
   if (invoice.doc_number && invoice.company_id) {
     const { data } = await admin.from("invoices")
       .select("id, doc_number")
@@ -490,15 +470,14 @@ async function findDuplicate(
       .limit(1);
     if (data && data.length > 0) return (data[0].id as string);
   }
-  // Fallback: supplier + data + total
-  if (normalizedSupplier && invoice.doc_date && invoice.montant_ttc !== null && invoice.company_id) {
+  if (normalizedSupplier && invoice.doc_date && invoice.valor_total !== null && invoice.company_id) {
     const { data } = await admin.from("invoices")
       .select("id")
       .eq("tenant_id", invoice.tenant_id)
       .eq("company_id", invoice.company_id)
       .ilike("supplier_name", normalizedSupplier)
       .eq("doc_date", invoice.doc_date)
-      .eq("montant_ttc", invoice.montant_ttc)
+      .eq("valor_total", invoice.valor_total)
       .is("deleted_at", null)
       .neq("id", invoice.id)
       .limit(1);
@@ -509,11 +488,11 @@ async function findDuplicate(
 
 function detectCompany(
   companies: CompanyRow[],
-  destinataireName: string | null,
+  destinatarioNome: string | null,
   currentCompanyId: string | null,
 ): string | null {
-  if (destinataireName) {
-    const d = destinataireName.toLowerCase();
+  if (destinatarioNome) {
+    const d = destinatarioNome.toLowerCase();
     const match = companies.find((c) => {
       const nm = c.name.toLowerCase();
       const sn = (c.short_name ?? "").toLowerCase();
@@ -522,7 +501,6 @@ function detectCompany(
     if (match) return match.id;
   }
   if (currentCompanyId && companies.some((c) => c.id === currentCompanyId)) return currentCompanyId;
-  // Default: is_default, ou primeira
   return companies[0]?.id ?? null;
 }
 
@@ -550,12 +528,12 @@ function buildFolderPath(
   companyName: string,
   year: number,
   monthLabel: string,
-  costTypeLabel: string,
+  categoryLabel: string,
   supplierName: string,
 ): string[] {
   switch (structure) {
     case "year_type":
-      return [root, companyName, String(year), costTypeLabel || "Outros"];
+      return [root, companyName, String(year), categoryLabel || "Outros"];
     case "year_supplier":
       return [root, companyName, String(year), supplierName || "OUTROS"];
     case "year_month":

@@ -13,8 +13,8 @@ import type { Invoice } from '@/types/database';
 
 export type InvoicePatch = Partial<Pick<Invoice,
   | 'supplier_name' | 'supplier_nif' | 'doc_number' | 'doc_date'
-  | 'montant_ht' | 'montant_tva' | 'montant_ttc' | 'taux_tva'
-  | 'metier' | 'nature_depense' | 'cost_type' | 'summary'
+  | 'valor_sem_iva' | 'valor_iva' | 'valor_total' | 'taxa_iva'
+  | 'category' | 'summary'
 >>;
 
 export interface UpdateInvoiceResult {
@@ -25,10 +25,6 @@ export interface UpdateInvoiceResult {
   invoice?: Invoice;
 }
 
-/**
- * Edita fatura em Supabase e propaga ao Google Sheets em best-effort.
- * Supabase é fonte da verdade; falha no Sheets → warning, não bloqueia.
- */
 export async function updateInvoiceEverywhere(input: {
   invoice: Invoice;
   updates: InvoicePatch;
@@ -61,7 +57,7 @@ export async function updateInvoiceEverywhere(input: {
     const rowIndex = await findInvoiceRowIndex(accessToken, invoice.spreadsheet_id!, sheetName, {
       doc_number: invoice.doc_number,
       supplier_name: invoice.supplier_name,
-      montant_ttc: invoice.montant_ttc,
+      valor_total: invoice.valor_total,
       doc_date: invoice.doc_date,
     });
 
@@ -115,14 +111,12 @@ function mapPatchToSheetRow(patch: InvoicePatch): InvoiceRowUpdates {
   if (patch.doc_date !== undefined) out.doc_date = patch.doc_date;
   if (patch.supplier_name !== undefined) out.supplier_name = patch.supplier_name;
   if (patch.supplier_nif !== undefined) out.supplier_nif = patch.supplier_nif;
-  if (patch.metier !== undefined) out.metier = patch.metier;
-  if (patch.nature_depense !== undefined) out.nature_depense = patch.nature_depense;
-  if (patch.cost_type !== undefined) out.cost_type = patch.cost_type;
+  if (patch.category !== undefined) out.category = patch.category;
   if (patch.doc_number !== undefined) out.doc_number = patch.doc_number;
-  if (patch.montant_ht !== undefined) out.montant_ht = patch.montant_ht;
-  if (patch.montant_tva !== undefined) out.montant_tva = patch.montant_tva;
-  if (patch.montant_ttc !== undefined) out.montant_ttc = patch.montant_ttc;
-  if (patch.taux_tva !== undefined) out.taux_tva = patch.taux_tva;
+  if (patch.valor_sem_iva !== undefined) out.valor_sem_iva = patch.valor_sem_iva;
+  if (patch.valor_iva !== undefined) out.valor_iva = patch.valor_iva;
+  if (patch.valor_total !== undefined) out.valor_total = patch.valor_total;
+  if (patch.taxa_iva !== undefined) out.taxa_iva = patch.taxa_iva;
   if (patch.summary !== undefined) out.summary = patch.summary;
   return out;
 }

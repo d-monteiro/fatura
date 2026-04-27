@@ -1,17 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
-import { COST_TYPE_LABELS, METIER_LABELS, NATURE_LABELS } from '@/lib/constants';
-import type { Category as DbCategory, Metier, NatureDepense, CostType } from '@/types/database';
+import { FALLBACK_CATEGORY_LABELS } from '@/lib/constants';
+import type { Category as DbCategory } from '@/types/database';
 
-export type Category = Pick<DbCategory, 'id' | 'axis' | 'code' | 'label' | 'sort_order'>;
+export type Category = Pick<DbCategory, 'id' | 'code' | 'label' | 'sort_order' | 'is_fixed'>;
 
-export interface CategoriesByAxis {
-  cost_type: Category[];
-  metier: Category[];
-  nature_depense: Category[];
-}
-
-const EMPTY: CategoriesByAxis = { cost_type: [], metier: [], nature_depense: [] };
+const EMPTY: Category[] = [];
 
 export function useCategories(tenantId: string | null | undefined) {
   const { data = EMPTY, isLoading } = useQuery({
@@ -21,29 +15,27 @@ export function useCategories(tenantId: string | null | undefined) {
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from('categories')
-        .select('id, axis, code, label, sort_order')
+        .select('id, code, label, sort_order, is_fixed')
         .eq('tenant_id', tenantId!)
+        .eq('axis', 'category')
         .eq('is_active', true)
         .order('sort_order');
       if (error) throw error;
-      const grouped: CategoriesByAxis = { cost_type: [], metier: [], nature_depense: [] };
-      (rows ?? []).forEach((row) => {
-        const axis = row.axis as Category['axis'];
-        if (axis in grouped) grouped[axis].push(row as Category);
-      });
-      return grouped;
+      return (rows ?? []) as Category[];
     },
   });
 
-  const labelFor = (axis: Category['axis'], code: string | null | undefined): string => {
+  const labelFor = (code: string | null | undefined): string => {
     if (!code) return '';
-    const dynamic = data[axis].find((c) => c.code === code)?.label;
+    const dynamic = data.find((c) => c.code === code)?.label;
     if (dynamic) return dynamic;
-    if (axis === 'metier') return METIER_LABELS[code as Metier] ?? code;
-    if (axis === 'nature_depense') return NATURE_LABELS[code as NatureDepense] ?? code;
-    if (axis === 'cost_type') return COST_TYPE_LABELS[code as CostType] ?? code;
-    return code;
+    return FALLBACK_CATEGORY_LABELS[code] ?? code;
   };
 
-  return { categories: data, loading: isLoading, labelFor };
+  const isFixed = (code: string | null | undefined): boolean => {
+    if (!code) return false;
+    return data.find((c) => c.code === code)?.is_fixed ?? false;
+  };
+
+  return { categories: data, loading: isLoading, labelFor, isFixed };
 }

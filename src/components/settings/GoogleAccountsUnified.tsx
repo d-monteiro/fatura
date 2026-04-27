@@ -43,10 +43,13 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
   });
 
   const { data: companies = [] } = useQuery<Pick<Company, 'id' | 'name'>[]>({
-    queryKey: queryKeys.companies,
+    queryKey: [...queryKeys.companies, tenant?.id],
     queryFn: async () => {
+      if (!tenant?.id) return [];
       const { data } = await supabase
-        .from('companies').select('id, name').eq('is_active', true);
+        .from('companies').select('id, name')
+        .eq('tenant_id', tenant.id)
+        .eq('is_active', true);
       return (data as Pick<Company, 'id' | 'name'>[] | null) ?? [];
     },
     enabled: !!tenant?.id,

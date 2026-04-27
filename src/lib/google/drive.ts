@@ -49,7 +49,16 @@ async function getTokenInfo(accessToken: string): Promise<{ scopes: string[]; em
 }
 
 /**
- * Encontra ou cria uma pasta (com parent opcional)
+ * Encontra ou cria uma pasta (com parent opcional).
+ *
+ * DEPRECATED sob concorrência: check-then-create não é atómico e o Drive
+ * permite pastas duplicadas com o mesmo nome no mesmo parent. O backend usa
+ * `ensureFolderPath` (supabase/functions/_shared/driveFolders.ts) que serializa
+ * via tabela `drive_folders`. O upload manual no frontend ainda usa este path;
+ * para reduzir a exposição, o search abaixo pede `orderBy=createdTime` (devolve
+ * o mais antigo em duplicados legacy em vez de aleatório) — mas não elimina o
+ * race entre uploads simultâneos. TODO: migrar invoiceProcessor.ts para chamar
+ * a Edge Function e eliminar este code path.
  */
 export async function ensureFolder(
   accessToken: string,
@@ -66,13 +75,15 @@ export async function ensureFolder(
   let query = `mimeType='application/vnd.google-apps.folder' and name='${safeName}' and trashed=false`;
   if (parentId) {
     query += ` and '${parentId}' in parents`;
+  } else {
+    query += ` and 'root' in parents`;
   }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   const searchResponse = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
       signal: controller.signal,
@@ -152,7 +163,10 @@ async function checkFileExists(
   const query = `name='${safeFileName}' and '${parentId}' in parents and trashed=false`;
   const t = createTimeoutSignal(DRIVE_TIMEOUT_MS);
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    // orderBy=createdTime: se o bug antigo deixou duplicados, adoptamos o mais
+    // antigo (o que `ensureFolderPath` do backend também escolhe) — comportamento
+    // consistente entre pipelines.
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime`,
     { headers: { Authorization: `Bearer ${accessToken}` }, signal: t.signal }
   );
   t.clear();

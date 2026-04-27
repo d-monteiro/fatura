@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.send-auto-reports]
 verify_jwt = false
+
+[functions.drive-folders-dedup]
+verify_jwt = false

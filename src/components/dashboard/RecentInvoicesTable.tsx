@@ -19,7 +19,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
     queryFn: async () => {
       let query = supabase
         .from('invoices')
-        .select('id, doc_date, supplier_name, metier, nature_depense, montant_ttc, status')
+        .select('id, doc_date, supplier_name, category, valor_total, status')
         .is('deleted_at', null)
         .order('doc_date', { ascending: false })
         .limit(5);
@@ -30,7 +30,7 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as Pick<Invoice, 'id' | 'doc_date' | 'supplier_name' | 'metier' | 'nature_depense' | 'montant_ttc' | 'status'>[];
+      return data as Pick<Invoice, 'id' | 'doc_date' | 'supplier_name' | 'category' | 'valor_total' | 'status'>[];
     },
   });
 
@@ -60,8 +60,8 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
             <tr className="border-b border-gray-100 text-left text-gray-500">
               <th className="px-4 pb-3 font-medium sm:px-0">{t('inv.date')}</th>
               <th className="px-4 pb-3 font-medium sm:px-0">{t('inv.supplier')}</th>
-              <th className="hidden pb-3 font-medium sm:table-cell">{t('inv.metier')}</th>
-              <th className="px-4 pb-3 text-right font-medium sm:px-0">{t('inv.amount_ttc')}</th>
+              <th className="hidden pb-3 font-medium sm:table-cell">{t('inv.category')}</th>
+              <th className="px-4 pb-3 text-right font-medium sm:px-0">{t('inv.amount_total')}</th>
               <th className="px-4 pb-3 text-right font-medium sm:pl-6 sm:pr-0">{t('inv.status')}</th>
             </tr>
           </thead>
@@ -74,9 +74,9 @@ export function RecentInvoicesTable({ companyId }: RecentInvoicesTableProps) {
               >
                 <td className="px-4 py-3 text-gray-600 sm:px-0">{formatDatePT(inv.doc_date)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900 sm:px-0">{inv.supplier_name ?? '\u2014'}</td>
-                <td className="hidden py-3 text-gray-600 sm:table-cell">{inv.metier ?? '\u2014'}</td>
+                <td className="hidden py-3 text-gray-600 sm:table-cell">{inv.category ?? '\u2014'}</td>
                 <td className="px-4 py-3 text-right font-medium text-gray-900 sm:px-0">
-                  {formatEUR(inv.montant_ttc)}
+                  {formatEUR(inv.valor_total)}
                 </td>
                 <td className="px-4 py-3 text-right sm:pl-6 sm:pr-0">
                   <StatusBadge status={inv.status} />

@@ -5,11 +5,13 @@ import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TenantProvider } from '@/contexts/TenantContext';
 import { I18nProvider } from '@/contexts/I18nContext';
+import { UploadQueueProvider } from '@/contexts/UploadQueueContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RequireTenant } from '@/components/common/RequireTenant';
 import Dashboard from '@/pages/Dashboard';
 import Faturas from '@/pages/Faturas';
+import Duplicates from '@/pages/Duplicates';
 import Upload from '@/pages/Upload';
 import Fornecedores from '@/pages/Fornecedores';
 import Login from '@/pages/Login';
@@ -22,6 +24,7 @@ import AccountSuspended from '@/pages/AccountSuspended';
 import Tickets from '@/pages/Tickets';
 import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms';
+import InviteAccept from '@/pages/InviteAccept';
 import { FeedbackWidget } from '@/components/tickets/FeedbackWidget';
 import { ErrorBoundary } from '@/lib/errors/errorBoundary';
 import AdminLayout from '@/pages/admin/AdminLayout';
@@ -43,7 +46,6 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
-      refetchOnMount: false,
     },
   },
   queryCache: new QueryCache({
@@ -86,6 +88,7 @@ function AppRoutes() {
         <Route path="login" element={<Login />} />
         <Route path="onboarding" element={<Onboarding />} />
         <Route path="auth/callback" element={<AuthCallback />} />
+        <Route path="invite/:token" element={<InviteAccept />} />
         <Route path="legal/privacy" element={<Privacy />} />
         <Route path="legal/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -98,6 +101,7 @@ function AppRoutes() {
       <Route path="onboarding" element={<Onboarding />} />
       <Route path="onboarding/thanks" element={<OnboardingThanks />} />
       <Route path="auth/callback" element={<AuthCallback />} />
+      <Route path="invite/:token" element={<InviteAccept />} />
       <Route path="account/suspended" element={<AccountSuspended />} />
       <Route path="legal/privacy" element={<Privacy />} />
       <Route path="legal/terms" element={<Terms />} />
@@ -110,9 +114,10 @@ function AppRoutes() {
         <Route path="onboarding" element={<AdminOnboarding />} />
         <Route path="admins" element={<AdminAdmins />} />
       </Route>
-      <Route element={<RequireTenant><AppLayout /></RequireTenant>}>
+      <Route element={<RequireTenant><UploadQueueProvider><AppLayout /></UploadQueueProvider></RequireTenant>}>
         <Route index element={<Dashboard />} />
         <Route path="invoices" element={<Faturas />} />
+        <Route path="invoices/duplicates" element={<Duplicates />} />
         <Route path="upload" element={<Upload />} />
         <Route path="suppliers" element={<Fornecedores />} />
         <Route path="billing" element={<Billing />} />

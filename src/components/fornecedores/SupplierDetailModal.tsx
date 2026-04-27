@@ -36,13 +36,13 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, doc_date, doc_number, montant_ttc, status')
+        .select('id, doc_date, doc_number, valor_total, status')
         .eq('supplier_id', supplier.id)
         .is('deleted_at', null)
         .order('doc_date', { ascending: false })
         .limit(10);
       if (error) throw error;
-      return data as Pick<Invoice, 'id' | 'doc_date' | 'doc_number' | 'montant_ttc' | 'status'>[];
+      return data as Pick<Invoice, 'id' | 'doc_date' | 'doc_number' | 'valor_total' | 'status'>[];
     },
   });
 
@@ -114,7 +114,7 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
                     <tr className="border-b bg-gray-50/50 text-left">
                       <th className="px-3 py-2 font-medium text-gray-500">{t('inv.date')}</th>
                       <th className="px-3 py-2 font-medium text-gray-500">{t('inv.doc_number')}</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-500">{t('inv.amount_ttc')}</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500">{t('inv.amount_total')}</th>
                       <th className="px-3 py-2 font-medium text-gray-500">{t('inv.status')}</th>
                     </tr>
                   </thead>
@@ -123,7 +123,7 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
                       <tr key={inv.id} className="border-b border-gray-50">
                         <td className="px-3 py-2 text-gray-600">{formatDatePT(inv.doc_date)}</td>
                         <td className="px-3 py-2 font-mono text-xs text-gray-600">{inv.doc_number ?? '---'}</td>
-                        <td className="px-3 py-2 text-right font-medium">{formatEUR(inv.montant_ttc)}</td>
+                        <td className="px-3 py-2 text-right font-medium">{formatEUR(inv.valor_total)}</td>
                         <td className="px-3 py-2">
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[inv.status] ?? ''}`}>
                             {t(`status.${inv.status}` as 'status.pending')}

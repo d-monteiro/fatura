@@ -25,7 +25,7 @@ import {
 import { notifySlack } from '@/lib/slack/notify';
 import { finalizeOnboarding, buildCategoriesPayload, buildDefaultCompanyPayload } from '@/lib/onboarding/finalize';
 import { reportError } from '@/lib/errors/errorReporter';
-import { isValidNif } from '@/lib/utils/validation';
+import { validateStep, validateAllUpTo } from '@/lib/onboarding/validation';
 import { track } from '@/lib/analytics/track';
 import { EVENTS, ONBOARDING_STEP_NAMES } from '@/lib/analytics/events';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
@@ -229,6 +229,12 @@ export function OnboardingWizard() {
   const handleSubmit = async () => {
     setSubmitError(null);
 
+    const formError = validateAllUpTo(TOTAL_STEPS, data);
+    if (formError) {
+      setSubmitError(formError);
+      return;
+    }
+
     // Empresarial opens the contact form — it handles everything internally.
     if (data.selectedPlan === 'entreprise') {
       setShowEnterpriseForm(true);
@@ -258,21 +264,19 @@ export function OnboardingWizard() {
   };
 
   const jumpToStep = (s: number) => {
-    if (s <= maxReachedStep) setStep(s);
+    if (s > maxReachedStep) return;
+    // Se algum step anterior a `s` (ou o próprio `s`) tem erro, parar no primeiro inválido.
+    for (let i = 1; i <= s; i++) {
+      if (validateStep(i, data) !== null) {
+        setStep(i);
+        return;
+      }
+    }
+    setStep(s);
   };
 
-  const canProceed = () => {
-    if (step === 1) {
-      if (data.companyName.length < 2 || data.sector.length === 0) return false;
-      const nif = sanitizeNifForCountry(data.nif, data.country);
-      if (nif.length === 0) return false;
-      // PT: só avança com NIF válido (9 dígitos + checksum módulo 11).
-      if (data.country === 'PT' && !isValidNif(nif)) return false;
-      return true;
-    }
-    if (step === 7) return data.selectedPlan.length > 0;
-    return true;
-  };
+  const currentStepError = validateStep(step, data);
+  const fullFormError = validateAllUpTo(TOTAL_STEPS, data);
 
   const wideStep = (step === 7 && !showEnterpriseForm) || step === 1;
 
@@ -373,6 +377,12 @@ export function OnboardingWizard() {
           </div>
         )}
 
+        {(currentStepError || (step === TOTAL_STEPS && fullFormError)) && (
+          <div className="mb-3 text-xs text-muted-foreground text-right">
+            {step === TOTAL_STEPS && fullFormError ? fullFormError : currentStepError}
+          </div>
+        )}
+
         <div className="flex justify-between">
           <Button
             variant="outline"
@@ -388,7 +398,8 @@ export function OnboardingWizard() {
           {step < TOTAL_STEPS ? (
             <Button
               onClick={() => goToStep(step + 1)}
-              disabled={!canProceed()}
+              disabled={!!currentStepError}
+              title={currentStepError ?? undefined}
               className="gap-2"
             >
               Seguinte <ArrowRight className="h-4 w-4" />
@@ -396,7 +407,8 @@ export function OnboardingWizard() {
           ) : (
             <Button
               onClick={handleSubmit}
-              disabled={!canProceed() || submitting || (!user && data.selectedPlan !== 'entreprise')}
+              disabled={!!fullFormError || submitting || (!user && data.selectedPlan !== 'entreprise')}
+              title={fullFormError ?? undefined}
               className="gap-2"
             >
               <Send className="h-4 w-4" />

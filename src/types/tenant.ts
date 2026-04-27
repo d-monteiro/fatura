@@ -3,7 +3,7 @@ import type { BillingCycle } from './billing';
 export type PlanSlug = 'starter' | 'pro' | 'entreprise';
 export type PlanStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'paused' | 'pending_contact';
 export type SetupStatus = 'pending' | 'provisioning' | 'ready' | 'error';
-export type TenantRole = 'owner' | 'admin' | 'member' | 'readonly';
+export type TenantRole = 'owner' | 'member' | 'readonly';
 export type StorageProvider = 'google_drive' | 'onedrive';
 export type FolderStructure = 'year_type' | 'year_supplier' | 'year_month';
 export type AutoReports = 'never' | 'weekly' | 'monthly';

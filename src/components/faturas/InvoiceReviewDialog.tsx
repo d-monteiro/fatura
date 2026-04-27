@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, ExternalLink, Building2, Calendar, Hash, Tag, Wrench, FileText, CheckCircle, Pencil, Trash2 } from 'lucide-react';
+import { X, ExternalLink, Building2, Calendar, Hash, Tag, FileText, CheckCircle, Pencil, Trash2 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
@@ -39,7 +39,7 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
   const drivePreviewUrl = invoice.drive_file_id
     ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview`
     : null;
-  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
+  const categoryLabel = labelFor(invoice.category) || null;
 
   if (!open) return null;
 
@@ -82,18 +82,16 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
                 {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
                 <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
                 {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
-                {invoice.metier && <DetailRow icon={Wrench} label={t('inv.metier')} value={labelFor('metier', invoice.metier)} />}
-                {invoice.nature_depense && <DetailRow icon={Tag} label={t('inv.nature')} value={labelFor('nature_depense', invoice.nature_depense)} />}
-                {costLabel && <DetailRow icon={Tag} label={t('inv.cost_type')} value={costLabel} />}
-                {invoice.taux_tva != null && (
-                  <DetailRow icon={Hash} label={t('inv.tva_rate')} value={`${invoice.taux_tva}%`} />
+                {categoryLabel && <DetailRow icon={Tag} label={t('inv.category')} value={categoryLabel} />}
+                {invoice.taxa_iva != null && (
+                  <DetailRow icon={Hash} label={t('inv.iva_rate')} value={`${invoice.taxa_iva}%`} />
                 )}
 
                 <div className="border-t my-2" />
 
                 <div className="flex items-center justify-between py-3">
                   <span className="text-base font-medium text-gray-500">{t('drawer.total')}</span>
-                  <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.montant_ttc)}</span>
+                  <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.valor_total)}</span>
                 </div>
 
                 {invoice.summary && (

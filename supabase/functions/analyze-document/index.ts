@@ -83,28 +83,19 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
   if (!tenant) return null;
 
   const { data: cats } = await supabase.from("categories")
-    .select("axis, code, label, sort_order")
-    .eq("tenant_id", tenantId).eq("is_active", true).order("sort_order");
+    .select("code, label, sort_order, is_fixed")
+    .eq("tenant_id", tenantId).eq("axis", "category").eq("is_active", true).order("sort_order");
 
   const { data: suppliers } = await supabase.from("suppliers")
     .select("name, name_variations").eq("tenant_id", tenantId).limit(100);
 
   const ob = (tenant.onboarding_data ?? {}) as OnboardingData;
-  const language = (tenant.language as "pt" | "fr" | "en") ?? "pt";
 
-  const costTypes = (cats ?? []).filter((c) => c.axis === "cost_type")
-    .map((c) => ({ code: c.code as string, label: c.label as string }));
-  const metiers = (cats ?? []).filter((c) => c.axis === "metier")
-    .map((c) => ({ code: c.code as string, label: c.label as string }));
-  const natures = (cats ?? []).filter((c) => c.axis === "nature_depense")
-    .map((c) => ({ code: c.code as string, label: c.label as string }));
+  const categories = (cats ?? []).map((c) => ({ code: c.code as string, label: c.label as string }));
 
-  if (costTypes.length === 0) {
-    costTypes.push({ code: "cout_fixe", label: "Custos fixos" }, { code: "cout_variable", label: "Custos variáveis" });
-  }
-  if (natures.length === 0 && Array.isArray(ob.categories)) {
-    ob.categories.forEach((cat, i) => natures.push({
-      code: cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || `nat_${i}`,
+  if (categories.length === 0 && Array.isArray(ob.categories)) {
+    ob.categories.forEach((cat, i) => categories.push({
+      code: cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || `cat_${i}`,
       label: cat,
     }));
   }
@@ -121,27 +112,24 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
     companyName: tenant.name as string,
     nif: (tenant.nif as string) ?? "",
     sector: (tenant.sector as string) ?? "geral",
-    language,
     country: (tenant.country as string) ?? "PT",
     currency: (tenant.currency as string) ?? "EUR",
     nameVariations: ((tenant.invoice_name_variations as string[]) ?? []).length
       ? (tenant.invoice_name_variations as string[])
       : [(tenant.name as string).toUpperCase()],
     vatRates: getVatRatesForCountry((tenant.country as string) ?? "PT"),
-    costTypes,
-    metiers,
-    natures,
+    categories,
     knownSuppliers,
     documentTypes: Array.isArray(ob.documentTypes) && ob.documentTypes.length
-      ? ob.documentTypes : ["factures", "recus"],
+      ? ob.documentTypes : ["fatura", "recibo"],
   };
 }
 
 const REJECTION_LABELS_PT: Record<string, string> = {
-  pas_un_document: "Não é um documento",
-  document_illisible: "Documento ilegível",
-  pas_une_facture: "Não é uma fatura",
-  pas_une_facture_fournisseur: "Fatura emitida pela própria empresa",
+  nao_e_documento: "Não é um documento",
+  documento_ilegivel: "Documento ilegível",
+  nao_e_fatura: "Não é uma fatura",
+  fatura_propria: "Fatura emitida pela própria empresa",
 };
 
 function rejectionToPt(reason: unknown): string {
@@ -149,11 +137,11 @@ function rejectionToPt(reason: unknown): string {
   return REJECTION_LABELS_PT[reason] ?? reason;
 }
 
-const FALLBACK_PROMPT = `# RÔLE
-Tu es un comptable senior. Analyse cette facture et renvoie un JSON structuré.
+const FALLBACK_PROMPT = `# OBJETIVO
+És um contabilista sénior em Portugal. Analisa esta fatura e devolve um JSON estruturado.
 
-# FORMAT DE SORTIE (JSON UNIQUEMENT)
-{ "invoices": [{ "is_valid_document": boolean, "rejection_reason": string|null, "document_type": string|null, "cost_type": string|null, "metier": string|null, "nature_depense": string|null, "doc_year": number|null, "doc_date": string|null, "date_echeance": string|null, "supplier_name": string|null, "destinataire_name": string|null, "supplier_nif": string|null, "doc_number": string|null, "montant_ht": number|null, "taux_tva": number|null, "montant_tva": number|null, "montant_ttc": number|null, "autoliquidation": boolean, "payment_method": string|null, "supplier_iban": string|null, "summary": string|null, "confidence_score": number, "line_items": [] }] }`;
+# FORMATO DE SAÍDA (APENAS JSON)
+{ "invoices": [{ "is_valid_document": boolean, "rejection_reason": "nao_e_documento"|"documento_ilegivel"|"nao_e_fatura"|"fatura_propria"|null, "document_type": string|null, "category": string|null, "doc_year": number|null, "doc_date": string|null, "data_vencimento": string|null, "supplier_name": string|null, "destinatario_nome": string|null, "supplier_nif": string|null, "doc_number": string|null, "valor_sem_iva": number|null, "taxa_iva": number|null, "valor_iva": number|null, "valor_total": number|null, "autoliquidacao": boolean, "payment_method": string|null, "supplier_iban": string|null, "summary": string|null, "confidence_score": number, "line_items": [] }] }`;
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -378,24 +366,22 @@ async function analyzeByInvoiceId(
 
   const { error: updateErr } = await adminClient.from("invoices").update({
     document_type: first.document_type ?? null,
-    cost_type: first.cost_type ?? null,
-    metier: first.metier ?? null,
-    nature_depense: first.nature_depense ?? null,
+    category: (first.category as string | undefined) ?? null,
     doc_date: first.doc_date ?? null,
     doc_year: first.doc_year ?? null,
-    date_echeance: first.date_echeance ?? null,
+    data_vencimento: (first.data_vencimento as string | undefined) ?? null,
     supplier_name: typeof first.supplier_name === "string" ? (first.supplier_name as string).toUpperCase() : null,
     supplier_nif: first.supplier_nif ?? null,
     doc_number: first.doc_number ?? null,
-    montant_ht: first.montant_ht ?? null,
-    taux_tva: first.taux_tva ?? null,
-    montant_tva: first.montant_tva ?? null,
-    montant_ttc: first.montant_ttc ?? null,
-    autoliquidation: (first.autoliquidation as boolean | undefined) ?? false,
+    valor_sem_iva: (first.valor_sem_iva as number | undefined) ?? null,
+    taxa_iva: (first.taxa_iva as number | undefined) ?? null,
+    valor_iva: (first.valor_iva as number | undefined) ?? null,
+    valor_total: (first.valor_total as number | undefined) ?? null,
+    autoliquidacao: (first.autoliquidacao as boolean | undefined) ?? false,
     payment_method: first.payment_method ?? null,
     supplier_iban: first.supplier_iban ?? null,
     summary: first.summary ?? null,
-    destinataire_name: (first.destinataire_name as string | undefined) ?? null,
+    destinatario_nome: (first.destinatario_nome as string | undefined) ?? null,
     confidence_score: confidence,
     status: needsReview ? "review" : "inbox",
     manual_review: needsReview,
@@ -417,9 +403,9 @@ async function analyzeByInvoiceId(
         description: li.description ?? null,
         quantity: li.quantity ?? null,
         unit: li.unit ?? null,
-        unit_price_ht: li.unit_price_ht ?? null,
-        total_ht: li.total_ht ?? null,
-        taux_tva: li.taux_tva ?? null,
+        preco_unitario: li.preco_unitario ?? null,
+        total_sem_iva: li.total_sem_iva ?? null,
+        taxa_iva: li.taxa_iva ?? null,
       })),
     );
   }
@@ -454,12 +440,14 @@ async function markFailed(
 }
 
 // Rejeição definitiva (Gemini decidiu que não é fatura processável).
-// Soft-delete mantém o registo para dedup via attachment_hash mas remove
-// do UI e liberta o bucket.
+// Soft-delete mantém o registo para dedup via attachment_hash. O ficheiro
+// fica no bucket Supabase: a aba Ignoradas precisa de mostrar o conteúdo
+// para o utilizador decidir se quer recuperar. Limpeza do bucket é feita
+// por job de cron quando deleted_at > IGNORED_DAYS (30d).
 async function rejectInvoice(
   adminClient: ReturnType<typeof createClient>,
   invoiceId: string,
-  storagePath: string | null,
+  _storagePath: string | null,
   reason: string,
 ) {
   await adminClient.from("invoices").update({
@@ -468,9 +456,6 @@ async function rejectInvoice(
     review_reason: reason.slice(0, 500),
     deleted_at: new Date().toISOString(),
   }).eq("id", invoiceId);
-  if (storagePath) {
-    await adminClient.storage.from("invoices").remove([storagePath]);
-  }
 }
 
 type LimitOutcome = { ok: true } | { ok: false; limit: number; used: number };

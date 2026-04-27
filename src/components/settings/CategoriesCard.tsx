@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
-import { Tags, Plus, Check, X, RefreshCw } from 'lucide-react';
+import { Tags, Plus, Check, X, RefreshCw, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORY_TEMPLATES, SECTORS } from '@/components/onboarding/onboardingTypes';
-import type { Category, CategoryAxis } from '@/types/database';
+import type { Category } from '@/types/database';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -18,13 +18,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const AXES: { value: Exclude<CategoryAxis, 'cost_type'>; label: string; hint: string }[] = [
-  { value: 'metier', label: 'Especialidades', hint: 'Áreas técnicas do seu negócio (ex: Eletricidade, Canalização)' },
-  { value: 'nature_depense', label: 'Naturezas de despesa', hint: 'Tipos de compra (ex: Materiais, Combustível, Software)' },
-];
-
 function slugify(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'cat';
 }
 
@@ -47,23 +42,19 @@ export function CategoriesCard() {
     mutationFn: async () => {
       if (!tenant?.id) throw new Error('Sem tenant activo');
       const sectorKey = tenant.sector && tenant.sector !== 'outro' ? tenant.sector : 'services';
-      const tpl = CATEGORY_TEMPLATES[sectorKey] ?? CATEGORY_TEMPLATES.services;
-      if (!tpl) throw new Error('Template em falta');
+      const tpl = CATEGORY_TEMPLATES[sectorKey] ?? CATEGORY_TEMPLATES.services ?? [];
+      if (!tpl.length) throw new Error('Template em falta');
 
-      const rows: { tenant_id: string; axis: CategoryAxis; code: string; label: string; sort_order: number; is_active: true }[] = [];
-      tpl.cost_types.forEach((label, i) => rows.push({
-        tenant_id: tenant.id, axis: 'cost_type',
-        code: label.toLowerCase().includes('fix') ? 'cout_fixe' : label.toLowerCase().includes('var') ? 'cout_variable' : slugify(label),
-        label, sort_order: i, is_active: true,
-      }));
-      tpl.metiers.forEach((label, i) => rows.push({
-        tenant_id: tenant.id, axis: 'metier', code: slugify(label), label, sort_order: i, is_active: true,
-      }));
-      tpl.natures.forEach((label, i) => rows.push({
-        tenant_id: tenant.id, axis: 'nature_depense', code: slugify(label), label, sort_order: i, is_active: true,
+      const rows = tpl.map((c, i) => ({
+        tenant_id: tenant.id,
+        axis: 'category' as const,
+        code: slugify(c.label),
+        label: c.label,
+        sort_order: i,
+        is_active: true,
+        is_fixed: !!c.is_fixed,
       }));
 
-      if (!rows.length) throw new Error('Nada para carregar');
       const { error } = await supabase.from('categories').upsert(rows, { onConflict: 'tenant_id,axis,code', ignoreDuplicates: false });
       if (error) throw error;
       return rows.length;
@@ -74,8 +65,6 @@ export function CategoriesCard() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Auto-seed: tenant antigo (ou setor mudado) sem nenhuma categoria — carrega o template do setor uma vez.
-  // Não re-seed se user removeu tudo manualmente (everCount > 0 mantém-se via soft-delete).
   const autoSeeded = useRef(false);
   useEffect(() => {
     if (autoSeeded.current) return;
@@ -100,7 +89,7 @@ export function CategoriesCard() {
           <div>
             <h2 className="text-lg font-semibold leading-tight">Categorias</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Classifica as tuas despesas por especialidade e por tipo de compra.
+              Classificação única das tuas despesas. O cadeado marca categorias com comportamento de custo fixo.
             </p>
           </div>
         </div>
@@ -117,11 +106,8 @@ export function CategoriesCard() {
           </button>
         )}
       </div>
-      <div className="divide-y divide-border">
-        {AXES.map((a) => (
-          <AxisSection key={a.value} tenantId={tenant.id} axis={a.value} label={a.label} hint={a.hint} />
-        ))}
-      </div>
+
+      <CategoriesEditor tenantId={tenant.id} />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
@@ -148,18 +134,18 @@ export function CategoriesCard() {
   );
 }
 
-function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: CategoryAxis; label: string; hint: string }) {
+function CategoriesEditor({ tenantId }: { tenantId: string }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; label: string } | null>(null);
 
-  const queryKey = ['categories', tenantId, axis];
+  const queryKey = ['categories', tenantId, 'category'];
 
   const { data: rows = [] } = useQuery<Category[]>({
     queryKey,
     queryFn: async () => {
       const { data, error } = await supabase.from('categories')
-        .select('*').eq('tenant_id', tenantId).eq('axis', axis).eq('is_active', true)
+        .select('*').eq('tenant_id', tenantId).eq('axis', 'category').eq('is_active', true)
         .order('sort_order').order('label');
       if (error) throw error;
       return (data ?? []) as Category[];
@@ -176,7 +162,8 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
       const code = slugify(trimmed);
       const sort = rows.length;
       const { error } = await supabase.from('categories').insert({
-        tenant_id: tenantId, axis, code, label: trimmed, sort_order: sort, is_active: true,
+        tenant_id: tenantId, axis: 'category', code, label: trimmed,
+        sort_order: sort, is_active: true, is_fixed: false,
       });
       if (error) throw error;
     },
@@ -193,6 +180,14 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
     },
     onSuccess: () => { invalidate(); setEditing(null); },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleFixed = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
+      const { error } = await supabase.from('categories').update({ is_fixed: value }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidate(),
   });
 
   const remove = useMutation({
@@ -220,12 +215,7 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
   });
 
   return (
-    <div className="py-5 first:pt-0 last:pb-0 space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
-      </div>
-
+    <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
         {rows.map((r) => editing?.id === r.id ? (
           <span key={r.id} className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-white pl-3 pr-1 py-1">
@@ -239,39 +229,31 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
                 if (e.key === 'Escape') setEditing(null);
               }}
             />
-            <button
-              type="button"
-              onClick={() => rename.mutate({ id: r.id, newLabel: editing.label })}
-              className="rounded-full p-0.5 text-green-600 hover:bg-green-50"
-              title="Guardar"
-            >
+            <button type="button" onClick={() => rename.mutate({ id: r.id, newLabel: editing.label })}
+              className="rounded-full p-0.5 text-green-600 hover:bg-green-50" title="Guardar">
               <Check className="h-3 w-3" />
             </button>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              className="rounded-full p-0.5 text-gray-400 hover:bg-gray-100"
-              title="Cancelar"
-            >
+            <button type="button" onClick={() => setEditing(null)}
+              className="rounded-full p-0.5 text-gray-400 hover:bg-gray-100" title="Cancelar">
               <X className="h-3 w-3" />
             </button>
           </span>
         ) : (
-          <span key={r.id} className="inline-flex items-center rounded-full bg-gray-100 pl-3 pr-1 py-1 text-xs text-gray-700 transition hover:bg-gray-200">
-            <button
-              type="button"
-              onClick={() => setEditing({ id: r.id, label: r.label })}
-              className="font-medium hover:text-primary"
-              title="Editar"
-            >
+          <span key={r.id}
+            className={`inline-flex items-center rounded-full pl-3 pr-1 py-1 text-xs transition ${
+              r.is_fixed ? 'bg-violet-100 text-violet-800 hover:bg-violet-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}>
+            <button type="button" onClick={() => toggleFixed.mutate({ id: r.id, value: !r.is_fixed })}
+              className="mr-1 rounded-full p-0.5 hover:bg-white/50"
+              title={r.is_fixed ? 'É custo fixo (clica para variável)' : 'É custo variável (clica para fixo)'}>
+              <Lock className={`h-3 w-3 ${r.is_fixed ? 'text-violet-700' : 'text-gray-400'}`} />
+            </button>
+            <button type="button" onClick={() => setEditing({ id: r.id, label: r.label })}
+              className="font-medium hover:opacity-80" title="Editar">
               {r.label}
             </button>
-            <button
-              type="button"
-              onClick={() => remove.mutate({ id: r.id, label: r.label })}
-              className="ml-1 rounded-full p-0.5 text-gray-400 hover:bg-white hover:text-red-600 transition"
-              title="Remover"
-            >
+            <button type="button" onClick={() => remove.mutate({ id: r.id, label: r.label })}
+              className="ml-1 rounded-full p-0.5 text-gray-400 hover:bg-white hover:text-red-600 transition" title="Remover">
               <X className="h-3 w-3" />
             </button>
           </span>
@@ -289,14 +271,11 @@ function AxisSection({ tenantId, axis, label, hint }: { tenantId: string; axis: 
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) { e.preventDefault(); add.mutate(draft); } }}
-          placeholder={`Adicionar ${label.toLowerCase().slice(0, -1)}…`}
+          placeholder="Adicionar categoria…"
         />
-        <button
-          type="button"
-          onClick={() => add.mutate(draft)}
+        <button type="button" onClick={() => add.mutate(draft)}
           disabled={!draft.trim() || add.isPending}
-          className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0"
-        >
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0">
           <Plus className="h-3.5 w-3.5" /> Adicionar
         </button>
       </div>

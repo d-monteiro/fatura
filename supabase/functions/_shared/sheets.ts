@@ -3,7 +3,7 @@ import { sheetsLimiter } from "./rateLimiter.ts";
 import { getMonthName } from "./months.ts";
 
 const SHEETS_TIMEOUT_MS = 30_000;
-const COLUMN_COUNT = 14;
+const COLUMN_COUNT = 12;
 
 function timeoutSignal(ms: number) {
   const controller = new AbortController();
@@ -12,8 +12,8 @@ function timeoutSignal(ms: number) {
 }
 
 const HEADERS_BY_LANG: Record<string, string[]> = {
-  pt: ['Data Doc.', 'Fornecedor', 'NIF', 'Categoria', 'Natureza', 'Tipo Custo', 'Nº Documento', 'Valor s/ IVA', 'IVA', 'Valor c/ IVA', 'Taxa IVA', 'Resumo', 'Link PDF', 'Data Processamento'],
-  en: ['Doc Date', 'Supplier', 'Tax ID', 'Category', 'Nature', 'Cost Type', 'Doc Number', 'Net Amount', 'VAT', 'Gross Amount', 'VAT Rate', 'Summary', 'PDF Link', 'Processed At'],
+  pt: ['Data Doc.', 'Fornecedor', 'NIF', 'Categoria', 'Nº Documento', 'Valor s/ IVA', 'IVA', 'Valor Total', 'Taxa IVA', 'Resumo', 'Link PDF', 'Data Processamento'],
+  en: ['Doc Date', 'Supplier', 'Tax ID', 'Category', 'Doc Number', 'Net Amount', 'VAT', 'Gross Amount', 'VAT Rate', 'Summary', 'PDF Link', 'Processed At'],
 };
 
 export function getSheetHeaders(language: string): string[] {
@@ -28,14 +28,12 @@ export interface AppendRowData {
   doc_date: string | null;
   supplier_name: string | null;
   supplier_nif: string | null;
-  metier: string | null;
-  nature_depense: string | null;
-  cost_type: string | null;
+  category: string | null;
   doc_number: string | null;
-  montant_ht: number | null;
-  montant_tva: number | null;
-  montant_ttc: number | null;
-  taux_tva: number | null;
+  valor_sem_iva: number | null;
+  valor_iva: number | null;
+  valor_total: number | null;
+  taxa_iva: number | null;
   summary: string | null;
   drive_link: string | null;
 }
@@ -60,20 +58,18 @@ export async function appendInvoiceToSheet(
     data.doc_date || '',
     data.supplier_name || '',
     data.supplier_nif || '',
-    data.metier || '',
-    data.nature_depense || '',
-    data.cost_type || '',
+    data.category || '',
     data.doc_number || '',
-    data.montant_ht ?? 0,
-    data.montant_tva ?? 0,
-    data.montant_ttc ?? 0,
-    data.taux_tva ? `${data.taux_tva}%` : '',
+    data.valor_sem_iva ?? 0,
+    data.valor_iva ?? 0,
+    data.valor_total ?? 0,
+    data.taxa_iva ? `${data.taxa_iva}%` : '',
     data.summary || '',
     data.drive_link || '',
     new Date().toISOString().split('T')[0],
   ];
 
-  const range = `'${sheetName}'!A2:N`;
+  const range = `'${sheetName}'!A2:L`;
   await sheetsLimiter.waitForSlot();
   const t = timeoutSignal(SHEETS_TIMEOUT_MS);
   const response = await fetch(
@@ -118,7 +114,7 @@ async function ensureSheetHasHeader(
     );
   }
   const checkResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1:N1`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1:L1`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
   if (!checkResponse.ok) return;

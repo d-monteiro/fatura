@@ -264,16 +264,17 @@ CREATE TABLE suppliers (
 CREATE INDEX idx_suppliers_tenant ON suppliers(tenant_id);
 
 -- ============================================
--- 7. CATEGORIES (por tenant; eixos: cost_type / metier / nature_depense)
+-- 7. CATEGORIES (1 eixo único 'category', is_fixed marca custos fixos)
 -- ============================================
 CREATE TABLE categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-  axis TEXT NOT NULL,
+  axis TEXT NOT NULL DEFAULT 'category',
   code TEXT NOT NULL,
   label TEXT,
   sort_order INTEGER DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
+  is_fixed BOOLEAN NOT NULL DEFAULT false,
   UNIQUE(tenant_id, axis, code)
 );
 
@@ -295,6 +296,9 @@ CREATE TABLE invoices (
   source TEXT DEFAULT 'upload',
   email_message_id TEXT,
   email_attachment_id TEXT,
+  email_subject TEXT,
+  email_from TEXT,
+  email_received_at TIMESTAMPTZ,
   attachment_hash TEXT,
 
   file_url TEXT NOT NULL,
@@ -304,26 +308,24 @@ CREATE TABLE invoices (
   spreadsheet_id TEXT,
 
   document_type TEXT,
-  cost_type TEXT,
-  metier TEXT,
-  nature_depense TEXT,
+  category TEXT,
 
   doc_date DATE,
   doc_year INTEGER,
-  date_echeance DATE,
+  data_vencimento DATE,
 
   supplier_name TEXT,
   supplier_nif TEXT,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
-  destinataire_name TEXT,
+  destinatario_nome TEXT,
 
   doc_number TEXT,
 
-  montant_ht NUMERIC(12,2),
-  taux_tva NUMERIC(5,2),
-  montant_tva NUMERIC(12,2),
-  montant_ttc NUMERIC(12,2),
-  autoliquidation BOOLEAN DEFAULT false,
+  valor_sem_iva NUMERIC(12,2),
+  taxa_iva NUMERIC(5,2),
+  valor_iva NUMERIC(12,2),
+  valor_total NUMERIC(12,2),
+  autoliquidacao BOOLEAN DEFAULT false,
 
   payment_method TEXT,
   supplier_iban TEXT,
@@ -331,12 +333,15 @@ CREATE TABLE invoices (
   summary TEXT,
   confidence_score NUMERIC(5,2),
 
+  paid_at TIMESTAMPTZ,
+  payment_notified_at TIMESTAMPTZ,
+
   status TEXT DEFAULT 'pending',
   manual_review BOOLEAN DEFAULT false,
   review_reason TEXT
 );
 
-COMMENT ON COLUMN invoices.destinataire_name IS 'Nome do destinatário extraído pelo Gemini — usado para detectar company correcta';
+COMMENT ON COLUMN invoices.destinatario_nome IS 'Nome do destinatário extraído pelo Gemini — usado para detectar company correcta';
 
 -- Dedup: mesma attachment Gmail não é inserida duas vezes
 CREATE UNIQUE INDEX invoices_email_unique
@@ -366,9 +371,9 @@ CREATE TABLE invoice_line_items (
   description TEXT,
   quantity NUMERIC(10,3),
   unit TEXT,
-  unit_price_ht NUMERIC(12,4),
-  total_ht NUMERIC(12,2),
-  taux_tva NUMERIC(5,2)
+  preco_unitario NUMERIC(12,4),
+  total_sem_iva NUMERIC(12,2),
+  taxa_iva NUMERIC(5,2)
 );
 
 CREATE INDEX idx_line_items_invoice ON invoice_line_items(invoice_id);
@@ -498,7 +503,7 @@ BEGIN
   IF NEW.supplier_id IS NOT NULL THEN
     UPDATE suppliers SET
       invoice_count = (SELECT count(*) FROM invoices WHERE supplier_id = NEW.supplier_id AND deleted_at IS NULL),
-      total_spent = COALESCE((SELECT sum(montant_ttc) FROM invoices WHERE supplier_id = NEW.supplier_id AND deleted_at IS NULL), 0)
+      total_spent = COALESCE((SELECT sum(valor_total) FROM invoices WHERE supplier_id = NEW.supplier_id AND deleted_at IS NULL), 0)
     WHERE id = NEW.supplier_id;
   END IF;
   RETURN NEW;

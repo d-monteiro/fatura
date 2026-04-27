@@ -14,8 +14,12 @@ const REPORT_OPTIONS = [
   { value: 'monthly', label: 'Mensal', desc: 'Recebe dia 1 de cada mês, sobre o mês anterior' },
 ] as const;
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function StepDashboard({ data, onChange }: Props) {
   const needsEmail = data.autoReports !== 'never';
+  const emailTrimmed = data.reportEmail.trim();
+  const emailInvalid = needsEmail && emailTrimmed.length > 0 && !EMAIL_RE.test(emailTrimmed);
 
   return (
     <div className="space-y-6">
@@ -67,10 +71,16 @@ export function StepDashboard({ data, onChange }: Props) {
               placeholder="Deixe vazio para usar o email da conta"
               value={data.reportEmail}
               onChange={(e) => onChange({ reportEmail: e.target.value })}
+              aria-invalid={emailInvalid}
+              className={emailInvalid ? 'border-destructive focus-visible:ring-destructive' : undefined}
             />
-            <p className="text-xs text-muted-foreground">
-              Se deixar vazio, o relatório vai para o email com que criou a conta.
-            </p>
+            {emailInvalid ? (
+              <p className="text-xs text-destructive">Formato de email inválido.</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Se deixar vazio, o relatório vai para o email com que criou a conta.
+              </p>
+            )}
           </div>
         )}
       </div>

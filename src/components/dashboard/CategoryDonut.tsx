@@ -4,23 +4,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import { supabase } from '@/lib/supabase/client';
 import { formatEUR } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
+import { useTenant } from '@/contexts/TenantContext';
+import { useCategories } from '@/hooks/useCategories';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#6b7280'];
-
-import type { TranslationKey } from '@/lib/i18n';
-
-const NATURE_KEYS: Record<string, TranslationKey> = {
-  materiaux: 'cat.materiaux',
-  sous_traitants: 'cat.sous_traitants',
-  location_materiel: 'cat.location_materiel',
-  restauration: 'cat.restauration',
-  carburant: 'cat.carburant',
-  atelier: 'cat.atelier',
-  assurances: 'cat.assurances',
-  comptabilite: 'cat.comptabilite',
-  fournitures_bureau: 'cat.fournitures_bureau',
-  autre: 'cat.autre',
-};
 
 interface CategoryDonutProps {
   companyId: string | null;
@@ -28,6 +15,8 @@ interface CategoryDonutProps {
 
 export function CategoryDonut({ companyId }: CategoryDonutProps) {
   const { t } = useI18n();
+  const { tenant } = useTenant();
+  const { labelFor } = useCategories(tenant?.id);
   const navigate = useNavigate();
 
   const { data: chartData = [] } = useQuery({
@@ -35,20 +24,18 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
     queryFn: async () => {
       let query = supabase
         .from('invoices')
-        .select('nature_depense, montant_ttc')
+        .select('category, valor_total')
         .is('deleted_at', null);
 
-      if (companyId) {
-        query = query.eq('company_id', companyId);
-      }
+      if (companyId) query = query.eq('company_id', companyId);
 
       const { data, error } = await query;
       if (error) throw error;
 
       const map: Record<string, number> = {};
       for (const row of data ?? []) {
-        const key = row.nature_depense ?? 'autre';
-        map[key] = (map[key] ?? 0) + (row.montant_ttc ?? 0);
+        const key = row.category ?? 'outro';
+        map[key] = (map[key] ?? 0) + (row.valor_total ?? 0);
       }
 
       return Object.entries(map)
@@ -65,10 +52,8 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
   const handleSliceClick = (_: unknown, index: number) => {
     const entry = chartData[index];
     if (!entry) return;
-    navigate(`/invoices?nature=${entry.name}`);
+    navigate(`/invoices?category=${entry.name}`);
   };
-
-  const getNatureLabel = (key: string) => t(NATURE_KEYS[key] ?? 'cat.autre');
 
   return (
     <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card sm:p-6">
@@ -94,12 +79,12 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value, name) => [formatEUR(Number(value)), getNatureLabel(String(name))]}
+              formatter={(value, name) => [formatEUR(Number(value)), labelFor(String(name))]}
               contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
             />
             <Legend
               formatter={(value: string) => (
-                <span className="text-sm text-gray-600">{getNatureLabel(value)}</span>
+                <span className="text-sm text-gray-600">{labelFor(value)}</span>
               )}
             />
           </PieChart>

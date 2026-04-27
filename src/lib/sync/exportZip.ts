@@ -24,13 +24,11 @@ function buildSummaryWorkbook(invoices: Invoice[]): ArrayBuffer {
     Data: inv.doc_date ?? '',
     'Nº Fatura': inv.doc_number ?? '',
     Fornecedor: inv.supplier_name ?? '',
-    Categoria: inv.metier ?? '',
-    Natureza: inv.nature_depense ?? '',
-    'Tipo custo': inv.cost_type === 'cout_fixe' ? 'Fixo' : inv.cost_type === 'cout_variable' ? 'Variável' : '',
-    'Valor s/IVA': inv.montant_ht ?? '',
-    IVA: inv.montant_tva ?? '',
-    'Valor c/IVA': inv.montant_ttc ?? '',
-    'Taxa IVA': inv.taux_tva != null ? `${inv.taux_tva}%` : '',
+    Categoria: inv.category ?? '',
+    'Valor s/IVA': inv.valor_sem_iva ?? '',
+    IVA: inv.valor_iva ?? '',
+    'Valor Total': inv.valor_total ?? '',
+    'Taxa IVA': inv.taxa_iva != null ? `${inv.taxa_iva}%` : '',
     Resumo: inv.summary ?? '',
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -68,7 +66,7 @@ export async function exportInvoicesToZip(
         const blob = await res.blob();
         const folder = folderForInvoice(inv);
         const supplier = (inv.supplier_name ?? 'desconhecido').replace(/[/\\?%*:|"<>]/g, '_');
-        const amount = (inv.montant_ttc ?? 0).toFixed(2);
+        const amount = (inv.valor_total ?? 0).toFixed(2);
         const name = `${inv.doc_date ?? 'sd'}_${supplier}_${amount}.pdf`;
         zip.file(`${folder}/${name}`, blob);
         ok++;

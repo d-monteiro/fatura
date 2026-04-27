@@ -19,18 +19,18 @@ export function LineItemsTable({ items }: Props) {
       <div className="overflow-x-auto rounded-lg border text-xs">
         <table className="w-full">
           <thead><tr className="bg-gray-50 text-left">
-            <th className="px-2 py-1.5">Description</th>
-            <th className="px-2 py-1.5 text-right">Qte</th>
-            <th className="px-2 py-1.5 text-right">PU HT</th>
-            <th className="px-2 py-1.5 text-right">Total HT</th>
+            <th className="px-2 py-1.5">Descrição</th>
+            <th className="px-2 py-1.5 text-right">Qtd.</th>
+            <th className="px-2 py-1.5 text-right">Preço unitário</th>
+            <th className="px-2 py-1.5 text-right">Total s/ IVA</th>
           </tr></thead>
           <tbody>
             {items.map((li) => (
               <tr key={li.id} className="border-t">
                 <td className="px-2 py-1.5">{li.description ?? '—'}</td>
                 <td className="px-2 py-1.5 text-right">{li.quantity ?? '—'}{li.unit ? ` ${li.unit}` : ''}</td>
-                <td className="px-2 py-1.5 text-right">{formatEUR(li.unit_price_ht)}</td>
-                <td className="px-2 py-1.5 text-right">{formatEUR(li.total_ht)}</td>
+                <td className="px-2 py-1.5 text-right">{formatEUR(li.preco_unitario)}</td>
+                <td className="px-2 py-1.5 text-right">{formatEUR(li.total_sem_iva)}</td>
               </tr>
             ))}
           </tbody>

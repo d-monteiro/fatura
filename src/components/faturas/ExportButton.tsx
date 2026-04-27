@@ -4,6 +4,8 @@ import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import type { FaturasFilterState } from './FaturasFilters';
+import { NO_SUPPLIER_VALUE } from './SupplierCombobox';
+import { computeDateRange } from '@/lib/faturas/dateRange';
 import type { Invoice } from '@/types/database';
 
 interface ExportButtonProps {
@@ -28,10 +30,18 @@ async function fetchAllFiltered(filters: FaturasFilterState, companyId: string |
 
   if (companyId) query = query.eq('company_id', companyId);
   if (filters.search) query = query.ilike('supplier_name', `%${filters.search}%`);
-  if (filters.year) query = query.eq('doc_year', parseInt(filters.year));
-  if (filters.metier) query = query.eq('metier', filters.metier);
-  if (filters.nature) query = query.eq('nature_depense', filters.nature);
-  if (filters.costType) query = query.eq('cost_type', filters.costType);
+
+  const { start, end } = computeDateRange(filters);
+  if (start) query = query.gte('doc_date', start);
+  if (end) query = query.lte('doc_date', end);
+
+  if (filters.supplierId === NO_SUPPLIER_VALUE) {
+    query = query.is('supplier_id', null);
+  } else if (filters.supplierId) {
+    query = query.eq('supplier_id', filters.supplierId);
+  }
+
+  if (filters.category) query = query.eq('category', filters.category);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -43,13 +53,11 @@ function buildWorkbook(invoices: Invoice[]): XLSX.WorkBook {
     'Data': formatDateDD(inv.doc_date),
     'Nº Fatura': inv.doc_number ?? '',
     'Fornecedor': inv.supplier_name ?? '',
-    'Categoria': inv.metier ?? '',
-    'Natureza': inv.nature_depense ?? '',
-    'Tipo custo': inv.cost_type === 'cout_fixe' ? 'Fixo' : inv.cost_type === 'cout_variable' ? 'Variável' : '',
-    'Valor s/IVA': inv.montant_ht ?? '',
-    'IVA': inv.montant_tva ?? '',
-    'Valor c/IVA': inv.montant_ttc ?? '',
-    'Taxa IVA': inv.taux_tva != null ? `${inv.taux_tva}%` : '',
+    'Categoria': inv.category ?? '',
+    'Valor s/IVA': inv.valor_sem_iva ?? '',
+    'IVA': inv.valor_iva ?? '',
+    'Valor Total': inv.valor_total ?? '',
+    'Taxa IVA': inv.taxa_iva != null ? `${inv.taxa_iva}%` : '',
     'Resumo': inv.summary ?? '',
     'Link PDF': inv.drive_link ?? inv.file_url ?? '',
   }));

@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
   // Selecção de candidatos
   let query = admin.from("invoices")
-    .select("id, user_id, tenant_id, created_at, updated_at, supplier_name, montant_ttc, status")
+    .select("id, user_id, tenant_id, created_at, updated_at, supplier_name, valor_total, status")
     .is("deleted_at", null)
     .is("drive_file_id", null)
     .not("storage_path", "is", null)
@@ -103,11 +103,11 @@ Deno.serve(async (req) => {
   }
 
   type Candidate = { id: string; needs_gemini: boolean };
-  const rows = (candidates ?? []) as unknown as Array<{ id: string; supplier_name: string | null; montant_ttc: number | null; status: string }>;
+  const rows = (candidates ?? []) as unknown as Array<{ id: string; supplier_name: string | null; valor_total: number | null; status: string }>;
   const targets: Candidate[] = rows.map((r) => ({
     id: r.id,
     // Sem Gemini data → precisa re-correr analyze-document primeiro
-    needs_gemini: !r.supplier_name && r.montant_ttc === null,
+    needs_gemini: !r.supplier_name && r.valor_total === null,
   }));
   console.log(`[reprocess][${runId}] candidates=${targets.length} needs_gemini=${targets.filter((t) => t.needs_gemini).length}`);
 

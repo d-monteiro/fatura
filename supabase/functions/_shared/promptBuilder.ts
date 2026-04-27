@@ -1,25 +1,20 @@
-// Tenant-aware Gemini prompt builder (Deno).
-// Single source of truth — frontend NÃO importa daqui (Edge Function constrói o prompt).
+// Construtor do prompt Gemini, por tenant. PT-PT apenas — categoria única.
 
 export interface TenantAIConfig {
   companyName: string;
   nif: string;
   sector: string;
-  language: 'pt' | 'fr' | 'en';
   country: string;
   currency: string;
   nameVariations: string[];
   vatRates: number[];
-  costTypes: { code: string; label: string }[];
-  metiers: { code: string; label: string }[];
-  natures: { code: string; label: string }[];
+  categories: { code: string; label: string }[];
   knownSuppliers: { normalized: string; variations: string[] }[];
   documentTypes: string[];
 }
 
 const DEFAULT_VAT_RATES: Record<string, number[]> = {
   PT: [23, 13, 6, 0],
-  FR: [20, 10, 5.5, 2.1, 0],
   ES: [21, 10, 4, 0],
   IT: [22, 10, 4, 0],
   DE: [19, 7, 0],
@@ -32,127 +27,76 @@ export function getVatRatesForCountry(country: string): number[] {
   return DEFAULT_VAT_RATES[country?.toUpperCase()] ?? DEFAULT_VAT_RATES.PT;
 }
 
-const I18N: Record<string, Record<string, string>> = {
-  pt: {
-    role: 'És um CONTABILISTA SÉNIOR especializado em',
-    objective: 'OBJETIVO',
-    objectiveBody: 'Processar imagens/PDFs de faturas e devolver um JSON estruturado. Se um PDF contém VÁRIAS faturas (números diferentes), extrai CADA fatura separadamente.',
-    company: 'IDENTIFICAÇÃO DA EMPRESA',
-    companyBody: (c: TenantAIConfig) =>
-      `- NIF: ${c.nif}\n- A empresa aparece em faturas como: ${c.nameVariations.join(', ')}\n- Se o documento for EMITIDO POR esta empresa (e não recebido), retorna is_valid_document: false com rejection_reason: "pas_une_facture_fournisseur".`,
-    validation: 'VALIDAÇÃO INICIAL',
-    validationBody: '1. Não é documento (selfie, foto pessoal, paisagem) → is_valid_document: false, rejection_reason: "pas_un_document"\n2. Documento ilegível/desfocado → is_valid_document: false, rejection_reason: "document_illisible"\n3. Documento mas não fatura/recibo/nota crédito → is_valid_document: false, rejection_reason: "pas_une_facture"\n4. Senão → is_valid_document: true.',
-    classify: 'REGRAS DE CLASSIFICAÇÃO',
-    types: 'Tipos de custo',
-    metiers: 'Especialidades / Métiers',
-    natures: 'Natureza da despesa',
-    suppliers: 'Fornecedores conhecidos (normalização de nomes)',
-    extract: 'EXTRAÇÃO DE DADOS',
-    output: 'FORMATO DE SAÍDA (APENAS JSON)',
-  },
-  fr: {
-    role: 'Tu es un COMPTABLE SENIOR spécialisé dans le secteur',
-    objective: 'OBJECTIF',
-    objectiveBody: 'Traiter des images/PDFs de factures et renvoyer un JSON structuré. Si le PDF contient PLUSIEURS factures (numéros différents), extraire CHAQUE facture séparément.',
-    company: 'IDENTIFICATION DE L\'ENTREPRISE',
-    companyBody: (c: TenantAIConfig) =>
-      `- NIF/SIRET: ${c.nif}\n- L'entreprise apparaît sur les factures comme: ${c.nameVariations.join(', ')}\n- Si le document est ÉMIS PAR cette entreprise (et non reçu), retourner is_valid_document: false avec rejection_reason: "pas_une_facture_fournisseur".`,
-    validation: 'VALIDATION INITIALE',
-    validationBody: '1. Pas un document → is_valid_document: false, rejection_reason: "pas_un_document"\n2. Illisible → "document_illisible"\n3. Document mais pas une facture → "pas_une_facture"\n4. Sinon → is_valid_document: true.',
-    classify: 'RÈGLES DE CLASSIFICATION',
-    types: 'Types de coût',
-    metiers: 'Métiers',
-    natures: 'Nature de la dépense',
-    suppliers: 'Fournisseurs connus (normalisation)',
-    extract: 'EXTRACTION DE DONNÉES',
-    output: 'FORMAT DE SORTIE (JSON UNIQUEMENT)',
-  },
-  en: {
-    role: 'You are a SENIOR ACCOUNTANT specialised in',
-    objective: 'OBJECTIVE',
-    objectiveBody: 'Process invoice images/PDFs and return structured JSON. If the PDF contains MULTIPLE invoices (different numbers), extract EACH invoice separately.',
-    company: 'COMPANY IDENTIFICATION',
-    companyBody: (c: TenantAIConfig) =>
-      `- VAT/Tax ID: ${c.nif}\n- The company appears on invoices as: ${c.nameVariations.join(', ')}\n- If the document is ISSUED BY this company (not received), return is_valid_document: false with rejection_reason: "pas_une_facture_fournisseur".`,
-    validation: 'INITIAL VALIDATION',
-    validationBody: '1. Not a document → is_valid_document: false, rejection_reason: "pas_un_document"\n2. Illegible/blurry → "document_illisible"\n3. Document but not invoice/receipt/credit-note → "pas_une_facture"\n4. Otherwise → is_valid_document: true.',
-    classify: 'CLASSIFICATION RULES',
-    types: 'Cost types',
-    metiers: 'Trades / Specialties',
-    natures: 'Expense nature',
-    suppliers: 'Known suppliers (name normalisation)',
-    extract: 'DATA EXTRACTION',
-    output: 'OUTPUT FORMAT (JSON ONLY)',
-  },
-};
-
 export function buildTenantPrompt(c: TenantAIConfig): string {
-  const t = I18N[c.language] ?? I18N.pt;
   const parts: string[] = [];
 
-  parts.push(`# ${t.role} ${c.sector}.\nProcessas faturas de fornecedores para a empresa "${c.companyName}".`);
-  parts.push(`# ${t.objective}\n${t.objectiveBody}`);
-  parts.push(`# ${t.company}\n${t.companyBody(c)}`);
-  parts.push(`# ${t.validation}\n${t.validationBody}`);
+  parts.push(`# OBJETIVO
+És um CONTABILISTA SÉNIOR especializado em "${c.sector}" em Portugal.
+Processas faturas de fornecedores recebidas pela empresa "${c.companyName}".
+Devolve sempre um JSON estruturado conforme o formato indicado abaixo.
+Se um documento contém VÁRIAS faturas (números de documento diferentes), extrai CADA fatura como entrada separada.`);
 
-  parts.push(`# ${t.classify}
+  parts.push(`# IDENTIFICAÇÃO DA EMPRESA
+- NIF: ${c.nif}
+- A empresa aparece nas faturas como: ${c.nameVariations.join(", ")}
+- Se o documento for EMITIDO POR esta empresa (e não recebido), devolve is_valid_document: false e rejection_reason: "fatura_propria".`);
 
-## ${t.types}:
-${c.costTypes.map((x) => `- "${x.code}": ${x.label}`).join('\n')}
+  parts.push(`# VALIDAÇÃO INICIAL
+1. Não é documento (selfie, foto pessoal, paisagem) → is_valid_document: false, rejection_reason: "nao_e_documento"
+2. Documento ilegível ou desfocado → "documento_ilegivel"
+3. É documento mas não fatura/recibo/nota crédito → "nao_e_fatura"
+4. Caso contrário → is_valid_document: true.`);
 
-## ${t.metiers}:
-${c.metiers.length ? c.metiers.map((x) => `- "${x.code}": ${x.label}`).join('\n') : '- (não aplicável a este sector — usar null)'}
-
-## ${t.natures}:
-${c.natures.map((x) => `- "${x.code}": ${x.label}`).join('\n')}`);
+  parts.push(`# CATEGORIA DA DESPESA
+Escolhe exactamente UM dos códigos abaixo (ou null se mesmo nenhum se aplicar):
+${c.categories.length
+    ? c.categories.map((x) => `- "${x.code}": ${x.label}`).join("\n")
+    : '- (sem categorias configuradas — devolve null)'}`);
 
   if (c.knownSuppliers.length) {
-    parts.push(`## ${t.suppliers}:
-${c.knownSuppliers.map((s) => `- ${s.variations.map((v) => `"${v}"`).join(' ou ')} → "${s.normalized}"`).join('\n')}`);
+    parts.push(`# FORNECEDORES CONHECIDOS (normalização de nomes)
+${c.knownSuppliers.map((s) => `- ${s.variations.map((v) => `"${v}"`).join(" ou ")} → "${s.normalized}"`).join("\n")}`);
   }
 
-  parts.push(`# ${t.extract}
+  parts.push(`# EXTRAÇÃO DE DADOS
 - Moeda: ${c.currency}
 - País: ${c.country}
-- Formato datas: YYYY-MM-DD
-- Taxas IVA possíveis: ${c.vatRates.join(', ')}%
-- Se autoliquidação (subempreitada): IVA = 0%, autoliquidation: true
-- Montantes em formato numérico (1234.56, sem espaços/vírgulas)
-- supplier_name: nome do FORNECEDOR em MAIÚSCULAS (quem emite)
-- destinataire_name: nome do destinatário (quem recebe)
-- Tipos de documento aceites: ${c.documentTypes.join(', ')}`);
+- Formato de datas: YYYY-MM-DD
+- Taxas de IVA possíveis: ${c.vatRates.join(", ")}%
+- Se houver autoliquidação (subempreitada): IVA = 0% e autoliquidacao: true
+- Montantes em formato numérico (ex.: 1234.56, sem espaços nem vírgulas)
+- supplier_name: nome do FORNECEDOR em MAIÚSCULAS (quem emite a fatura)
+- destinatario_nome: nome do destinatário (quem recebe — útil para identificar a empresa correcta entre as do tenant)
+- Tipos de documento aceites: ${c.documentTypes.join(", ")}`);
 
-  parts.push(`# ${t.output}
-Devolve APENAS este objeto JSON, sem markdown nem texto antes/depois.
-SEMPRE retorna { "invoices": [...] }, mesmo que seja uma só fatura.
+  parts.push(`# FORMATO DE SAÍDA (APENAS JSON, sem markdown nem texto antes/depois)
+SEMPRE devolves { "invoices": [...] }, mesmo que seja uma só fatura.
 
 {
   "invoices": [
     {
       "is_valid_document": boolean,
-      "rejection_reason": "pas_un_document" | "document_illisible" | "pas_une_facture" | "pas_une_facture_fournisseur" | null,
-      "document_type": "facture" | "avoir" | "recu" | "devis" | "autre" | null,
-      "cost_type": ${c.costTypes.map((x) => `"${x.code}"`).join(' | ') || 'string'} | null,
-      "metier": ${c.metiers.length ? c.metiers.map((x) => `"${x.code}"`).join(' | ') + ' | null' : 'null'},
-      "nature_depense": ${c.natures.map((x) => `"${x.code}"`).join(' | ') || 'string'} | null,
+      "rejection_reason": "nao_e_documento" | "documento_ilegivel" | "nao_e_fatura" | "fatura_propria" | null,
+      "document_type": "fatura" | "nota_credito" | "recibo" | "outro" | null,
+      "category": ${c.categories.length ? c.categories.map((x) => `"${x.code}"`).join(" | ") + " | null" : "null"},
       "doc_year": number | null,
       "doc_date": "YYYY-MM-DD" | null,
-      "date_echeance": "YYYY-MM-DD" | null,
+      "data_vencimento": "YYYY-MM-DD" | null,
       "supplier_name": string | null,
-      "destinataire_name": string | null,
+      "destinatario_nome": string | null,
       "supplier_nif": string | null,
       "doc_number": string | null,
-      "montant_ht": number | null,
-      "taux_tva": number | null,
-      "montant_tva": number | null,
-      "montant_ttc": number | null,
-      "autoliquidation": boolean,
-      "payment_method": "CB" | "virement" | "cheque" | "especes" | "transferencia" | "MB" | null,
+      "valor_sem_iva": number | null,
+      "taxa_iva": number | null,
+      "valor_iva": number | null,
+      "valor_total": number | null,
+      "autoliquidacao": boolean,
+      "payment_method": "transferencia" | "MB" | "multibanco" | "cheque" | "numerario" | "cartao" | null,
       "supplier_iban": string | null,
       "summary": string | null,
       "confidence_score": number,
       "line_items": [
-        { "description": string | null, "quantity": number | null, "unit": string | null, "unit_price_ht": number | null, "total_ht": number | null, "taux_tva": number | null }
+        { "description": string | null, "quantity": number | null, "unit": string | null, "preco_unitario": number | null, "total_sem_iva": number | null, "taxa_iva": number | null }
       ]
     }
   ]
@@ -160,5 +104,5 @@ SEMPRE retorna { "invoices": [...] }, mesmo que seja uma só fatura.
 
 Se is_valid_document = false, os outros campos podem ser null.`);
 
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }

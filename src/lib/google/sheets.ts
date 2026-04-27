@@ -1,13 +1,11 @@
-/**
- * Google Sheets REST API — extrato anual com aba por mês.
- * Headers e nomes de meses são determinados pelo idioma do tenant.
- */
+// Google Sheets REST API — extrato anual com aba por mês.
+// Headers e nomes de meses são determinados pelo idioma do tenant.
 
 import { sheetsLimiter } from '@/lib/rateLimiter';
 import { getMonthName } from '@/lib/utils/months';
 
 const SHEETS_TIMEOUT_MS = 30_000;
-const COLUMN_COUNT = 14;
+const COLUMN_COUNT = 12;
 
 // Mapeamento campo → índice de coluna (0-based), alinhado com HEADERS_BY_LANG.
 // A ordem tem de coincidir com a construção da row em appendInvoiceToSheet.
@@ -15,17 +13,15 @@ export const INVOICE_COLUMN_MAP = {
   doc_date: 0,         // A
   supplier_name: 1,    // B
   supplier_nif: 2,     // C
-  metier: 3,           // D
-  nature_depense: 4,   // E
-  cost_type: 5,        // F
-  doc_number: 6,       // G
-  montant_ht: 7,       // H
-  montant_tva: 8,      // I
-  montant_ttc: 9,      // J
-  taux_tva: 10,        // K (formatada como "23%")
-  summary: 11,         // L
-  drive_link: 12,      // M
-  // N (processed_date) não é editável.
+  category: 3,         // D
+  doc_number: 4,       // E
+  valor_sem_iva: 5,    // F
+  valor_iva: 6,        // G
+  valor_total: 7,      // H
+  taxa_iva: 8,         // I (formatada como "23%")
+  summary: 9,          // J
+  drive_link: 10,      // K
+  // L (processed_date) não é editável.
 } as const;
 
 export type InvoiceSheetField = keyof typeof INVOICE_COLUMN_MAP;
@@ -37,8 +33,8 @@ function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => vo
 }
 
 const HEADERS_BY_LANG: Record<string, string[]> = {
-  pt: ['Data Doc.', 'Fornecedor', 'NIF', 'Categoria', 'Natureza', 'Tipo Custo', 'Nº Documento', 'Valor s/ IVA', 'IVA', 'Valor c/ IVA', 'Taxa IVA', 'Resumo', 'Link PDF', 'Data Processamento'],
-  en: ['Doc Date', 'Supplier', 'Tax ID', 'Category', 'Nature', 'Cost Type', 'Doc Number', 'Net Amount', 'VAT', 'Gross Amount', 'VAT Rate', 'Summary', 'PDF Link', 'Processed At'],
+  pt: ['Data Doc.', 'Fornecedor', 'NIF', 'Categoria', 'Nº Documento', 'Valor s/ IVA', 'IVA', 'Valor Total', 'Taxa IVA', 'Resumo', 'Link PDF', 'Data Processamento'],
+  en: ['Doc Date', 'Supplier', 'Tax ID', 'Category', 'Doc Number', 'Net Amount', 'VAT', 'Gross Amount', 'VAT Rate', 'Summary', 'PDF Link', 'Processed At'],
 };
 
 function getSheetHeaders(language: string): string[] {
@@ -56,14 +52,12 @@ export async function appendInvoiceToSheet(
     doc_date: string | null;
     supplier_name: string | null;
     supplier_nif: string | null;
-    metier: string | null;
-    nature_depense: string | null;
-    cost_type: string | null;
+    category: string | null;
     doc_number: string | null;
-    montant_ht: number | null;
-    montant_tva: number | null;
-    montant_ttc: number | null;
-    taux_tva: number | null;
+    valor_sem_iva: number | null;
+    valor_iva: number | null;
+    valor_total: number | null;
+    taxa_iva: number | null;
     summary: string | null;
     drive_link: string | null;
   },
@@ -83,20 +77,18 @@ export async function appendInvoiceToSheet(
     data.doc_date || '',
     data.supplier_name || '',
     data.supplier_nif || '',
-    data.metier || '',
-    data.nature_depense || '',
-    data.cost_type || '',
+    data.category || '',
     data.doc_number || '',
-    data.montant_ht ?? 0,
-    data.montant_tva ?? 0,
-    data.montant_ttc ?? 0,
-    data.taux_tva ? `${data.taux_tva}%` : '',
+    data.valor_sem_iva ?? 0,
+    data.valor_iva ?? 0,
+    data.valor_total ?? 0,
+    data.taxa_iva ? `${data.taxa_iva}%` : '',
     data.summary || '',
     data.drive_link || '',
     new Date().toISOString().split('T')[0],
   ];
 
-  const range = `'${sheetName}'!A2:N`;
+  const range = `'${sheetName}'!A2:L`;
 
   await sheetsLimiter.waitForSlot();
   const t = createTimeoutSignal(SHEETS_TIMEOUT_MS);
@@ -146,7 +138,7 @@ async function ensureSheetHasHeader(
   }
 
   const checkResponse = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1:N1`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1:L1`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!checkResponse.ok) return;
@@ -224,14 +216,10 @@ function columnIndexToLetter(index: number): string {
 export interface InvoiceSheetLocator {
   doc_number?: string | null;
   supplier_name?: string | null;
-  montant_ttc?: number | null;
+  valor_total?: number | null;
   doc_date?: string | null;
 }
 
-/**
- * Localiza a linha (1-indexed, excluindo header) de uma fatura dentro de uma aba.
- * 3 estratégias em cascata: doc_number, supplier+total, supplier+data.
- */
 export async function findInvoiceRowIndex(
   accessToken: string,
   spreadsheetId: string,
@@ -252,25 +240,22 @@ export async function findInvoiceRowIndex(
   const rows: string[][] = data.values || [];
   if (!rows.length) return null;
 
-  // Estratégia 1: doc_number (mais fiável).
   const targetDoc = criteria.doc_number?.toString().trim();
   if (targetDoc) {
     const idx = rows.findIndex(r => r[INVOICE_COLUMN_MAP.doc_number]?.toString().trim() === targetDoc);
     if (idx !== -1) return idx + 2;
   }
 
-  // Estratégia 2: supplier + montant_ttc (tolerância 0.01).
   const targetSupplier = criteria.supplier_name?.toString().trim().toLowerCase();
-  if (targetSupplier && criteria.montant_ttc != null) {
+  if (targetSupplier && criteria.valor_total != null) {
     const idx = rows.findIndex(r => {
       const s = r[INVOICE_COLUMN_MAP.supplier_name]?.toString().trim().toLowerCase();
-      const amt = parseFloat((r[INVOICE_COLUMN_MAP.montant_ttc] ?? '0').toString().replace(',', '.'));
-      return s === targetSupplier && Math.abs(amt - (criteria.montant_ttc ?? 0)) < 0.01;
+      const amt = parseFloat((r[INVOICE_COLUMN_MAP.valor_total] ?? '0').toString().replace(',', '.'));
+      return s === targetSupplier && Math.abs(amt - (criteria.valor_total ?? 0)) < 0.01;
     });
     if (idx !== -1) return idx + 2;
   }
 
-  // Estratégia 3: supplier + doc_date.
   if (targetSupplier && criteria.doc_date) {
     const idx = rows.findIndex(r => {
       const s = r[INVOICE_COLUMN_MAP.supplier_name]?.toString().trim().toLowerCase();
@@ -287,22 +272,16 @@ export type InvoiceRowUpdates = Partial<{
   doc_date: string | null;
   supplier_name: string | null;
   supplier_nif: string | null;
-  metier: string | null;
-  nature_depense: string | null;
-  cost_type: string | null;
+  category: string | null;
   doc_number: string | null;
-  montant_ht: number | null;
-  montant_tva: number | null;
-  montant_ttc: number | null;
-  taux_tva: number | null;
+  valor_sem_iva: number | null;
+  valor_iva: number | null;
+  valor_total: number | null;
+  taxa_iva: number | null;
   summary: string | null;
   drive_link: string | null;
 }>;
 
-/**
- * Escreve campos alterados numa linha existente via batchUpdate.
- * Devolve false se a API rejeitar — caller trata como warning.
- */
 export async function updateInvoiceRowInSheet(
   accessToken: string,
   spreadsheetId: string,
@@ -340,7 +319,7 @@ export async function updateInvoiceRowInSheet(
 
 function formatCellValue(field: InvoiceSheetField, value: unknown): string | number {
   if (value == null) return '';
-  if (field === 'taux_tva' && typeof value === 'number') return `${value}%`;
+  if (field === 'taxa_iva' && typeof value === 'number') return `${value}%`;
   if (typeof value === 'number') return value;
   return String(value);
 }

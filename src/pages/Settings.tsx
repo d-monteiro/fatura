@@ -8,6 +8,7 @@ import { CategoriesCard } from '@/components/settings/CategoriesCard';
 import { GoogleAccountsUnified } from '@/components/settings/GoogleAccountsUnified';
 import { PasswordCard } from '@/components/settings/PasswordCard';
 import { ReportsCard } from '@/components/settings/ReportsCard';
+import { TeamCard } from '@/components/settings/TeamCard';
 import { useI18n } from '@/contexts/I18nContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
@@ -41,6 +42,7 @@ export default function Settings() {
       <ReportsCard />
       {user && <GoogleAccountsUnified userId={user.id} />}
       <CompanyList />
+      <TeamCard />
       <PasswordCard />
     </div>
   );

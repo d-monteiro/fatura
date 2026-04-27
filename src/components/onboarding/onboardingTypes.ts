@@ -29,44 +29,73 @@ export const EU_COUNTRIES = [
   { value: 'GR', label: 'Grécia' },
 ] as const;
 
-export const CATEGORY_TEMPLATES: Record<string, { metiers: string[]; natures: string[]; cost_types: string[] }> = {
-  construction: {
-    metiers: ['Eletricidade', 'Canalização', 'Aquecimento', 'Estuque', 'Alvenaria', 'Pintura', 'Carpintaria'],
-    natures: ['Materiais', 'Subempreiteiros', 'Aluguer de equipamento', 'Combustível', 'Alimentação', 'Seguros'],
-    cost_types: ['Custos fixos', 'Custos variáveis'],
-  },
-  commerce: {
-    metiers: [],
-    natures: ['Mercadorias', 'Embalagem', 'Transporte', 'Marketing', 'Renda', 'Seguros'],
-    cost_types: ['Custos fixos', 'Custos variáveis'],
-  },
-  services: {
-    metiers: [],
-    natures: ['Subcontratação', 'Software/SaaS', 'Deslocações', 'Formação', 'Renda', 'Seguros'],
-    cost_types: ['Custos fixos', 'Custos variáveis'],
-  },
-  restauration: {
-    metiers: [],
-    natures: ['Alimentação', 'Bebidas', 'Equipamento de cozinha', 'Energia', 'Renda', 'Seguros'],
-    cost_types: ['Custos fixos', 'Custos variáveis'],
-  },
-  transport: {
-    metiers: [],
-    natures: ['Combustível', 'Manutenção de veículos', 'Portagens', 'Seguros', 'Leasing', 'Peças'],
-    cost_types: ['Custos fixos', 'Custos variáveis'],
-  },
-  technologie: {
-    metiers: [],
-    natures: ['Software/SaaS', 'Alojamento', 'Hardware', 'Subcontratação', 'Formação', 'Seguros'],
-    cost_types: ['Custos fixos', 'Custos variáveis'],
-  },
+// Templates de categorias por sector. is_fixed marca categorias com
+// comportamento de custo fixo (substitui o antigo cost_type).
+export interface CategoryTemplate { label: string; is_fixed?: boolean }
+
+export const CATEGORY_TEMPLATES: Record<string, CategoryTemplate[]> = {
+  construction: [
+    { label: 'Materiais' },
+    { label: 'Subempreiteiros' },
+    { label: 'Aluguer de equipamento' },
+    { label: 'Combustível' },
+    { label: 'Alimentação' },
+    { label: 'Seguros', is_fixed: true },
+    { label: 'Eletricidade' },
+    { label: 'Canalização' },
+    { label: 'Aquecimento' },
+    { label: 'Estuque' },
+    { label: 'Alvenaria' },
+    { label: 'Pintura' },
+    { label: 'Carpintaria' },
+  ],
+  commerce: [
+    { label: 'Mercadorias' },
+    { label: 'Embalagem' },
+    { label: 'Transporte' },
+    { label: 'Marketing' },
+    { label: 'Renda', is_fixed: true },
+    { label: 'Seguros', is_fixed: true },
+  ],
+  services: [
+    { label: 'Subcontratação' },
+    { label: 'Software / SaaS', is_fixed: true },
+    { label: 'Deslocações' },
+    { label: 'Formação' },
+    { label: 'Renda', is_fixed: true },
+    { label: 'Seguros', is_fixed: true },
+  ],
+  restauration: [
+    { label: 'Alimentação' },
+    { label: 'Bebidas' },
+    { label: 'Equipamento de cozinha' },
+    { label: 'Energia', is_fixed: true },
+    { label: 'Renda', is_fixed: true },
+    { label: 'Seguros', is_fixed: true },
+  ],
+  transport: [
+    { label: 'Combustível' },
+    { label: 'Manutenção de veículos' },
+    { label: 'Portagens' },
+    { label: 'Seguros', is_fixed: true },
+    { label: 'Leasing', is_fixed: true },
+    { label: 'Peças' },
+  ],
+  technologie: [
+    { label: 'Software / SaaS', is_fixed: true },
+    { label: 'Alojamento', is_fixed: true },
+    { label: 'Hardware' },
+    { label: 'Subcontratação' },
+    { label: 'Formação' },
+    { label: 'Seguros', is_fixed: true },
+  ],
 };
 
 export const DOCUMENT_TYPES = [
-  { value: 'factures', label: 'Faturas' },
-  { value: 'recus', label: 'Recibos' },
-  { value: 'avoirs', label: 'Notas de crédito' },
-  { value: 'devis', label: 'Orçamentos' },
+  { value: 'fatura', label: 'Faturas' },
+  { value: 'recibo', label: 'Recibos' },
+  { value: 'nota_credito', label: 'Notas de crédito' },
+  { value: 'orcamento', label: 'Orçamentos' },
 ] as const;
 
 export const FOLDER_TEMPLATES = [
@@ -131,7 +160,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingData = {
 
   invoiceNameVariations: [],
   invoicesPerMonth: 100,
-  documentTypes: ['factures'],
+  documentTypes: ['fatura'],
 
   storageProvider: 'google_drive',
   folderStructure: 'year_month',

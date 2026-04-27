@@ -58,7 +58,8 @@ interface FilterSelectProps {
   disabled?: boolean;
 }
 
-// value='' significa "sem filtro"; `allOptionLabel` renderiza item de topo que faz reset.
+// value='' significa "sem filtro". Quando há valor, mostra X inline para limpar individualmente.
+// `allOptionLabel` (opcional) ainda permite item de topo que faz reset, mas o X torna-o redundante.
 export function FilterSelect({
   value,
   onValueChange,
@@ -70,6 +71,7 @@ export function FilterSelect({
   disabled,
 }: FilterSelectProps) {
   const internalValue = value === '' ? '' : value;
+  const hasValue = !!value && !disabled;
 
   return (
     <Select
@@ -81,12 +83,27 @@ export function FilterSelect({
         size={size}
         className={cn(
           'min-w-[7rem] sm:w-auto',
-          value && 'border-primary/40 bg-primary/5 text-foreground',
+          hasValue && 'border-primary/40 bg-primary/5 text-foreground pr-7',
           className,
         )}
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
+      {hasValue && (
+        <button
+          type="button"
+          aria-label="Limpar filtro"
+          tabIndex={-1}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onValueChange('');
+          }}
+          className="absolute right-2 top-1/2 z-10 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded bg-primary/5 hover:bg-muted"
+        >
+          <X className="h-3 w-3 opacity-70" />
+        </button>
+      )}
       <SelectContent>
         {allOptionLabel && <SelectItem value={ALL_VALUE}>{allOptionLabel}</SelectItem>}
         {options.map((o) => (
@@ -109,7 +126,7 @@ interface FilterBarProps {
 
 export function FilterBar({ children, onClear, hasActive, clearLabel = 'Limpar', className }: FilterBarProps) {
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       {children}
       {hasActive && onClear && (
         <button

@@ -7,6 +7,11 @@ dist
 .vercel
 ai-fatura-pro.zip
 
+# Claude Code local state
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/worktrees/
+
 # sample PDFs — nunca servir faturas em public
 public/faturasex/
 *.pdf

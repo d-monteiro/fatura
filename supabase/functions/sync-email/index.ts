@@ -518,6 +518,20 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
   const msgData = await msgResp.json();
   const payload = msgData.payload as GmailPart | undefined;
 
+  // Headers Gmail — gravados na invoice para a aba Ignoradas mostrar
+  // origem (assunto + remetente) quando o Gemini não preenche dados.
+  const headers = (payload && Array.isArray((payload as { headers?: Array<{ name?: string; value?: string }> }).headers))
+    ? (payload as { headers: Array<{ name?: string; value?: string }> }).headers
+    : [];
+  const headerValue = (name: string): string | null => {
+    const h = headers.find((x) => (x.name ?? "").toLowerCase() === name.toLowerCase());
+    return h?.value?.slice(0, 500) ?? null;
+  };
+  const emailSubject = headerValue("Subject");
+  const emailFrom = headerValue("From");
+  const internalDateMs = Number(msgData.internalDate ?? 0);
+  const emailReceivedAt = internalDateMs > 0 ? new Date(internalDateMs).toISOString() : null;
+
   // Gmail devolve attachments em qualquer profundidade de `parts`. Achatar tudo
   // e filtrar — antes só olhávamos ao primeiro nível, o que perdia anexos em
   // multipart/alternative → multipart/related aninhado.
@@ -664,6 +678,9 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
         source: "email",
         email_message_id: msgId,
         email_attachment_id: attachmentId,
+        email_subject: emailSubject,
+        email_from: emailFrom,
+        email_received_at: emailReceivedAt,
         attachment_hash: attachmentHash,
         file_url: fileUrl,
         storage_path: storageData.path,

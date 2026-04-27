@@ -113,7 +113,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   }
 
   // MODE 1 - Normal drawer
-  const costLabel = labelFor('cost_type', invoice.cost_type) || null;
+  const categoryLabel = labelFor(invoice.category) || null;
 
   return (
     <>
@@ -131,14 +131,11 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
             {invoice.document_type && (
               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">{invoice.document_type}</span>
             )}
-            {costLabel && (
-              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{costLabel}</span>
+            {categoryLabel && (
+              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{categoryLabel}</span>
             )}
-            {invoice.metier && (
-              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{labelFor('metier', invoice.metier)}</span>
-            )}
-            {invoice.autoliquidation && (
-              <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">{t('inv.autoliquidation')}</span>
+            {invoice.autoliquidacao && (
+              <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">{t('inv.autoliquidacao')}</span>
             )}
           </div>
         </div>

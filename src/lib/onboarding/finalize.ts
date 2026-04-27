@@ -1,9 +1,9 @@
 // Bootstrap pós-onboarding. Seed de categorias + empresa default vive agora
 // dentro do RPC create_tenant_with_owner (atomic com o tenant). Esta função
-// trata só do que precisa do cliente: Drive root folder e logo upload.
+// trata só do que precisa do cliente: logo upload (o root do Drive é criado
+// lazy pelo backend na primeira fatura, via ensureFolderPath atómico).
 
 import { supabase } from '@/lib/supabase/client';
-import { ensureFolder } from '@/lib/google/drive';
 import { reportError } from '@/lib/errors/errorReporter';
 import { CATEGORY_TEMPLATES, type OnboardingData } from '@/components/onboarding/onboardingTypes';
 
@@ -13,10 +13,11 @@ function slugify(s: string): string {
 }
 
 export interface CategoryPayload {
-  axis: 'cost_type' | 'metier' | 'nature_depense';
+  axis: 'category';
   code: string;
   label: string;
   sort_order: number;
+  is_fixed: boolean;
 }
 
 export interface DefaultCompanyPayload {
@@ -27,25 +28,14 @@ export interface DefaultCompanyPayload {
 
 export function buildCategoriesPayload(sector: string): CategoryPayload[] {
   const effectiveSector = sector === 'outro' ? 'services' : sector;
-  const tpl = CATEGORY_TEMPLATES[effectiveSector] ?? CATEGORY_TEMPLATES.services
-    ?? { metiers: [], natures: [], cost_types: ['Custos fixos', 'Custos variáveis'] };
-
-  const rows: CategoryPayload[] = [];
-  tpl.cost_types.forEach((label, i) => rows.push({
-    axis: 'cost_type',
-    code: label.toLowerCase().includes('fix') ? 'cout_fixe'
-      : label.toLowerCase().includes('var') ? 'cout_variable'
-      : slugify(label),
-    label,
+  const tpl = CATEGORY_TEMPLATES[effectiveSector] ?? CATEGORY_TEMPLATES.services ?? [];
+  return tpl.map((c, i) => ({
+    axis: 'category',
+    code: slugify(c.label),
+    label: c.label,
     sort_order: i,
+    is_fixed: !!c.is_fixed,
   }));
-  tpl.metiers.forEach((label, i) => rows.push({
-    axis: 'metier', code: slugify(label), label, sort_order: i,
-  }));
-  tpl.natures.forEach((label, i) => rows.push({
-    axis: 'nature_depense', code: slugify(label), label, sort_order: i,
-  }));
-  return rows;
 }
 
 export function buildDefaultCompanyPayload(companyName: string, nif: string): DefaultCompanyPayload | null {
@@ -56,29 +46,6 @@ export function buildDefaultCompanyPayload(companyName: string, nif: string): De
     short_name: short.substring(0, 16),
     nif: nif.trim() || null,
   };
-}
-
-async function bootstrapDriveRoot(tenantId: string, userId: string, rootName: string) {
-  const { data: tok } = await supabase.from('user_oauth_tokens')
-    .select('access_token, token_expiry')
-    .eq('user_id', userId).eq('provider', 'google')
-    .order('is_primary_storage', { ascending: false }).limit(1).maybeSingle();
-  if (!tok?.access_token) return;
-  if (tok.token_expiry && new Date(tok.token_expiry) < new Date()) return;
-
-  try {
-    const folderId = await ensureFolder(tok.access_token, rootName);
-    if (folderId) {
-      await supabase.from('tenants').update({ drive_root_folder_id: folderId }).eq('id', tenantId);
-    }
-  } catch (err) {
-    void reportError(err, {
-      component: 'onboarding/bootstrapDriveRoot',
-      tenantId,
-      userId,
-      level: 'warn',
-    });
-  }
 }
 
 async function persistLogo(tenantId: string, logoDataUrl: string | null) {
@@ -105,7 +72,6 @@ export async function finalizeOnboarding(opts: {
 
   const results = await Promise.allSettled([
     supabase.from('tenants').update({ drive_root_folder_name: rootName }).eq('id', tenantId),
-    bootstrapDriveRoot(tenantId, userId, rootName),
     persistLogo(tenantId, data.logoDataUrl),
   ]);
   results.forEach((r, i) => {

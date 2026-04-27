@@ -8,17 +8,18 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const GEMINI_TIMEOUT_MS = 120_000;
 
 const REJECTION_MESSAGES: Record<string, string> = {
-  'pas_un_document': 'Isto não é uma fatura ou documento financeiro. Por favor envie uma imagem de fatura, recibo ou nota de crédito.',
-  'document_illisible': 'O documento está ilegível ou demasiado desfocado. Por favor envie uma imagem de melhor qualidade.',
-  'pas_une_facture': 'Este documento não é uma fatura de despesa.',
+  nao_e_documento: 'Isto não é uma fatura ou documento financeiro. Por favor envie uma imagem de fatura, recibo ou nota de crédito.',
+  documento_ilegivel: 'O documento está ilegível ou demasiado desfocado. Por favor envie uma imagem de melhor qualidade.',
+  nao_e_fatura: 'Este documento não é uma fatura de despesa.',
+  fatura_propria: 'Este documento foi emitido pela própria empresa — não é uma fatura de despesa.',
 };
 
 function validateInvoice(inv: GeminiInvoiceData): void {
   if (!inv.is_valid_document) {
-    const reason = inv.rejection_reason || 'pas_un_document';
-    throw new Error(REJECTION_MESSAGES[reason] || REJECTION_MESSAGES['pas_un_document']);
+    const reason = inv.rejection_reason || 'nao_e_documento';
+    throw new Error(REJECTION_MESSAGES[reason] || REJECTION_MESSAGES['nao_e_documento']);
   }
-  if (!inv.supplier_name || !inv.doc_date || inv.montant_ttc === null) {
+  if (!inv.supplier_name || !inv.doc_date || inv.valor_total === null) {
     throw new Error('Não foi possível extrair todos os dados. Verifique se a imagem está completa e legível.');
   }
 }

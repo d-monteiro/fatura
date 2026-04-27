@@ -1,15 +1,28 @@
 import { useI18n } from '@/contexts/I18nContext';
 import { useCategories } from '@/hooks/useCategories';
 import { FilterBar, FilterSearch, FilterSelect, type FilterOption } from '@/components/ui/filter-bar';
+import { SupplierCombobox } from './SupplierCombobox';
+import { DateRangePicker } from './DateRangePicker';
 
 export interface FaturasFilterState {
   search: string;
   year: string;
   month: string;
-  metier: string;
-  nature: string;
-  costType: string;
+  dateStart: string;
+  dateEnd: string;
+  supplierId: string;
+  category: string;
 }
+
+const EMPTY_FILTERS: FaturasFilterState = {
+  search: '',
+  year: '',
+  month: '',
+  dateStart: '',
+  dateEnd: '',
+  supplierId: '',
+  category: '',
+};
 
 interface FaturasFiltersProps {
   filters: FaturasFilterState;
@@ -18,10 +31,6 @@ interface FaturasFiltersProps {
 }
 
 const YEARS: FilterOption[] = ['2026', '2025', '2024', '2023'].map((y) => ({ value: y, label: y }));
-
-const EMPTY_FILTERS: FaturasFilterState = {
-  search: '', year: '', month: '', metier: '', nature: '', costType: '',
-};
 
 export function FaturasFilters({ filters, onChange, tenantId }: FaturasFiltersProps) {
   const { t } = useI18n();
@@ -34,6 +43,7 @@ export function FaturasFilters({ filters, onChange, tenantId }: FaturasFiltersPr
     onChange({ ...filters, [key]: value });
 
   const hasFilters = Object.values(filters).some((v) => v !== '');
+  const hasDateRange = !!(filters.dateStart || filters.dateEnd);
 
   return (
     <div className="space-y-3">
@@ -53,38 +63,35 @@ export function FaturasFilters({ filters, onChange, tenantId }: FaturasFiltersPr
           value={filters.year}
           options={YEARS}
           onValueChange={(v) => set('year', v)}
-          allOptionLabel={t('filter.year')}
+          disabled={hasDateRange}
         />
         <FilterSelect
           placeholder={t('filter.month')}
           value={filters.month}
           options={months}
           onValueChange={(v) => set('month', v)}
-          allOptionLabel={t('filter.month')}
+          disabled={!filters.year || hasDateRange}
         />
-        {categories.metier.length > 0 && (
+        <DateRangePicker
+          start={filters.dateStart}
+          end={filters.dateEnd}
+          onChange={({ start, end }) => onChange({ ...filters, dateStart: start, dateEnd: end })}
+          startLabel={t('filter.date_from')}
+          endLabel={t('filter.date_to')}
+        />
+        <SupplierCombobox
+          value={filters.supplierId}
+          onValueChange={(v) => set('supplierId', v)}
+          placeholder={t('filter.supplier')}
+        />
+        {categories.length > 0 && (
           <FilterSelect
-            placeholder={t('filter.metier')}
-            value={filters.metier}
-            options={categories.metier.map((c) => ({ value: c.code, label: c.label }))}
-            onValueChange={(v) => set('metier', v)}
-            allOptionLabel={t('filter.metier')}
+            placeholder={t('filter.category')}
+            value={filters.category}
+            options={categories.map((c) => ({ value: c.code, label: c.label }))}
+            onValueChange={(v) => set('category', v)}
           />
         )}
-        <FilterSelect
-          placeholder={t('filter.nature')}
-          value={filters.nature}
-          options={categories.nature_depense.map((c) => ({ value: c.code, label: c.label }))}
-          onValueChange={(v) => set('nature', v)}
-          allOptionLabel={t('filter.nature')}
-        />
-        <FilterSelect
-          placeholder={t('filter.cost_type')}
-          value={filters.costType}
-          options={categories.cost_type.map((c) => ({ value: c.code, label: c.label }))}
-          onValueChange={(v) => set('costType', v)}
-          allOptionLabel={t('filter.cost_type')}
-        />
       </FilterBar>
     </div>
   );

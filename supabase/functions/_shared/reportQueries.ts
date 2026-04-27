@@ -9,20 +9,19 @@ const MAX_ROWS = 10_000;
 
 interface InvoiceRow {
   supplier_name: string | null;
-  cost_type: string | null;
-  metier: string | null;
-  montant_ht: number | null;
-  montant_tva: number | null;
-  montant_ttc: number | null;
+  category: string | null;
+  valor_sem_iva: number | null;
+  valor_iva: number | null;
+  valor_total: number | null;
   status: string | null;
   manual_review: boolean | null;
 }
 
 export interface PeriodKpis {
   invoicesCount: number;
-  totalHt: number;
-  totalTva: number;
-  totalTtc: number;
+  totalNet: number;
+  totalIva: number;
+  totalGross: number;
   pendingCount: number;
   manualReviewCount: number;
 }
@@ -30,19 +29,18 @@ export interface PeriodKpis {
 export interface SupplierRow {
   name: string;
   invoicesCount: number;
-  totalTtc: number;
+  totalGross: number;
 }
 
 export interface BreakdownRow {
   label: string;
-  totalTtc: number;
+  totalGross: number;
 }
 
 export interface ReportData {
   kpis: PeriodKpis;
   topSuppliers: SupplierRow[];
-  costTypeBreakdown: BreakdownRow[];
-  metierBreakdown: BreakdownRow[];
+  categoryBreakdown: BreakdownRow[];
 }
 
 async function fetchInvoiceRows(
@@ -53,7 +51,7 @@ async function fetchInvoiceRows(
 ): Promise<InvoiceRow[]> {
   const { data, error } = await sb
     .from("invoices")
-    .select("supplier_name, cost_type, metier, montant_ht, montant_tva, montant_ttc, status, manual_review")
+    .select("supplier_name, category, valor_sem_iva, valor_iva, valor_total, status, manual_review")
     .eq("tenant_id", tenantId)
     .is("deleted_at", null)
     .gte("doc_date", periodStart)
@@ -68,19 +66,19 @@ function num(v: number | null | undefined): number {
 }
 
 function aggregateKpis(rows: InvoiceRow[]): PeriodKpis {
-  let totalHt = 0, totalTva = 0, totalTtc = 0, pendingCount = 0, manualReviewCount = 0;
+  let totalNet = 0, totalIva = 0, totalGross = 0, pendingCount = 0, manualReviewCount = 0;
   for (const r of rows) {
-    totalHt += num(r.montant_ht);
-    totalTva += num(r.montant_tva);
-    totalTtc += num(r.montant_ttc);
+    totalNet += num(r.valor_sem_iva);
+    totalIva += num(r.valor_iva);
+    totalGross += num(r.valor_total);
     if (r.status === "pending") pendingCount++;
     if (r.manual_review === true) manualReviewCount++;
   }
   return {
     invoicesCount: rows.length,
-    totalHt: round2(totalHt),
-    totalTva: round2(totalTva),
-    totalTtc: round2(totalTtc),
+    totalNet: round2(totalNet),
+    totalIva: round2(totalIva),
+    totalGross: round2(totalGross),
     pendingCount,
     manualReviewCount,
   };
@@ -97,25 +95,25 @@ function topSuppliersOf(rows: InvoiceRow[], limit: number): SupplierRow[] {
     if (!name) continue;
     const entry = map.get(name) ?? { count: 0, total: 0 };
     entry.count++;
-    entry.total += num(r.montant_ttc);
+    entry.total += num(r.valor_total);
     map.set(name, entry);
   }
   return [...map.entries()]
-    .map(([name, v]) => ({ name, invoicesCount: v.count, totalTtc: round2(v.total) }))
-    .sort((a, b) => b.totalTtc - a.totalTtc)
+    .map(([name, v]) => ({ name, invoicesCount: v.count, totalGross: round2(v.total) }))
+    .sort((a, b) => b.totalGross - a.totalGross)
     .slice(0, limit);
 }
 
-function breakdownBy(rows: InvoiceRow[], key: "cost_type" | "metier"): BreakdownRow[] {
+function breakdownByCategory(rows: InvoiceRow[]): BreakdownRow[] {
   const map = new Map<string, number>();
   for (const r of rows) {
-    const label = (r[key] ?? "").trim();
+    const label = (r.category ?? "").trim();
     if (!label) continue;
-    map.set(label, (map.get(label) ?? 0) + num(r.montant_ttc));
+    map.set(label, (map.get(label) ?? 0) + num(r.valor_total));
   }
   return [...map.entries()]
-    .map(([label, total]) => ({ label, totalTtc: round2(total) }))
-    .sort((a, b) => b.totalTtc - a.totalTtc);
+    .map(([label, total]) => ({ label, totalGross: round2(total) }))
+    .sort((a, b) => b.totalGross - a.totalGross);
 }
 
 export async function fetchReportData(
@@ -128,12 +126,11 @@ export async function fetchReportData(
   return {
     kpis: aggregateKpis(rows),
     topSuppliers: topSuppliersOf(rows, 5),
-    costTypeBreakdown: breakdownBy(rows, "cost_type"),
-    metierBreakdown: breakdownBy(rows, "metier"),
+    categoryBreakdown: breakdownByCategory(rows),
   };
 }
 
-export async function fetchPreviousTotalTtc(
+export async function fetchPreviousTotalGross(
   sb: SupabaseClient,
   tenantId: string,
   prevStart: string,
@@ -141,13 +138,13 @@ export async function fetchPreviousTotalTtc(
 ): Promise<number> {
   const { data, error } = await sb
     .from("invoices")
-    .select("montant_ttc")
+    .select("valor_total")
     .eq("tenant_id", tenantId)
     .is("deleted_at", null)
     .gte("doc_date", prevStart)
     .lte("doc_date", prevEnd)
     .limit(MAX_ROWS);
   if (error) throw new Error(`previous_total_fetch: ${error.message}`);
-  const total = (data ?? []).reduce((acc: number, r: { montant_ttc: number | null }) => acc + num(r.montant_ttc), 0);
+  const total = (data ?? []).reduce((acc: number, r: { valor_total: number | null }) => acc + num(r.valor_total), 0);
   return round2(total);
 }

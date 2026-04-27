@@ -18,13 +18,18 @@ export function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
   const activeCompany = searchParams.get('company') || 'all';
 
   const { data: companies = [] } = useQuery({
-    queryKey: queryKeys.companies,
+    queryKey: [...queryKeys.companies, tenant?.id],
     queryFn: async () => {
+      if (!tenant?.id) return [];
       const { data, error } = await supabase
-        .from('companies').select('*').eq('is_active', true).order('name');
+        .from('companies').select('*')
+        .eq('tenant_id', tenant.id)
+        .eq('is_active', true)
+        .order('name');
       if (error) throw error;
       return data as Company[];
     },
+    enabled: !!tenant?.id,
     staleTime: 5 * 60 * 1000,
   });
 

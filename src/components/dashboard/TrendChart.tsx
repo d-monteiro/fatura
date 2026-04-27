@@ -15,7 +15,7 @@ export function TrendChart({ companyId }: TrendChartProps) {
     queryFn: async () => {
       let query = supabase
         .from('invoices')
-        .select('doc_date, montant_ttc')
+        .select('doc_date, valor_total')
         .is('deleted_at', null)
         .not('doc_date', 'is', null);
 
@@ -31,7 +31,7 @@ export function TrendChart({ companyId }: TrendChartProps) {
       for (const row of data ?? []) {
         if (!row.doc_date) continue;
         const key = row.doc_date.substring(0, 7); // "YYYY-MM"
-        monthMap[key] = (monthMap[key] ?? 0) + (row.montant_ttc ?? 0);
+        monthMap[key] = (monthMap[key] ?? 0) + (row.valor_total ?? 0);
       }
 
       return Object.entries(monthMap)
