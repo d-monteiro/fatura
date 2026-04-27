@@ -70,7 +70,7 @@ export default function Login() {
   const busy = loading || oauthLoading !== null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center gradient-dark px-4">
+    <div className="flex min-h-screen items-center justify-center gradient-dark px-4" translate="yes">
       <div className="w-full max-w-sm animate-fade-in-up">
         {/* Branding */}
         <div className="mb-8 text-center">
