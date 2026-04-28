@@ -24,6 +24,15 @@ export class ErrorBoundary extends Component<Props, State> {
       component: info.componentStack?.split('\n')[1]?.trim() ?? 'unknown',
       extra: { componentStack: info.componentStack },
     });
+
+    // Tradutores de browser (Google Translate, etc.) injectam <font> em text
+    // nodes e partem o reconciliation do React com NotFoundError. Como já não
+    // podemos voltar a um estado consistente, fazemos reload uma vez por
+    // sessão — o utilizador vê uma página fresh em vez de uma stack trace.
+    if (isDomMutationError(error) && !sessionStorage.getItem('fatura:dom-mutation-recovered')) {
+      sessionStorage.setItem('fatura:dom-mutation-recovered', '1');
+      window.location.reload();
+    }
   }
 
   render() {
@@ -32,6 +41,13 @@ export class ErrorBoundary extends Component<Props, State> {
     }
     return this.props.children;
   }
+}
+
+function isDomMutationError(error: Error): boolean {
+  const msg = error.message ?? '';
+  return error.name === 'NotFoundError'
+    && (msg.includes('insertBefore') || msg.includes('removeChild'))
+    && msg.includes('Node');
 }
 
 function ErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () => void }) {

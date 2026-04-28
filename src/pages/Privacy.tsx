@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-background py-12" translate="yes">
+    <div className="min-h-screen bg-background py-12">
       <div className="mx-auto max-w-3xl px-4">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">&larr; Voltar</Link>
         <h1 className="mt-6 text-3xl font-bold">Política de Privacidade</h1>

@@ -54,7 +54,7 @@ export function StepCompany({ data, onChange }: Props) {
                 id="nif"
                 value={data.nif}
                 onChange={(e) => onChange({ nif: e.target.value })}
-                placeholder="501234567"
+                placeholder="500000000"
                 aria-invalid={nifInvalidPT}
                 className={nifInvalidPT ? 'border-destructive focus-visible:ring-destructive' : undefined}
               />
