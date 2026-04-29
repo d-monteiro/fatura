@@ -362,7 +362,14 @@ async function analyzeByInvoiceId(
 
   const confidence = (first.confidence_score as number | undefined) ?? 0;
   // Gemini devolve confidence em 0-1
-  const needsReview = confidence < 0.8;
+  const ivaCheck = checkIvaConsistency(first);
+  const lowConfidence = confidence < 0.8;
+  const needsReview = lowConfidence || !ivaCheck.ok;
+  const reviewReason = !ivaCheck.ok
+    ? `iva_inconsistente: ${ivaCheck.reason}`
+    : lowConfidence
+      ? "Confiança baixa"
+      : null;
 
   const { error: updateErr } = await adminClient.from("invoices").update({
     document_type: first.document_type ?? null,
@@ -385,7 +392,7 @@ async function analyzeByInvoiceId(
     confidence_score: confidence,
     status: needsReview ? "review" : "inbox",
     manual_review: needsReview,
-    review_reason: needsReview ? "Confiança baixa" : null,
+    review_reason: reviewReason,
   }).eq("id", invoiceId);
 
   if (updateErr) {
@@ -496,6 +503,43 @@ async function checkInvoiceLimit(
     .gte("created_at", lowerBound.toISOString());
   const used = count ?? 0;
   return used >= limit ? { ok: false, limit, used } : { ok: true };
+}
+
+// Validador de consistência IVA: apanha o caso "Fidelidade" (taxa_iva=0% mas
+// valor_total > valor_sem_iva, ou aritmética inconsistente). Tolerância 2c
+// para arredondamentos.
+type IvaCheck = { ok: true } | { ok: false; reason: string };
+function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
+  const sem = num(row.valor_sem_iva);
+  const iva = num(row.valor_iva);
+  const total = num(row.valor_total);
+  const taxa = num(row.taxa_iva);
+  const autoliq = row.autoliquidacao === true;
+
+  if (autoliq) return { ok: true };
+
+  if (sem != null && iva != null && total != null) {
+    if (Math.abs((sem + iva) - total) > 0.02) {
+      return { ok: false, reason: `sem_iva (${sem}) + iva (${iva}) ≠ total (${total})` };
+    }
+  }
+  if (taxa === 0 && iva != null && iva > 0.02) {
+    return { ok: false, reason: `taxa_iva 0% mas valor_iva = ${iva}` };
+  }
+  if (taxa === 0 && sem != null && total != null && Math.abs(total - sem) > 0.02) {
+    return { ok: false, reason: `taxa_iva 0% mas total (${total}) ≠ sem_iva (${sem})` };
+  }
+  if (taxa != null && taxa > 0 && sem != null && total != null) {
+    const expected = sem * (1 + taxa / 100);
+    if (Math.abs(expected - total) > 0.02) {
+      return { ok: false, reason: `total (${total}) não bate com sem_iva×(1+${taxa}%)` };
+    }
+  }
+  return { ok: true };
+}
+
+function num(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {

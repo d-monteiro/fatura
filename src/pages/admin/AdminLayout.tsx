@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Building2, LifeBuoy, AlertTriangle, BarChart3, FileText, ShieldAlert, Users, LogOut, LineChart } from 'lucide-react';
+import { Building2, LifeBuoy, AlertTriangle, BarChart3, FileText, ShieldAlert, Users, LogOut, LineChart, Briefcase } from 'lucide-react';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { path: '/admin/usage', label: 'Utilização', icon: BarChart3 },
   { path: '/admin/analytics', label: 'Analytics', icon: LineChart },
   { path: '/admin/onboarding', label: 'Onboarding', icon: FileText },
+  { path: '/admin/leads', label: 'Leads', icon: Briefcase },
   { path: '/admin/admins', label: 'Admins', icon: Users },
 ];
 

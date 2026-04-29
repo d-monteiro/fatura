@@ -10,9 +10,7 @@ interface ProgressBarProps {
 const STEP_LABELS = [
   'Empresa',
   'Faturas',
-  'Armazenamento',
-  'Dashboard',
-  'Automação',
+  'Configuração',
   'Resumo',
   'Plano',
 ];

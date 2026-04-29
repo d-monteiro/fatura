@@ -6,6 +6,9 @@ export const EVENTS = {
   ONBOARDING_STEP_ABANDONED: 'onboarding_step_abandoned',
   ONBOARDING_SUBMITTED: 'onboarding_submitted',
   ONBOARDING_ENTERPRISE_CONTACT_SUBMITTED: 'onboarding_enterprise_contact_submitted',
+  ONBOARDING_DRY_RUN_RAN: 'onboarding_dry_run_ran',
+  ONBOARDING_VALIDATION_BLOCKED: 'onboarding_validation_blocked',
+  ONBOARDING_RESUMED: 'onboarding_resumed',
 
   // Auth
   SIGNUP_STARTED: 'signup_started',
@@ -41,11 +44,9 @@ export const EVENTS = {
 export const ONBOARDING_STEP_NAMES: Record<number, string> = {
   1: 'company',
   2: 'invoice_intel',
-  3: 'storage',
-  4: 'dashboard',
-  5: 'automation',
-  6: 'review',
-  7: 'payment',
+  3: 'configuracao',
+  4: 'review',
+  5: 'payment',
 };
 
 export type EventName = typeof EVENTS[keyof typeof EVENTS];

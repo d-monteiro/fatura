@@ -1,50 +1,20 @@
 import { useState } from 'react';
-import { X, ExternalLink, Save, XCircle, Check, RotateCcw } from 'lucide-react';
+import { X, ExternalLink, Save, XCircle } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
 import { invalidateInvoiceLists } from '@/lib/queryKeys';
 import { updateInvoiceEverywhere, type InvoicePatch } from '@/lib/sync/updateInvoice';
-import { setInvoicePaid } from '@/lib/invoices/markAsPaid';
-import { formatDatePT } from '@/lib/utils/validation';
 import { useUploadDeps } from '@/hooks/useUploadDeps';
 import { useTenant } from '@/contexts/TenantContext';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
 import { InvoiceEditFormFields } from './InvoiceEditForm';
+import { InvoicePaymentStatus } from './InvoicePaymentStatus';
 import type { Invoice } from '@/types/database';
 
 interface Props { invoice: Invoice; open: boolean; onClose: () => void; }
 
 const n = (v: number | null): string => (v != null ? String(v) : '');
-
-function PaymentStatus({
-  invoice, loading, onToggle,
-}: { invoice: Invoice; loading: boolean; onToggle: (paid: boolean) => void }) {
-  const isPaid = !!invoice.paid_at;
-  return (
-    <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${isPaid ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
-      <div>
-        <p className={`font-medium ${isPaid ? 'text-green-800' : 'text-amber-900'}`}>
-          {isPaid ? 'Paga' : 'Por pagar'}
-        </p>
-        {isPaid && invoice.paid_at && (
-          <p className="text-xs text-green-700">em {formatDatePT(invoice.paid_at.slice(0, 10))}</p>
-        )}
-        {!isPaid && invoice.data_vencimento && (
-          <p className="text-xs text-amber-700">vence {formatDatePT(invoice.data_vencimento)}</p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={() => onToggle(!isPaid)}
-        disabled={loading}
-        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${isPaid ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' : 'bg-green-600 text-white hover:bg-green-700'}`}
-      >
-        {isPaid ? <><RotateCcw className="h-3.5 w-3.5" /> Desmarcar</> : <><Check className="h-3.5 w-3.5" /> Marcar pago</>}
-      </button>
-    </div>
-  );
-}
 
 export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
   const { t } = useI18n();
@@ -62,16 +32,6 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
 
   const drivePreviewUrl = invoice.drive_file_id
     ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview` : null;
-
-  const paidMutation = useMutation({
-    mutationKey: ['invoice-paid', invoice.id],
-    mutationFn: (paid: boolean) => setInvoicePaid(invoice.id, paid),
-    onSuccess: (_, paid) => {
-      invalidateInvoiceLists(qc);
-      toast.success(paid ? 'Fatura marcada como paga.' : 'Fatura marcada como por pagar.');
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro a atualizar pagamento'),
-  });
 
   const mutation = useMutation({
     mutationKey: ['invoice-edit', invoice.id],
@@ -135,11 +95,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
               <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="flex flex-1 flex-col min-h-0">
                 <InvoiceEditFormFields form={form} onChange={set} t={t} />
                 <div className="border-t px-4 py-3 flex flex-col gap-2 bg-white">
-                  <PaymentStatus
-                    invoice={invoice}
-                    loading={paidMutation.isPending}
-                    onToggle={(paid) => paidMutation.mutate(paid)}
-                  />
+                  <InvoicePaymentStatus invoice={invoice} />
                 </div>
                 <div className="border-t px-4 py-3 flex gap-2 bg-white">
                   <button type="submit" disabled={mutation.isPending}

@@ -3,7 +3,7 @@
 
 export interface SendEmailArgs {
   from: string;
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   text: string;
@@ -30,7 +30,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
 
   const payload: Record<string, unknown> = {
     from: args.from,
-    to: [args.to],
+    to: Array.isArray(args.to) ? args.to : [args.to],
     subject: args.subject,
     html: args.html,
     text: args.text,

@@ -50,7 +50,7 @@ export function StepReview({ data, onGoToStep }: Props) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Resumo</h2>
-        <p className="text-muted-foreground mt-1">Verifique as suas informações antes de escolher o plano.</p>
+        <p className="text-muted-foreground mt-1">Confirme antes de escolher o plano. Clique em Editar para mudar.</p>
       </div>
 
       <div className="space-y-3">
@@ -62,28 +62,20 @@ export function StepReview({ data, onGoToStep }: Props) {
         </Section>
 
         <Section title="Faturas" step={2} onEdit={onGoToStep}>
+          <Row label="Variações do nome" value={data.invoiceNameVariations.join(', ')} />
           <Row label="Volume estimado / mês" value={`~${data.invoicesPerMonth}`} />
           <Row label="Tipos" value={docTypeLabels} />
         </Section>
 
-        <Section title="Armazenamento" step={3} onEdit={onGoToStep}>
-          <Row label="Fornecedor" value={data.storageProvider === 'google_drive' ? 'Google Drive' : 'OneDrive'} />
+        <Section title="Configuração" step={3} onEdit={onGoToStep}>
+          <Row label="Armazenamento" value="Google Drive" />
           <Row label="Sheets automático" value={data.autoSheets ? 'Sim' : 'Não'} />
-        </Section>
-
-        <Section title="Dashboard" step={4} onEdit={onGoToStep}>
           <Row label="Moeda" value={data.currency} />
           <Row label="Relatórios" value={REPORT_LABELS[data.autoReports] ?? data.autoReports} />
           {data.autoReports !== 'never' && data.reportEmail && (
             <Row label="Email do relatório" value={data.reportEmail} />
           )}
-        </Section>
-
-        <Section title="Automação" step={5} onEdit={onGoToStep}>
-          <Row label="Sincronização de email" value={data.emailSync ? 'Ativada' : 'Desativada'} />
-          {data.emailAddresses.length > 0 && (
-            <Row label="Emails" value={data.emailAddresses.join(', ')} />
-          )}
+          <Row label="Sincronização Gmail" value={data.emailSync ? 'Ativa' : 'Desativada'} />
         </Section>
       </div>
     </div>

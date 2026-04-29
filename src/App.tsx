@@ -33,6 +33,7 @@ import AdminTickets from '@/pages/admin/AdminTickets';
 import AdminErrors from '@/pages/admin/AdminErrors';
 import AdminUsage from '@/pages/admin/AdminUsage';
 import AdminOnboarding from '@/pages/admin/AdminOnboarding';
+import AdminLeads from '@/pages/admin/AdminLeads';
 import AdminAdmins from '@/pages/admin/AdminAdmins';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics';
 import AuthCallback from '@/pages/AuthCallback';
@@ -112,6 +113,7 @@ function AppRoutes() {
         <Route path="usage" element={<AdminUsage />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="onboarding" element={<AdminOnboarding />} />
+        <Route path="leads" element={<AdminLeads />} />
         <Route path="admins" element={<AdminAdmins />} />
       </Route>
       <Route element={<RequireTenant><UploadQueueProvider><AppLayout /></UploadQueueProvider></RequireTenant>}>

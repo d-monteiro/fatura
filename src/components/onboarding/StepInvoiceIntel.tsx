@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { DOCUMENT_TYPES, INVOICE_VOLUME_OPTIONS, type OnboardingData } from './onboardingTypes';
+import { InvoicePreviewDryRun } from './InvoicePreviewDryRun';
 import { X, Plus } from 'lucide-react';
 
 interface Props {
@@ -162,6 +163,10 @@ export function StepInvoiceIntel({ data, onChange }: Props) {
               />
             ))}
           </div>
+        </div>
+
+        <div className="border-t pt-5">
+          <InvoicePreviewDryRun data={data} />
         </div>
       </div>
     </div>

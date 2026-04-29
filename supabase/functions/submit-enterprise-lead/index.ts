@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
                 elements: [{
                   type: "button",
                   text: { type: "plain_text", text: "Abrir no admin" },
-                  url: `${adminUrl}/admin/onboarding`,
+                  url: `${adminUrl}/admin/leads`,
                   style: "primary",
                 }],
               },

@@ -1,23 +1,36 @@
 // Template HTML dos relatórios automáticos. Inline CSS (Gmail strip <style>).
 // Tabelas em vez de flex/grid para compatibilidade com Outlook/Apple Mail.
 
-import type { BreakdownRow, PeriodKpis, SupplierRow } from "./reportQueries.ts";
+import type { BreakdownRow, PeriodKpis, SupplierRow, TopExpenseRow } from "./reportQueries.ts";
+
+export type EmailPeriodKind = "daily" | "weekly" | "monthly" | "quarterly";
+
+export interface ReportContentOptions {
+  totals?: boolean;
+  top_suppliers?: boolean;
+  categories?: boolean;
+  alerts?: boolean;
+  top_expenses?: boolean;
+}
 
 export interface ReportEmailInput {
   tenantName: string;
+  configName?: string | null;
   primaryColor: string;
   secondaryColor: string;
   logoUrl: string | null;
-  periodKind: "weekly" | "monthly";
-  periodStartLabel: string;    // DD/MM/AAAA
-  periodEndLabel: string;      // DD/MM/AAAA
+  periodKind: EmailPeriodKind;
+  periodStartLabel: string;
+  periodEndLabel: string;
   currency: string;
   kpis: PeriodKpis;
   topSuppliers: SupplierRow[];
   categoryBreakdown: BreakdownRow[];
+  topExpenses: TopExpenseRow[];
   previousPeriodTotalGross: number;
   dashboardUrl: string;
   settingsUrl: string;
+  contentOptions?: ReportContentOptions;
 }
 
 export interface ReportEmailOutput {
@@ -130,10 +143,32 @@ function renderSummary(kpis: PeriodKpis, delta: Delta, currency: string): string
   return `${base} (${delta.label} ${trend} do período anterior).`;
 }
 
+const KIND_LABELS: Record<EmailPeriodKind, string> = {
+  daily: "diário", weekly: "semanal", monthly: "mensal", quarterly: "trimestral",
+};
+
+function renderTopExpenses(rows: TopExpenseRow[], currency: string): string {
+  if (rows.length === 0) return "";
+  const head = `<tr style="background:#f4f4f5;color:#71717a;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">
+    <td style="padding:8px 10px;text-align:left;">Data</td>
+    <td style="padding:8px 10px;text-align:left;">Fornecedor</td>
+    <td style="padding:8px 10px;text-align:left;">Doc.</td>
+    <td style="padding:8px 10px;text-align:right;">Valor</td>
+  </tr>`;
+  const body = rows.map((r) => `<tr style="border-top:1px solid #e5e7eb;">
+    <td style="padding:8px 10px;font-size:12px;white-space:nowrap;">${esc(r.doc_date ? r.doc_date.split('-').reverse().join('/') : '—')}</td>
+    <td style="padding:8px 10px;">${esc(r.supplier_name ?? '—')}</td>
+    <td style="padding:8px 10px;font-family:ui-monospace,monospace;font-size:12px;">${esc(r.doc_number ?? '—')}</td>
+    <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtMoney(r.totalGross, currency))}</td>
+  </tr>`).join("");
+  return `<h2 style="margin:0 0 10px;font-size:14px;font-weight:600;">Top 10 despesas do período</h2>
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">${head}${body}</table>`;
+}
+
 function renderTextPlain(input: ReportEmailInput, delta: Delta): string {
   const { kpis, currency, tenantName, periodStartLabel, periodEndLabel } = input;
   const lines = [
-    `${tenantName} — relatório ${input.periodKind === "weekly" ? "semanal" : "mensal"}`,
+    `${tenantName} — relatório ${KIND_LABELS[input.periodKind]}`,
     `Período: ${periodStartLabel} a ${periodEndLabel}`,
     "",
     `Faturas: ${kpis.invoicesCount}`,
@@ -152,20 +187,48 @@ export function renderReportEmail(input: ReportEmailInput): ReportEmailOutput {
   const primary = safeColor(input.primaryColor, "#0E2435");
   const secondary = safeColor(input.secondaryColor, "#BBB388");
   const delta = computeDelta(input.kpis.totalGross, input.previousPeriodTotalGross);
+  const kindLabel = KIND_LABELS[input.periodKind];
+  const opts = input.contentOptions ?? {};
+  const showTotals = opts.totals !== false;
+  const showSuppliers = opts.top_suppliers !== false;
+  const showCategories = opts.categories !== false;
+  const showAlerts = opts.alerts !== false;
+  const showTopExpenses = opts.top_expenses === true;
 
-  const subject = input.periodKind === "weekly"
-    ? `Relatório semanal ${input.periodStartLabel} – ${input.periodEndLabel}`
-    : `Relatório mensal ${input.periodStartLabel} – ${input.periodEndLabel}`;
+  const configSuffix = input.configName ? ` — ${input.configName}` : "";
+  const subject = `Relatório ${kindLabel}${configSuffix} ${input.periodStartLabel} – ${input.periodEndLabel}`;
 
   const heroLogo = input.logoUrl
     ? `<img src="${esc(input.logoUrl)}" alt="${esc(input.tenantName)}" style="max-height:32px;max-width:120px;display:block;margin-bottom:8px;" />`
     : "";
 
-  const suppliersRow = input.topSuppliers.length > 0
+  const totalsRow = showTotals
+    ? `<tr><td style="padding:12px 24px 20px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr>
+      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total s/ IVA", fmtMoney(input.kpis.totalNet, input.currency))}</td>
+      <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("Total IVA", fmtMoney(input.kpis.totalIva, input.currency))}</td>
+    </tr>
+    <tr><td colspan="2" style="height:12px;line-height:12px;">&nbsp;</td></tr>
+    <tr>
+      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total", fmtMoney(input.kpis.totalGross, input.currency))}</td>
+      <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("vs período anterior", delta.label, delta.color)}</td>
+    </tr>
+  </table>
+</td></tr>`
+    : "";
+
+  const suppliersRow = showSuppliers && input.topSuppliers.length > 0
     ? `<tr><td style="padding:0 24px 20px;">${renderSuppliersTable(input.topSuppliers, input.currency)}</td></tr>`
     : "";
-  const categoryRow = input.categoryBreakdown.length > 0
+  const categoryRow = showCategories && input.categoryBreakdown.length > 0
     ? `<tr><td style="padding:0 24px 20px;">${renderBreakdown("Por categoria", input.categoryBreakdown, input.currency, secondary)}</td></tr>`
+    : "";
+  const topExpensesRow = showTopExpenses && input.topExpenses.length > 0
+    ? `<tr><td style="padding:0 24px 20px;">${renderTopExpenses(input.topExpenses, input.currency)}</td></tr>`
+    : "";
+  const alertRow = showAlerts
+    ? `<tr><td style="padding:0 24px 20px;">${renderAlert(input.kpis, input.dashboardUrl, primary)}</td></tr>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -178,32 +241,19 @@ export function renderReportEmail(input: ReportEmailInput): ReportEmailOutput {
 
 <tr><td style="background:${primary};color:#ffffff;padding:24px;">
   ${heroLogo}
-  <h1 style="margin:0;font-size:20px;font-weight:700;">${esc(input.tenantName)}</h1>
-  <p style="margin:4px 0 0;font-size:13px;opacity:.85;">Relatório ${input.periodKind === "weekly" ? "semanal" : "mensal"} · ${esc(input.periodStartLabel)} – ${esc(input.periodEndLabel)}</p>
+  <h1 style="margin:0;font-size:20px;font-weight:700;">${esc(input.tenantName)}${input.configName ? ` <span style="opacity:.7;font-weight:500;">· ${esc(input.configName)}</span>` : ""}</h1>
+  <p style="margin:4px 0 0;font-size:13px;opacity:.85;">Relatório ${esc(kindLabel)} · ${esc(input.periodStartLabel)} – ${esc(input.periodEndLabel)}</p>
 </td></tr>
 
 <tr><td style="padding:20px 24px 8px;">
   <p style="margin:0;font-size:14px;line-height:1.5;color:#374151;">${esc(renderSummary(input.kpis, delta, input.currency))}</p>
 </td></tr>
 
-<tr><td style="padding:12px 24px 20px;">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-    <tr>
-      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total s/ IVA", fmtMoney(input.kpis.totalNet, input.currency))}</td>
-      <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("Total IVA", fmtMoney(input.kpis.totalIva, input.currency))}</td>
-    </tr>
-    <tr><td colspan="2" style="height:12px;line-height:12px;">&nbsp;</td></tr>
-    <tr>
-      <td width="50%" valign="top" style="padding-right:6px;">${renderKpiCard("Total", fmtMoney(input.kpis.totalGross, input.currency))}</td>
-      <td width="50%" valign="top" style="padding-left:6px;">${renderKpiCard("vs período anterior", delta.label, delta.color)}</td>
-    </tr>
-  </table>
-</td></tr>
-
+${totalsRow}
 ${suppliersRow}
 ${categoryRow}
-
-<tr><td style="padding:0 24px 20px;">${renderAlert(input.kpis, input.dashboardUrl, primary)}</td></tr>
+${topExpensesRow}
+${alertRow}
 
 <tr><td align="center" style="padding:0 24px 28px;">
   <a href="${esc(input.dashboardUrl)}" style="display:inline-block;background:${primary};color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;">Abrir dashboard</a>

@@ -138,55 +138,12 @@
 - **Dry-run do prompt** no último step: processar 1 fatura de exemplo (carregada pelo utilizador ou default Flowzi) e mostrar o que o Gemini extrai. Se não sair bem, user pode ajustar `invoiceNameVariations` / categorias antes de pagar.
 - Gating absoluto: qualquer rota (excepto `/onboarding/*`, `/settings/billing`, `/logout`) redirecciona para o step em curso.
 
-### Estrutura dos 5 passos
-
-| # | Step | Recolhe | Valida |
-|---|---|---|---|
-| 1 | **Empresa & Marca** | `name`, `nif` (formato PT válido via regex), `country`, `sector` (select), `logo` (upload imediato para Storage), `primary_color`, `secondary_color` | NIF válido, logo < 2MB, cor em hex |
-| 2 | **Como aparece nas vossas faturas** | `invoiceNameVariations[]` (min 1, "ACME Lda", "ACME", "ACME Soc."), `documentTypes[]` (fatura, recibo, nota crédito, Via Verde) | ≥1 variação não-vazia |
-| 3 | **Integrações** | Conectar Google (Drive+Sheets+Gmail — um clique, um consent), escolher se quer sync automático de email (on/off) | OAuth completo, scopes aceites |
-| 4 | **Relatórios & Notificações** | `reportEmail`, `auto_reports` (off/weekly/monthly), dia/hora preferido, canal Slack (opcional) | Email válido |
-| 5 | **Revisão + Teste + Pagamento** | Preview do prompt gerado; upload de 1 fatura-exemplo (ou usa a sample Flowzi); mostra output Gemini lado-a-lado; se OK, Stripe Checkout; se não OK, volta ao step 2 para corrigir | Fatura processada sem erro |
-
-### Tarefas
-
-1. **[M] Redesenhar o wizard para 5 steps**
-   - Fundir: `StepCompany` + branding = step 1; `StepInvoiceIntel` = step 2; `StepStorage` + `StepAutomation` = step 3; `StepDashboard` + parte automação = step 4; `StepReview` + `StepPayment` = step 5 com dry-run.
-   - Apagar steps redundantes; criar `components/onboarding/StepDryRun.tsx`.
-   - Ficheiros: `src/components/onboarding/OnboardingWizard.tsx` (slim), `Step*.tsx` (fundir), `Onboarding.tsx`.
-
-2. **[S] Validação anti-burro por step**
-   - `validateStep(step, data): string[]` central em `lib/onboarding/validation.ts`.
-   - Botão "Continuar" disabled + tooltip com razão até validar.
-   - NIF: regex PT (`^[1-9]\d{8}$`) + check-digit opcional.
-   - Ficheiro: `src/lib/onboarding/validation.ts`.
-
-3. **[M] Dry-run do prompt no step 5**
-   - Novo endpoint: POST `supabase/functions/onboarding-dry-run/` que recebe `{ ai_prompt_config, invoice_name_variations, file }` e devolve output Gemini sem persistir nada.
-   - UI: split-screen — esquerda mostra a fatura, direita mostra JSON extraído com destaque dos campos críticos (fornecedor, total, IVA, data).
-   - Botão "Ajustar configuração" volta ao step 2.
-   - Ficheiros: nova Edge Function, `src/components/onboarding/DryRunPreview.tsx`.
-
-4. **[S] Upload de logo imediato**
-   - Hoje fica em localStorage base64; fazer upload directo para bucket `tenant-assets/logos/{tenantId}.{ext}` no step 1, salvar `logo_url` em rascunho em `onboarding_submissions`.
-   - Ficheiro: `src/components/onboarding/LogoUploader.tsx`.
-
-5. **[S] Gating hard**
-   - Em `RequireTenant.tsx`, se `onboarding_completed=false`, forçar `<Navigate to={/onboarding/${currentStep}} replace />`.
-   - Guardar `onboarding_current_step` em `tenants` para retomar correctamente.
-   - Ficheiros: `src/components/RequireTenant.tsx`, `src/contexts/TenantContext.tsx`.
-
-6. **[S] Preview live de branding**
-   - No step 1, renderizar uma sidebar mock com o logo + cores escolhidas, em tempo real.
-   - Ficheiro: `src/components/onboarding/BrandPreview.tsx` (já existe — melhorar).
-
 ### Riscos
 
 - Remover steps pode eliminar campos que outras features usam (ex.: `invoicesPerMonth` para pricing display). Auditar antes de apagar.
 - Dry-run custa 1 chamada Gemini por tenant; é aceitável (trial).
 - Retomar a meio: se o user fecha o browser no step 3 e volta, estado do localStorage pode estar à frente do servidor. Fonte da verdade = `onboarding_submissions` (servidor).
 
-### Esforço total: ~5 dias.
 
 ---
 

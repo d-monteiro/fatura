@@ -323,3 +323,30 @@ function formatCellValue(field: InvoiceSheetField, value: unknown): string | num
   if (typeof value === 'number') return value;
   return String(value);
 }
+
+// Limpa uma linha (sem apagar fisicamente). Mais seguro que delete:
+// não rearranja índices nem afecta linhas adjacentes em concorrência.
+// Usado pelo sync v2 quando uma fatura mudaria de aba e precisamos de a
+// remover da aba de origem antes de a re-inserir na nova.
+export async function clearInvoiceRowInSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string,
+  rowIndex: number,
+): Promise<boolean> {
+  await sheetsLimiter.waitForSlot();
+  const t = createTimeoutSignal(SHEETS_TIMEOUT_MS);
+  const lastLetter = columnIndexToLetter(COLUMN_COUNT - 1);
+  const range = `'${sheetName}'!A${rowIndex}:${lastLetter}${rowIndex}`;
+  const response = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:clear`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      signal: t.signal,
+    },
+  );
+  t.clear();
+  return response.ok;
+}

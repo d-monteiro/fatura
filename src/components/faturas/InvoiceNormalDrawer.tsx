@@ -1,6 +1,7 @@
 import { ExternalLink, Building2, Calendar, Hash, Tag, FileText, Table2, Pencil, Trash2 } from 'lucide-react';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { LineItemsTable } from './LineItemsTable';
+import { InvoicePaymentStatus } from './InvoicePaymentStatus';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
 import type { TranslationKey } from '@/lib/i18n';
@@ -63,6 +64,10 @@ export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
           <span className="text-base font-semibold text-gray-500">{t('drawer.total')}</span>
           <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.valor_total)}</span>
         </div>
+      </div>
+
+      <div className="mt-2">
+        <InvoicePaymentStatus invoice={invoice} />
       </div>
 
       {invoice.summary && (

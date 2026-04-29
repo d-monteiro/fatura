@@ -8,6 +8,7 @@ function sanitizeNifForCountry(raw: string, country: string): string {
   return country === 'PT' ? trimmed.replace(/\D/g, '') : trimmed;
 }
 
+// 5 steps: 1=Empresa, 2=Faturas, 3=Configuração, 4=Resumo, 5=Plano
 export function validateStep(step: number, data: OnboardingData): string | null {
   if (step === 1) {
     if (data.companyName.trim().length < 2) return 'Indique o nome da empresa.';
@@ -32,10 +33,6 @@ export function validateStep(step: number, data: OnboardingData): string | null 
 
   if (step === 3) {
     if (!data.storageProvider) return 'Escolha um fornecedor de armazenamento.';
-    return null;
-  }
-
-  if (step === 4) {
     if (data.autoReports !== 'never') {
       const email = data.reportEmail.trim();
       if (email && !EMAIL_RE.test(email)) {
@@ -45,15 +42,11 @@ export function validateStep(step: number, data: OnboardingData): string | null 
     return null;
   }
 
+  if (step === 4) {
+    return null;
+  }
+
   if (step === 5) {
-    return null;
-  }
-
-  if (step === 6) {
-    return null;
-  }
-
-  if (step === 7) {
     if (!data.selectedPlan) return 'Selecione um plano.';
     return null;
   }

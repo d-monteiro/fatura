@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
-import { Globe, Trash2, Plus, Mail } from 'lucide-react';
+import { Globe, Trash2, Plus, Mail, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTenant } from '@/contexts/TenantContext';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 import { hasStorageScopes, hasGmailScopes, SCOPE_SHEETS } from '@/lib/google/scopes';
 import { queryKeys } from '@/lib/queryKeys';
@@ -27,6 +29,7 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const [linkState, setLinkState] = useState<{ tokenId: string; email: string } | null>(null);
   const [targetCompany, setTargetCompany] = useState('');
+  const emailSyncGate = useFeatureGate('email_sync');
 
   const { data: tokens = [], isLoading } = useQuery<TokenWithEmails[]>({
     queryKey: [...queryKeys.oauthTokens, userId],
@@ -206,7 +209,19 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
                   </div>
                 </div>
 
-                {gmail && availableCompanies.length > 0 && (
+                {gmail && availableCompanies.length > 0 && !emailSyncGate.allowed && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <div className="flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-xs text-amber-900">
+                      <Lock className="h-3 w-3 shrink-0" />
+                      <span>
+                        Sincronização Gmail disponível no plano Pro.{' '}
+                        <Link to="/billing" className="font-semibold underline">Fazer upgrade</Link>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {gmail && availableCompanies.length > 0 && emailSyncGate.allowed && (
                   <div className="mt-3 pt-3 border-t border-border">
                     {linkState?.tokenId === t.id ? (
                       <div className="flex items-center gap-2">

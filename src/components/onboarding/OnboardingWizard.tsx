@@ -8,9 +8,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ProgressBar } from './ProgressBar';
 import { StepCompany } from './StepCompany';
 import { StepInvoiceIntel } from './StepInvoiceIntel';
-import { StepStorage } from './StepStorage';
-import { StepDashboard } from './StepDashboard';
-import { StepAutomation } from './StepAutomation';
+import { StepConfiguracao } from './StepConfiguracao';
 import { StepReview } from './StepReview';
 import { StepPayment } from './StepPayment';
 import { EnterpriseContactForm } from './EnterpriseContactForm';
@@ -30,7 +28,7 @@ import { track } from '@/lib/analytics/track';
 import { EVENTS, ONBOARDING_STEP_NAMES } from '@/lib/analytics/events';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 5;
 
 // A constraint tenants_nif_format exige 9 dígitos exatos para PT. Para outros
 // países, NIF pode ser qualquer coisa (não há validação server-side).
@@ -66,9 +64,14 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
-    track(EVENTS.ONBOARDING_STARTED, {
-      resumed_from_step: stored.step > 1 ? stored.step : null,
-    });
+    const resumedFrom = stored.step > 1 ? stored.step : null;
+    track(EVENTS.ONBOARDING_STARTED, { resumed_from_step: resumedFrom });
+    if (resumedFrom !== null) {
+      track(EVENTS.ONBOARDING_RESUMED, {
+        from_step: resumedFrom,
+        from_step_name: ONBOARDING_STEP_NAMES[resumedFrom],
+      });
+    }
   }, [stored.step]);
 
   useEffect(() => {
@@ -231,6 +234,12 @@ export function OnboardingWizard() {
 
     const formError = validateAllUpTo(TOTAL_STEPS, data);
     if (formError) {
+      track(EVENTS.ONBOARDING_VALIDATION_BLOCKED, {
+        step: TOTAL_STEPS,
+        step_name: ONBOARDING_STEP_NAMES[TOTAL_STEPS],
+        reason: formError,
+        on: 'submit',
+      });
       setSubmitError(formError);
       return;
     }
@@ -253,6 +262,16 @@ export function OnboardingWizard() {
   const goToStep = (s: number) => {
     const target = Math.max(1, Math.min(TOTAL_STEPS, s));
     if (target > step) {
+      const blockedReason = validateStep(step, data);
+      if (blockedReason) {
+        track(EVENTS.ONBOARDING_VALIDATION_BLOCKED, {
+          step,
+          step_name: ONBOARDING_STEP_NAMES[step],
+          reason: blockedReason,
+          on: 'next',
+        });
+        return;
+      }
       track(EVENTS.ONBOARDING_STEP_COMPLETED, {
         step,
         step_name: ONBOARDING_STEP_NAMES[step],
@@ -278,7 +297,7 @@ export function OnboardingWizard() {
   const currentStepError = validateStep(step, data);
   const fullFormError = validateAllUpTo(TOTAL_STEPS, data);
 
-  const wideStep = (step === 7 && !showEnterpriseForm) || step === 1;
+  const wideStep = (step === 5 && !showEnterpriseForm) || step === 1;
 
   // User OAuth que acabou de criar a conta neste round-trip. A janela de 15s
   // cobre o callback do Google sem apanhar quem volta minutos depois.
@@ -351,15 +370,13 @@ export function OnboardingWizard() {
         <div className="mt-8 mb-8">
           {step === 1 && <StepCompany data={data} onChange={onChange} />}
           {step === 2 && <StepInvoiceIntel data={data} onChange={onChange} />}
-          {step === 3 && <StepStorage data={data} onChange={onChange} />}
-          {step === 4 && <StepDashboard data={data} onChange={onChange} />}
-          {step === 5 && <StepAutomation data={data} onChange={onChange} />}
-          {step === 6 && <StepReview data={data} onGoToStep={goToStep} />}
-          {step === 7 && <StepPayment data={data} onChange={onChange} />}
+          {step === 3 && <StepConfiguracao data={data} onChange={onChange} />}
+          {step === 4 && <StepReview data={data} onGoToStep={goToStep} />}
+          {step === 5 && <StepPayment data={data} onChange={onChange} />}
         </div>
 
-        {/* Inline account creation appears only on step 7 and only for Starter/Pro. */}
-        {step === 7
+        {/* Inline account creation appears only no passo final (5) e apenas para Starter/Pro. */}
+        {step === 5
           && !user
           && data.selectedPlan
           && data.selectedPlan !== 'entreprise' && (

@@ -125,7 +125,7 @@ function buildLead(p: LeadPayload, appUrl: string): { text: string; blocks: Bloc
     blocks: [
       { type: "header", text: { type: "plain_text", text: "Novo lead empresarial", emoji: false } },
       { type: "section", text: { type: "mrkdwn", text: lines.join("\n") } },
-      linkButton("Abrir no admin", `${appUrl}/admin/onboarding`, true),
+      linkButton("Abrir no admin", `${appUrl}/admin/leads`, true),
     ],
   };
 }

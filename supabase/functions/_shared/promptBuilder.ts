@@ -67,7 +67,17 @@ ${c.knownSuppliers.map((s) => `- ${s.variations.map((v) => `"${v}"`).join(" ou "
 - Montantes em formato numérico (ex.: 1234.56, sem espaços nem vírgulas)
 - supplier_name: nome do FORNECEDOR em MAIÚSCULAS (quem emite a fatura)
 - destinatario_nome: nome do destinatário (quem recebe — útil para identificar a empresa correcta entre as do tenant)
-- Tipos de documento aceites: ${c.documentTypes.join(", ")}`);
+- Tipos de documento aceites: ${c.documentTypes.join(", ")}
+
+## REGRAS CRÍTICAS DE IVA (não confundir colunas decorativas com base tributável)
+- valor_sem_iva = base tributável (linha rotulada literalmente como "Total sem IVA", "Base tributável", "Total líquido", "Subtotal", "Valor net").
+- valor_iva = montante de IVA cobrado (linha rotulada "IVA", "VAT", "Imposto").
+- valor_total = total final a pagar (linha rotulada "Total a pagar", "Total da fatura", "Grand total").
+- taxa_iva = percentagem (0, 6, 13, 23 em PT). Nunca uma quantia em euros.
+- INVARIANTE NUMÉRICA: valor_sem_iva + valor_iva ≈ valor_total (tolerância 2 cêntimos). Se a aritmética falhar, marca confidence_score < 0.7.
+- NÃO uses como base tributável linhas decorativas: "prémio comercial", "valor poupado", "desconto aplicado", "valor recomendado", "preço de tabela".
+- Se taxa_iva == 0 mas valor_iva > 0 ou valor_total > valor_sem_iva → inconsistência: força confidence_score < 0.7.
+- Quando o documento for de seguro/seguradora, "prémio" = montante a pagar, NÃO é base tributável diferente do valor_total.`);
 
   parts.push(`# FORMATO DE SAÍDA (APENAS JSON, sem markdown nem texto antes/depois)
 SEMPRE devolves { "invoices": [...] }, mesmo que seja uma só fatura.
