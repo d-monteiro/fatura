@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Mail, Loader2, CheckCircle2 } from 'lucide-react';
+import { Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
 import { supabase } from '@/lib/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateInvoiceLists } from '@/lib/queryKeys';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasGmailScopes } from '@/lib/google/scopes';
 
 interface SyncResult {
   discovered: number;
@@ -18,8 +21,20 @@ interface SyncResult {
 export function SyncEmailsCard() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
+
+  const { data: hasGmail = false } = useQuery({
+    queryKey: ['has-gmail-account', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase.from('user_oauth_tokens')
+        .select('scopes').eq('user_id', user!.id);
+      return ((data as { scopes: string[] | null }[] | null) ?? [])
+        .some((row) => hasGmailScopes(row.scopes));
+    },
+  });
 
   async function handleSync() {
     setSyncing(true);
@@ -100,17 +115,28 @@ export function SyncEmailsCard() {
             {result.messagesFound} emails · {result.attachmentsSeen} anexos · {result.discovered} nova(s)
           </span>
         )}
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {syncing ? (
-            <><Loader2 className="h-4 w-4 animate-spin" />{t('auto.checking')}</>
-          ) : (
-            <><Mail className="h-4 w-4" />{t('auto.check_now')}</>
-          )}
-        </button>
+        {hasGmail ? (
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {syncing ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />{t('auto.checking')}</>
+            ) : (
+              <><Mail className="h-4 w-4" />{t('auto.check_now')}</>
+            )}
+          </button>
+        ) : (
+          <Link
+            to="/settings"
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+            title="Liga primeiro uma conta Google em Definições"
+          >
+            <AlertCircle className="h-4 w-4" />
+            Ligar Google
+          </Link>
+        )}
       </div>
     </div>
   );

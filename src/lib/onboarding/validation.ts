@@ -1,8 +1,6 @@
 import type { OnboardingData } from '@/components/onboarding/onboardingTypes';
 import { isValidNif } from '@/lib/utils/validation';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function sanitizeNifForCountry(raw: string, country: string): string {
   const trimmed = raw.trim();
   return country === 'PT' ? trimmed.replace(/\D/g, '') : trimmed;
@@ -33,12 +31,6 @@ export function validateStep(step: number, data: OnboardingData): string | null 
 
   if (step === 3) {
     if (!data.storageProvider) return 'Escolha um fornecedor de armazenamento.';
-    if (data.autoReports !== 'never') {
-      const email = data.reportEmail.trim();
-      if (email && !EMAIL_RE.test(email)) {
-        return 'Email de relatório inválido.';
-      }
-    }
     return null;
   }
 

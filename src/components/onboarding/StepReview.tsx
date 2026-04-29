@@ -72,9 +72,6 @@ export function StepReview({ data, onGoToStep }: Props) {
           <Row label="Sheets automático" value={data.autoSheets ? 'Sim' : 'Não'} />
           <Row label="Moeda" value={data.currency} />
           <Row label="Relatórios" value={REPORT_LABELS[data.autoReports] ?? data.autoReports} />
-          {data.autoReports !== 'never' && data.reportEmail && (
-            <Row label="Email do relatório" value={data.reportEmail} />
-          )}
           <Row label="Sincronização Gmail" value={data.emailSync ? 'Ativa' : 'Desativada'} />
         </Section>
       </div>

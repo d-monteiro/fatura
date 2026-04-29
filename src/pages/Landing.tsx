@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Hero } from '@/components/landing/Hero';
 import { Problem } from '@/components/landing/Problem';
@@ -10,9 +10,19 @@ import { Pricing } from '@/components/landing/Pricing';
 import { FAQ } from '@/components/landing/FAQ';
 import { CTA } from '@/components/landing/CTA';
 import { Footer } from '@/components/landing/Footer';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 
 export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
+  const { user, logout } = useAuth();
+  const { tenant } = useTenant();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/', { replace: true });
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -55,21 +65,51 @@ export default function Landing() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link to="/login">Entrar</Link>
-            </Button>
-            <Button
-              asChild
-              className="group h-10 rounded-full bg-primary pl-4 pr-1 text-sm text-primary-foreground"
-            >
-              <Link to="/onboarding" className="inline-flex items-center gap-2">
-                <span className="hidden sm:inline">Começar grátis</span>
-                <span className="sm:hidden">Começar</span>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5">
-                  <ArrowRight className="!h-3.5 !w-3.5" />
+            {user ? (
+              <>
+                <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]" title={user.email ?? ''}>
+                  {user.email}
                 </span>
-              </Link>
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { void handleLogout(); }}
+                  className="gap-1.5 text-muted-foreground"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Sair
+                </Button>
+                <Button
+                  asChild
+                  className="group h-10 rounded-full bg-primary pl-4 pr-1 text-sm text-primary-foreground"
+                >
+                  <Link to={tenant ? '/' : '/onboarding'} className="inline-flex items-center gap-2">
+                    <span className="hidden sm:inline">{tenant ? 'Abrir app' : 'Continuar onboarding'}</span>
+                    <span className="sm:hidden">{tenant ? 'App' : 'Continuar'}</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5">
+                      <ArrowRight className="!h-3.5 !w-3.5" />
+                    </span>
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                  <Link to="/login">Entrar</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="group h-10 rounded-full bg-primary pl-4 pr-1 text-sm text-primary-foreground"
+                >
+                  <Link to="/onboarding" className="inline-flex items-center gap-2">
+                    <span className="hidden sm:inline">Começar grátis</span>
+                    <span className="sm:hidden">Começar</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0.5">
+                      <ArrowRight className="!h-3.5 !w-3.5" />
+                    </span>
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>

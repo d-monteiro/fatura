@@ -26,7 +26,7 @@ import { reportError } from '@/lib/errors/errorReporter';
 import { validateStep, validateAllUpTo } from '@/lib/onboarding/validation';
 import { track } from '@/lib/analytics/track';
 import { EVENTS, ONBOARDING_STEP_NAMES } from '@/lib/analytics/events';
-import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, LogOut, AlertCircle } from 'lucide-react';
 
 const TOTAL_STEPS = 5;
 
@@ -38,10 +38,16 @@ function sanitizeNifForCountry(raw: string, country: string): string {
 }
 
 export function OnboardingWizard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { refreshTenant } = useTenant();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    clearStoredOnboarding();
+    await logout();
+    navigate('/', { replace: true });
+  };
 
   useEffect(() => {
     if (isAdmin) navigate('/admin', { replace: true });
@@ -60,6 +66,7 @@ export function OnboardingWizard() {
   const stepEnteredAt = useRef<number>(0);
   const submittedRef = useRef(false);
   const startedRef = useRef(false);
+  const autoFinalizedRef = useRef(false);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -99,29 +106,13 @@ export function OnboardingWizard() {
     setData((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // If the user is authenticated and already has a tenant, skip onboarding entirely.
-  // Guard com `submitting`: durante o submit, o finishStarterPro já orquestra a
-  // navegação após refreshTenant. Sem este guard, race com a query abaixo dispara
-  // navigate('/') contra um TenantContext ainda stale → RequireTenant devolve
-  // para /onboarding → loop de history.replaceState.
-  useEffect(() => {
-    if (!user || submitting) return;
-    let cancelled = false;
-    (async () => {
-      const { data: membership } = await supabase
-        .from('tenant_users')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
-      if (!cancelled && membership) {
-        clearStoredOnboarding();
-        await refreshTenant();
-        navigate('/', { replace: true });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user, navigate, submitting, refreshTenant]);
+  // User OAuth que acabou de criar a conta neste round-trip. A janela de 15s
+  // cobre o callback do Google sem apanhar quem volta minutos depois.
+  const isFreshOAuthUser = !!user && (() => {
+    const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0;
+    const lastSignInMs = user.last_sign_in_at ? new Date(user.last_sign_in_at).getTime() : 0;
+    return createdMs > 0 && Math.abs(lastSignInMs - createdMs) < 15_000;
+  })();
 
   const createTenantForCurrentUser = useCallback(async (activeUserId: string, activeEmail: string) => {
     const { data: plan } = await supabase
@@ -156,7 +147,7 @@ export function OnboardingWizard() {
         folder_structure: data.folderStructure,
         auto_sheets: data.autoSheets,
         auto_reports: data.autoReports,
-        report_email: data.reportEmail.trim() || null,
+        report_email: data.reportEmail.trim() || activeEmail || null,
         timezone: 'Europe/Lisbon',
         invoice_name_variations: data.invoiceNameVariations ?? [],
         onboarding_data: {
@@ -229,6 +220,41 @@ export function OnboardingWizard() {
     }
   }, [submitting, createTenantForCurrentUser, navigate, refreshTenant, data.selectedPlan, data.country, data.sector, data.billingCycle, data.storageProvider, data.emailSync]);
 
+  // 1) Tem tenant: skip onboarding.
+  // 2) Não tem tenant + fresco do OAuth + dados completos no localStorage:
+  //    auto-finalize sem o user precisar de clicar outra vez. Plan B5.
+  // Guard com `submitting`: durante o submit, o finishStarterPro orquestra a
+  // navegação após refreshTenant. Sem este guard, race com a query dispara
+  // navigate('/') contra um TenantContext ainda stale → RequireTenant devolve
+  // para /onboarding → loop.
+  useEffect(() => {
+    if (!user || submitting) return;
+    let cancelled = false;
+    (async () => {
+      const { data: membership } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (membership) {
+        clearStoredOnboarding();
+        await refreshTenant();
+        navigate('/', { replace: true });
+        return;
+      }
+      // Sem tenant. Se vier OAuth fresco com dados completos, auto-finalize.
+      if (autoFinalizedRef.current || !isFreshOAuthUser) return;
+      if (validateAllUpTo(TOTAL_STEPS, data) !== null) return;
+      if (data.selectedPlan === 'entreprise') return; // empresarial tem fluxo próprio
+      autoFinalizedRef.current = true;
+      void finishStarterPro(user.id, user.email ?? '');
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, submitting, isFreshOAuthUser]);
+
   const handleSubmit = async () => {
     setSubmitError(null);
 
@@ -299,14 +325,6 @@ export function OnboardingWizard() {
 
   const wideStep = (step === 5 && !showEnterpriseForm) || step === 1;
 
-  // User OAuth que acabou de criar a conta neste round-trip. A janela de 15s
-  // cobre o callback do Google sem apanhar quem volta minutos depois.
-  const isFreshOAuthUser = !!user && (() => {
-    const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0;
-    const lastSignInMs = user.last_sign_in_at ? new Date(user.last_sign_in_at).getTime() : 0;
-    return createdMs > 0 && Math.abs(lastSignInMs - createdMs) < 15_000;
-  })();
-
   // Enterprise flow: dedicated form (handles account-free submission too).
   if (showEnterpriseForm) {
     return (
@@ -335,7 +353,7 @@ export function OnboardingWizard() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <p className="text-lg font-medium text-foreground">A criar o teu espaço...</p>
+        <p className="text-lg font-medium text-foreground">A finalizar a tua conta...</p>
         <p className="text-sm text-muted-foreground">Isto demora apenas alguns segundos.</p>
       </div>
     );
@@ -344,20 +362,36 @@ export function OnboardingWizard() {
   return (
     <div className="min-h-screen bg-background">
       <div className={`mx-auto px-6 md:px-10 py-8 ${wideStep ? 'max-w-5xl' : 'max-w-2xl'}`}>
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-primary">FaturaAI</h1>
+            <Link to="/" className="text-3xl font-bold text-primary hover:opacity-80 transition-opacity">FaturaAI</Link>
             <p className="text-sm text-muted-foreground mt-1">
               {isFreshOAuthUser ? (
                 <>Bem-vindo, <strong className="text-foreground">{user?.email}</strong>. Vamos configurar o teu espaço.</>
               ) : 'Configuração do seu espaço'}
             </p>
           </div>
-          {!user && (
-            <Link to="/login" className="text-xs text-muted-foreground hover:text-foreground">
-              Já tem conta? Entrar
-            </Link>
-          )}
+          <div className="flex items-center gap-3 shrink-0">
+            {user ? (
+              <>
+                <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]" title={user.email ?? ''}>
+                  {user.email}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { void handleLogout(); }}
+                  className="gap-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Sair
+                </Button>
+              </>
+            ) : (
+              <Link to="/login" className="text-xs text-muted-foreground hover:text-foreground">
+                Já tem conta? Entrar
+              </Link>
+            )}
+          </div>
         </div>
 
         <ProgressBar
@@ -395,8 +429,13 @@ export function OnboardingWizard() {
         )}
 
         {(currentStepError || (step === TOTAL_STEPS && fullFormError)) && (
-          <div className="mb-3 text-xs text-muted-foreground text-right">
-            {step === TOTAL_STEPS && fullFormError ? fullFormError : currentStepError}
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-3 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          >
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{step === TOTAL_STEPS && fullFormError ? fullFormError : currentStepError}</span>
           </div>
         )}
 

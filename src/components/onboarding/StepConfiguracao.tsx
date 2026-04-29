@@ -1,7 +1,7 @@
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CURRENCIES, type OnboardingData } from './onboardingTypes';
+import { useAuth } from '@/contexts/AuthContext';
 import { Cloud, Mail, FileSpreadsheet, BarChart3 } from 'lucide-react';
 
 interface Props {
@@ -15,12 +15,9 @@ const REPORT_OPTIONS = [
   { value: 'monthly', label: 'Mensal' },
 ] as const;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export function StepConfiguracao({ data, onChange }: Props) {
-  const needsEmail = data.autoReports !== 'never';
-  const emailTrimmed = data.reportEmail.trim();
-  const emailInvalid = needsEmail && emailTrimmed.length > 0 && !EMAIL_RE.test(emailTrimmed);
+  const { user } = useAuth();
+  const reportTarget = user?.email ?? 'o email da tua conta';
 
   return (
     <div className="space-y-8">
@@ -92,22 +89,10 @@ export function StepConfiguracao({ data, onChange }: Props) {
             </div>
           </div>
 
-          {needsEmail && (
-            <div className="space-y-2">
-              <Label htmlFor="report-email">Email para receber o relatório</Label>
-              <Input
-                id="report-email"
-                type="email"
-                placeholder="Vazio = email da conta"
-                value={data.reportEmail}
-                onChange={(e) => onChange({ reportEmail: e.target.value })}
-                aria-invalid={emailInvalid}
-                className={emailInvalid ? 'border-destructive focus-visible:ring-destructive' : undefined}
-              />
-              {emailInvalid && (
-                <p className="text-xs text-destructive">Formato de email inválido.</p>
-              )}
-            </div>
+          {data.autoReports !== 'never' && (
+            <p className="text-xs text-muted-foreground">
+              Vamos enviar para <strong className="text-foreground">{reportTarget}</strong>. Podes mudar ou adicionar destinatários em Definições → Relatórios.
+            </p>
           )}
         </div>
       </SectionCard>

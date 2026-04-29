@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useTenant } from '@/contexts/TenantContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import Landing from '@/pages/Landing';
 import type { ReactNode } from 'react';
 
 interface RequireTenantProps {
@@ -26,6 +27,9 @@ export function RequireTenant({ children }: RequireTenantProps) {
   }
 
   if (!tenant) {
+    // Logged-in user sem tenant: deixar ver a landing (com logout) e legal,
+    // qualquer outra rota empurra de volta para o onboarding.
+    if (location.pathname === '/') return <Landing />;
     return <Navigate to="/onboarding" replace />;
   }
 
