@@ -84,3 +84,25 @@ SELECT cron.schedule(
 
 -- Para remover:
 -- SELECT cron.unschedule('check-due-dates-daily');
+
+-- ============================================
+-- Reset mensal do contador legacy invoices_this_month (1º dia 00:00 UTC)
+-- ============================================
+-- A query real de uso (Edge Function analyze-document e TenantContext) já
+-- usa COUNT ao vivo respeitando max(date_trunc('month', now()), invoices_month_reset).
+-- Este cron mantém a coluna invoices_this_month a zero por consistência com
+-- a UI de admin (AdminUsage). Não toca em invoices_month_reset (que é
+-- override manual de admin).
+SELECT cron.schedule(
+  'reset-invoices-month-counter',
+  '0 0 1 * *',
+  $$
+  UPDATE tenants
+     SET invoices_this_month = 0
+   WHERE deleted_at IS NULL
+     AND invoices_this_month <> 0;
+  $$
+);
+
+-- Para remover:
+-- SELECT cron.unschedule('reset-invoices-month-counter');

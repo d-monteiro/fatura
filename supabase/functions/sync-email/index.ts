@@ -25,7 +25,6 @@ const ALLOWED_MIMES = new Set([
 const ALLOWED_EXT_RE = /\.(pdf|jpe?g|png)$/i;
 const FANOUT_CONCURRENCY = 10;
 
-// deno-lint-ignore no-explicit-any
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 Deno.serve(async (req) => {

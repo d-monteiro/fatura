@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { FALLBACK_CATEGORY_LABELS } from '@/lib/constants';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Category as DbCategory } from '@/types/database';
 
 export type Category = Pick<DbCategory, 'id' | 'code' | 'label' | 'sort_order' | 'is_fixed'>;
@@ -9,7 +10,7 @@ const EMPTY: Category[] = [];
 
 export function useCategories(tenantId: string | null | undefined) {
   const { data = EMPTY, isLoading } = useQuery({
-    queryKey: ['categories', tenantId],
+    queryKey: queryKeys.categoriesByTenant(tenantId ?? null),
     enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {

@@ -6,6 +6,7 @@ import { formatEUR } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
+import { queryKeys } from '@/lib/queryKeys';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#6b7280'];
 
@@ -20,7 +21,7 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
   const navigate = useNavigate();
 
   const { data: chartData = [] } = useQuery({
-    queryKey: ['dashboard-categories', companyId],
+    queryKey: queryKeys.dashboardCategories(companyId),
     queryFn: async () => {
       let query = supabase
         .from('invoices')

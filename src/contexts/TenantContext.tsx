@@ -33,17 +33,12 @@ interface TenantContextType {
   invoicesLimit: number | null;
   isOverLimit: boolean;
 
-  // Feature gates
-  canUseEmailSync: boolean;
-  canUseAutoSheets: boolean;
-  canUseReports: boolean;
-  canUseAPI: boolean;
-  canInviteUsers: boolean;
-
   // Actions
   refreshTenant: () => Promise<void>;
   switchTenant: (tenantId: string) => Promise<void>;
 }
+
+// Feature gating moved to `src/hooks/useFeatureGate.ts` + `src/lib/billing/featureMap.ts`.
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 const TENANT_STORAGE_KEY = 'faturai-current-tenant';
@@ -217,12 +212,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     invoicesUsed,
     invoicesLimit,
     isOverLimit,
-
-    canUseEmailSync: plan?.has_email_sync ?? false,
-    canUseAutoSheets: plan?.has_auto_sheets ?? false,
-    canUseReports: plan?.has_reports ?? false,
-    canUseAPI: plan?.has_api_access ?? false,
-    canInviteUsers: plan?.has_multi_user ?? false,
 
     refreshTenant: loadTenant,
     switchTenant,

@@ -27,6 +27,16 @@ export const queryKeys = {
     ['upcoming-payments', tenantId, companyId] as const,
   tenantMembers: (tenantId: string | null) => ['tenant-members', tenantId] as const,
   tenantInvites: (tenantId: string | null) => ['tenant-invites', tenantId] as const,
+  stripeInvoices: (tenantId: string | null) => ['stripe-invoices', tenantId] as const,
+  reportConfigs: (tenantId: string | null) => ['report-configs', tenantId] as const,
+  reportDeliveries: (tenantId: string | null) => ['report-deliveries', tenantId] as const,
+  categories: ['categories'] as const,
+  categoriesByTenant: (tenantId: string | null) => ['categories', tenantId] as const,
+  dashboardTrend: (companyId: string | null) => ['dashboard-trend', companyId] as const,
+  dashboardCategories: (companyId: string | null) => ['dashboard-categories', companyId] as const,
+  supplierInvoices: (supplierId: string) => ['supplier-invoices', supplierId] as const,
+  googleToken: (userId: string | null | undefined) => ['google-token', userId] as const,
+  invite: (token: string | null | undefined) => ['invite', token] as const,
 };
 
 const INVOICE_LIST_KEYS = [

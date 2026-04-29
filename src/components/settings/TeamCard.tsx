@@ -1,17 +1,19 @@
 import { Users, Sparkles } from 'lucide-react';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 import { MembersList } from './MembersList';
 import { PendingInvitesList } from './PendingInvitesList';
 import { InviteMemberDialog } from './InviteMemberDialog';
 
 export function TeamCard() {
-  const { tenant, plan, role } = useTenant();
+  const { tenant, role } = useTenant();
   const { user } = useAuth();
+  const inviteGate = useFeatureGate('multi_user');
 
   if (!tenant || !user || role !== 'owner') return null;
 
-  const canInvite = !!plan?.has_multi_user;
+  const canInvite = inviteGate.allowed;
 
   return (
     <div className="rounded-xl border bg-card p-4 sm:p-6 space-y-4">

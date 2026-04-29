@@ -29,7 +29,7 @@ export default function Upload() {
       track(EVENTS.GOOGLE_OAUTH_COMPLETED, { source: 'upload' });
       toast.success(`Conta Google ligada${email ? ` (${email})` : ''}`);
       qc.invalidateQueries({ queryKey: queryKeys.oauthTokens });
-      qc.invalidateQueries({ queryKey: ['google-token'] });
+      qc.invalidateQueries({ queryKey: ['google-token'] }); // prefix invalidation (todos os userIds)
       setSearchParams((p) => { p.delete('oauth'); p.delete('email'); p.delete('company_id'); return p; });
     } else if (oauth === 'error') {
       const message = searchParams.get('message') || 'Erro ao ligar conta Google';

@@ -38,8 +38,17 @@ verify_jwt = false
 [functions.stripe-portal]
 verify_jwt = false
 
+[functions.stripe-invoices]
+verify_jwt = false
+
 [functions.send-auto-reports]
 verify_jwt = false
 
 [functions.drive-folders-dedup]
+verify_jwt = false
+
+[functions.analyze-document-preview]
+verify_jwt = false
+
+[functions.send-report-now]
 verify_jwt = false

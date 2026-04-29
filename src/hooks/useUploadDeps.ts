@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasStorageScopes } from '@/lib/google/scopes';
+import { queryKeys } from '@/lib/queryKeys';
 
 export interface UploadDeps {
   userId: string | null;
@@ -44,7 +45,7 @@ export function useUploadDeps(): UploadDeps {
   });
 
   const { data: primary, isLoading: tokenLoading } = useQuery<PrimaryToken | null>({
-    queryKey: ['google-token', userId],
+    queryKey: queryKeys.googleToken(userId),
     queryFn: async () => {
       const { data } = await supabase
         .from('user_oauth_tokens').select('access_token, scopes, email')

@@ -5,6 +5,7 @@ import { useI18n } from '@/contexts/I18nContext';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { X, BadgeCheck, Pencil } from 'lucide-react';
 import { SupplierEditForm } from './SupplierEditForm';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Supplier, Invoice } from '@/types/database';
 
 interface Props {
@@ -32,7 +33,7 @@ export function SupplierDetailModal({ supplier, onClose, onUpdated }: Props) {
   }, [onClose]);
 
   const { data: invoices } = useQuery({
-    queryKey: ['supplier-invoices', supplier.id],
+    queryKey: queryKeys.supplierInvoices(supplier.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')

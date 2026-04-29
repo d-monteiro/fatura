@@ -16,7 +16,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       // Downgrade strict rules that flag pre-existing patterns
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/static-components': 'warn',

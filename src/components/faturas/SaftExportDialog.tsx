@@ -12,10 +12,9 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCompanyFilter } from '@/hooks/useCompanyFilter';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 
 interface Props { open: boolean; onOpenChange: (open: boolean) => void }
-
-const ALLOWED_PLANS = ['pro', 'entreprise'];
 
 function firstDayOfMonth(): string {
   const d = new Date();
@@ -29,16 +28,17 @@ function lastDayOfMonth(): string {
 }
 
 export function SaftExportDialog({ open, onOpenChange }: Props) {
-  const { tenant, plan } = useTenant();
+  const { tenant } = useTenant();
   const { companies, companyId: urlCompanyId } = useCompanyFilter();
   const eligibleCompanies = companies.filter((c) => c.nif && /^\d{9}$/.test(c.nif));
+  const saftGate = useFeatureGate('saft_export');
 
   const [companyId, setCompanyId] = useState<string>(urlCompanyId ?? eligibleCompanies[0]?.id ?? '');
   const [periodStart, setPeriodStart] = useState(firstDayOfMonth());
   const [periodEnd, setPeriodEnd] = useState(lastDayOfMonth());
   const [loading, setLoading] = useState(false);
 
-  const planAllowed = !!plan && ALLOWED_PLANS.includes(plan.slug);
+  const planAllowed = saftGate.allowed;
 
   async function onGenerate() {
     if (!tenant?.id) return;
@@ -99,8 +99,8 @@ export function SaftExportDialog({ open, onOpenChange }: Props) {
           <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <p className="font-medium">Disponível nos planos Pro e Empresarial.</p>
-              <p className="mt-1 text-xs">Faz upgrade em Definições → Plano para activar a exportação SAF-T.</p>
+              <p className="font-medium">{saftGate.message ?? 'Disponível nos planos Pro e Empresarial.'}</p>
+              <p className="mt-1 text-xs">Faz upgrade em Faturação para activar.</p>
             </div>
           </div>
         ) : eligibleCompanies.length === 0 ? (

@@ -24,7 +24,7 @@ SaaS de faturação multi-empresa com IA (OCR + extração). Mercado: PT. Dev ú
 ## Idioma
 
 - UI e código (identifiers, comentários, commits) em **PT-PT** com acordo ortográfico.
-- Codebase nasceu em francês — ver memory `project_fr_to_pt.md`. Rename `fournisseurs/` → `fornecedores/` em curso. Terminologia: fornecedor, IVA, NIF, autoliquidação IVA (nunca TVA/SIRET em código novo).
+- Codebase nasceu em francês — rename `fournisseurs/` → `fornecedores/` concluído (zero ocorrências de "fournisseur" em `src/`). Schema PT-only desde 2026-04-25 (3 eixos `metier`/`nature`/`cost_type` colapsados em `category`). Terminologia: fornecedor, IVA, NIF, autoliquidação IVA (nunca TVA/SIRET em código novo).
 
 ## Regras não negociáveis (anti-slop)
 
@@ -122,28 +122,40 @@ src/
   hooks/             useUploadDeps
   lib/
     supabase/client.ts
-    google/drive.ts       (402 LOC — split ao tocar)
+    google/drive.ts       (344 LOC — split ao tocar)
     google/sheets.ts
     gemini.ts             frontend → Edge Function
-    invoiceProcessor.ts   pipeline upload→analyze→save→drive (242 LOC)
+    invoiceProcessor.ts   pipeline upload→analyze→save→drive (355 LOC)
     errors/errorReporter.ts
     utils/validation.ts, utils/suppliers.ts
-    i18n.ts               pares FR/PT (decidir futuro)
+    i18n.ts               PT-only (dicionário simples)
+    queryKeys.ts          factory + invalidateInvoiceLists
+    billing/featureMap.ts feature gating central
   pages/             Dashboard, Inbox, Faturas, Upload, Fornecedores, Settings,
                      Automations, Login, Billing, Tickets, Onboarding, Landing,
                      NotFound, admin/{Errors,Onboarding,Tenants,Tickets}
   types/             database.ts (260 LOC), tenant.ts (163 LOC)
 
-database/            SCHEMA.sql, RLS_POLICIES.sql, CRON.sql (manual, não CLI)
+database/            SCHEMA.sql, RLS_POLICIES.sql, CRON.sql, STRIPE_QA.md (runbook)
 supabase/
-  migrations/        VAZIO — sem versionamento de DB (dívida)
+  migrations/        ≥23 migrations versionadas (já não vazio); SCHEMA.sql é referência
   functions/
-    analyze-document/    OpenRouter → Gemini 2.5 Pro
-    sync-email/          Gmail cron 23:58
-    oauth-callback/      Google OAuth redirect
-    refresh-token/       renova tokens (5min buffer)
-    slack-notify/        notificações enterprise
-    _shared/             promptBuilder tenant-aware
+    analyze-document/        OpenRouter → Gemini 2.5 Pro
+    analyze-document-preview/ dry-run para onboarding
+    sync-email/              Gmail cron 23:58
+    oauth-start/             Google OAuth state HMAC-assinado
+    oauth-callback/          Google OAuth redirect
+    refresh-token/           renova tokens (5min buffer)
+    slack-notify/            notificações enterprise
+    stripe-checkout/         Checkout Session
+    stripe-portal/           Customer Portal
+    stripe-webhook/          eventos subscrição (idempotente)
+    stripe-invoices/         histórico Stripe na Billing
+    send-auto-reports/       cron horário de relatórios
+    check-due-dates/         alertas vencimento
+    export-saft/             SAF-T por empresa
+    invite-member/, resolve-invite/  multi-utilizador
+    _shared/                 promptBuilder tenant-aware, cors, stripe
 ```
 
 ## Edge Function secrets (`Deno.env.get`)
@@ -165,13 +177,9 @@ supabase/
 
 Detalhe em memory `project_tech_debt.md`. Resumo:
 
-- Duplicados: `InvoiceEditDialog` vs `InvoiceEditModal`; 8× redefinição de `METIERS`/`NATURES`/`COST_TYPES`.
-- Falta factory de query keys (4 padrões inconsistentes de invalidation).
-- God components: OnboardingWizard 271 LOC, drive.ts 402 LOC, invoiceProcessor 242 LOC.
-- `supabase/migrations/` vazio — DDL manual em `database/SCHEMA.sql` com DROP no topo.
-- `any` em 31 ficheiros apesar de `strict: true`.
-- `i18n.ts` ainda bilingue FR/PT — decidir.
-- Rename `fournisseurs/` → `fornecedores/` incompleto.
+- 8× redefinição de constantes legacy de categorização (`METIERS`/`NATURES`/`COST_TYPES`) — colapsar em `category` único.
+- God components a tocar: drive.ts 344 LOC (split em `drive/{client,folders,upload,search}.ts`), invoiceProcessor.ts 355 LOC.
+- `database/SCHEMA.sql` ainda usado como referência paralela; novas alterações vão sempre por `supabase/migrations/` (versionado).
 
 ## Fluxo
 

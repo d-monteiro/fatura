@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from '@/lib/supabase/client';
 import { formatEUR } from '@/lib/utils/validation';
 import { useI18n } from '@/contexts/I18nContext';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface TrendChartProps {
   companyId: string | null;
@@ -11,7 +12,7 @@ interface TrendChartProps {
 export function TrendChart({ companyId }: TrendChartProps) {
   const { t } = useI18n();
   const { data: chartData = [] } = useQuery({
-    queryKey: ['dashboard-trend', companyId],
+    queryKey: queryKeys.dashboardTrend(companyId),
     queryFn: async () => {
       let query = supabase
         .from('invoices')

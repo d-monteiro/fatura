@@ -5,6 +5,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { Tags, Plus, Check, X, RefreshCw, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORY_TEMPLATES, SECTORS } from '@/components/onboarding/onboardingTypes';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Category } from '@/types/database';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,7 +29,7 @@ export function CategoriesCard() {
   const qc = useQueryClient();
 
   const { data: everCount, isLoading: countLoading } = useQuery({
-    queryKey: ['categories', tenant?.id, 'ever'],
+    queryKey: [...queryKeys.categoriesByTenant(tenant?.id ?? null), 'ever'],
     enabled: !!tenant?.id,
     queryFn: async () => {
       const { count } = await supabase.from('categories')
@@ -60,7 +61,7 @@ export function CategoriesCard() {
       return rows.length;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['categories'] });
+      qc.invalidateQueries({ queryKey: queryKeys.categories });
     },
     onError: (e: Error) => toast.error(e.message),
   });

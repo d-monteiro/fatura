@@ -10,6 +10,7 @@ import { OAUTH_PROVIDERS, type OAuthProviderId } from '@/components/common/oauth
 import { translateAuthError } from '@/lib/utils/authErrors';
 import { resolveInvite, type InviteMetadata, type ResolveResult } from '@/lib/api/resolveInvite';
 import { acceptInvite, AcceptInviteError } from '@/lib/api/acceptInvite';
+import { queryKeys } from '@/lib/queryKeys';
 
 type Tab = 'login' | 'signup';
 
@@ -66,7 +67,7 @@ export default function InviteAccept() {
   const [oauthLoading, setOauthLoading] = useState<OAuthProviderId | null>(null);
 
   const { data: invite, isLoading: inviteLoading, error: inviteError } = useQuery<ResolveResult>({
-    queryKey: ['invite', token],
+    queryKey: queryKeys.invite(token),
     enabled: !!token,
     retry: false,
     staleTime: 60_000,

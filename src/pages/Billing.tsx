@@ -6,6 +6,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { PlanSelector } from '@/components/billing/PlanSelector';
 import { CheckoutCancelDialog } from '@/components/billing/CheckoutCancelDialog';
+import { InvoiceHistory } from '@/components/billing/InvoiceHistory';
 import { openBillingPortal } from '@/lib/stripe/checkout';
 import { isUnlimitedTrial } from '@/lib/utils/trial';
 import { Sparkles, Clock, Infinity as InfinityIcon, CreditCard, Loader2 } from 'lucide-react';
@@ -105,6 +106,8 @@ export default function Billing() {
       </section>
 
       <PlanSelector />
+
+      <InvoiceHistory />
 
       <CheckoutCancelDialog open={cancelOpen} onOpenChange={setCancelOpen} />
     </div>
