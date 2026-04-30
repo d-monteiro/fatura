@@ -9,6 +9,7 @@ import { useCompanyFilter } from '@/hooks/useCompanyFilter';
 import { queryKeys, invalidateInvoiceLists } from '@/lib/queryKeys';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { setInvoicePaid } from '@/lib/invoices/markAsPaid';
+import { useRole } from '@/hooks/useRole';
 import type { Invoice } from '@/types/database';
 
 const WINDOW_DAYS = 30;
@@ -20,9 +21,11 @@ type Row = InvoiceRow & { daysLeft: number | null };
 export function UpcomingPaymentsWidget() {
   const { tenant } = useTenant();
   const { companyId } = useCompanyFilter();
+  const { can } = useRole();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const tenantId = tenant?.id ?? null;
+  const canMarkPaid = can('mark_paid');
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: queryKeys.upcomingPayments(tenantId, companyId),
@@ -95,13 +98,23 @@ export function UpcomingPaymentsWidget() {
       </header>
 
       <ul className="divide-y divide-gray-100">
-        {rows.map((r) => <PaymentRow key={r.id} row={r} onPay={() => markPaid.mutate(r.id)} disabled={markPaid.isPending} />)}
+        {rows.map((r) => (
+          <PaymentRow
+            key={r.id}
+            row={r}
+            onPay={() => markPaid.mutate(r.id)}
+            disabled={markPaid.isPending}
+            canMarkPaid={canMarkPaid}
+          />
+        ))}
       </ul>
     </div>
   );
 }
 
-function PaymentRow({ row, onPay, disabled }: { row: Row; onPay: () => void; disabled: boolean }) {
+function PaymentRow({
+  row, onPay, disabled, canMarkPaid,
+}: { row: Row; onPay: () => void; disabled: boolean; canMarkPaid: boolean }) {
   const daysLeft = row.daysLeft;
   const urgent = daysLeft !== null && daysLeft <= 3;
 
@@ -120,15 +133,17 @@ function PaymentRow({ row, onPay, disabled }: { row: Row; onPay: () => void; dis
       </div>
       <div className="flex items-center gap-3 shrink-0">
         <span className="font-semibold text-gray-900 tabular-nums">{formatEUR(row.valor_total)}</span>
-        <button
-          type="button"
-          onClick={onPay}
-          disabled={disabled}
-          className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
-        >
-          <Check className="h-3.5 w-3.5" />
-          Pago
-        </button>
+        {canMarkPaid && (
+          <button
+            type="button"
+            onClick={onPay}
+            disabled={disabled}
+            className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+          >
+            <Check className="h-3.5 w-3.5" />
+            Pago
+          </button>
+        )}
       </div>
     </li>
   );

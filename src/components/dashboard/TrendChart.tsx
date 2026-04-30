@@ -18,7 +18,8 @@ export function TrendChart({ companyId }: TrendChartProps) {
         .from('invoices')
         .select('doc_date, valor_total')
         .is('deleted_at', null)
-        .not('doc_date', 'is', null);
+        .not('doc_date', 'is', null)
+        .or('document_type.is.null,document_type.neq.aviso_pagamento');
 
       if (companyId) {
         query = query.eq('company_id', companyId);

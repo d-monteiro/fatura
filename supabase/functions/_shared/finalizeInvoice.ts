@@ -15,6 +15,9 @@ import { formatMonthFolder } from "./months.ts";
 import { normalizeSupplierName, type KnownSupplier } from "./suppliers.ts";
 import { validateMontants } from "./validation.ts";
 import { logEdgeError } from "./logError.ts";
+import { escapeLike } from "./queries.ts";
+import { buildReviewReason } from "./reviewReason.ts";
+import { normalizeNifPT } from "./extractValidation.ts";
 
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
@@ -46,6 +49,7 @@ interface InvoiceRow {
   doc_date: string | null;
   doc_year: number | null;
   doc_number: string | null;
+  document_type: string | null;
   supplier_name: string | null;
   supplier_nif: string | null;
   supplier_id: string | null;
@@ -58,6 +62,13 @@ interface InvoiceRow {
   destinatario_nome: string | null;
   review_reason: string | null;
   manual_review: boolean | null;
+  email_message_id: string | null;
+}
+
+function normalizeDocNumber(raw: string | null): string | null {
+  if (!raw) return null;
+  const cleaned = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return cleaned || null;
 }
 
 interface TenantRow {
@@ -92,7 +103,7 @@ export async function finalizeInvoice(
 
   const { data: invRaw, error: invErr } = await admin
     .from("invoices")
-    .select("id, tenant_id, user_id, company_id, status, source, storage_path, file_url, drive_file_id, drive_link, spreadsheet_id, doc_date, doc_year, doc_number, supplier_name, supplier_nif, supplier_id, category, valor_sem_iva, valor_iva, valor_total, taxa_iva, summary, destinatario_nome, review_reason, manual_review")
+    .select("id, tenant_id, user_id, company_id, status, source, storage_path, file_url, drive_file_id, drive_link, spreadsheet_id, doc_date, doc_year, doc_number, document_type, supplier_name, supplier_nif, supplier_id, category, valor_sem_iva, valor_iva, valor_total, taxa_iva, summary, destinatario_nome, review_reason, manual_review, email_message_id")
     .eq("id", invoiceId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -159,10 +170,14 @@ export async function finalizeInvoice(
 
   const { data: suppliersRaw } = await admin
     .from("suppliers")
-    .select("id, name, name_variations")
+    .select("id, name, name_variations, nif")
     .eq("tenant_id", invoice.tenant_id)
+    .is("deleted_at", null)
     .limit(500);
-  const suppliers = (suppliersRaw ?? []) as unknown as Array<{ id: string; name: string; name_variations: string[] | null }>;
+  const suppliers = (suppliersRaw ?? []) as unknown as Array<{ id: string; name: string; name_variations: string[] | null; nif: string | null }>;
+  // knownSuppliers é usado por normalizeSupplierName para colapsar
+  // "ACME, LDA" → "ACME LDA" via variations conhecidas. matchOrCreateSupplier
+  // usa apenas (id, name, nif) — daí a estrutura mais leve.
   const knownSuppliers: KnownSupplier[] = suppliers.map((s) => ({
     normalized: s.name,
     variations: s.name_variations ?? [],
@@ -171,12 +186,24 @@ export async function finalizeInvoice(
   const normalizedSupplier = normalizeSupplierName(invoice.supplier_name, knownSuppliers);
   const supplierChanged = normalizedSupplier !== invoice.supplier_name;
 
-  const dup = await findDuplicate(admin, invoice, normalizedSupplier);
+  // Detectar empresa ANTES da dedup: as estratégias 1/2 do findDuplicate
+  // dependem de company_id (mesma empresa do tenant). Sem isto a dedup
+  // colapsa para a estratégia 0 (email_message_id) e duplicados clássicos
+  // (FlixBus, Anthropic) escapavam.
+  const detectedCompanyId = detectCompany(companies, invoice.destinatario_nome, invoice.company_id);
+  if (!detectedCompanyId) {
+    await markReason(admin, invoiceId, "Não foi possível detectar a empresa");
+    return { ok: false, invoiceId, stage: "company_detect", reason: "no_company" };
+  }
+  const company = companies.find((c) => c.id === detectedCompanyId)!;
+  log("company", `id=${detectedCompanyId} name=${company.name}`);
+
+  const dup = await findDuplicate(admin, { ...invoice, company_id: detectedCompanyId }, normalizedSupplier);
   if (dup) {
     await admin.from("invoices").update({
       status: "failed",
       manual_review: false,
-      review_reason: `Duplicada de ${dup}`,
+      review_reason: buildReviewReason("manual_request", `Duplicada de ${dup}`),
       deleted_at: new Date().toISOString(),
     }).eq("id", invoiceId);
     if (invoice.storage_path) {
@@ -185,14 +212,6 @@ export async function finalizeInvoice(
     log("dedup", "soft-delete (duplicada)", { dup_of: dup });
     return { ok: true, invoiceId, stage: "dedup", reason: `dup_of:${dup}`, already_done: true };
   }
-
-  const detectedCompanyId = detectCompany(companies, invoice.destinatario_nome, invoice.company_id);
-  if (!detectedCompanyId) {
-    await markReason(admin, invoiceId, "Não foi possível detectar a empresa");
-    return { ok: false, invoiceId, stage: "company_detect", reason: "no_company" };
-  }
-  const company = companies.find((c) => c.id === detectedCompanyId)!;
-  log("company", `id=${detectedCompanyId} name=${company.name}`);
 
   let supplierId = invoice.supplier_id;
   if (!supplierId && normalizedSupplier) {
@@ -295,7 +314,7 @@ export async function finalizeInvoice(
   if (needsReviewFromValidation) {
     updateBeforeSheets.status = "review";
     updateBeforeSheets.manual_review = true;
-    updateBeforeSheets.review_reason = `Validação: ${vm.errors.join("; ")}`;
+    updateBeforeSheets.review_reason = buildReviewReason("iva_inconsistente", vm.errors.join("; "));
   }
   const { error: updErr } = await admin.from("invoices").update(updateBeforeSheets).eq("id", invoiceId);
   if (updErr) {
@@ -459,23 +478,57 @@ async function findDuplicate(
   invoice: InvoiceRow,
   normalizedSupplier: string | null,
 ): Promise<string | null> {
-  if (invoice.doc_number && invoice.company_id) {
-    const { data } = await admin.from("invoices")
-      .select("id, doc_number")
+  // Estratégia 0 (1 fatura por email_message): mesmo email, mesmo fornecedor,
+  // mesmo valor → quase certamente "fatura + bilhete" do mesmo gmail message.
+  // Aceitamos só uma. Se forem realmente diferentes (rara), o user pode
+  // recuperar a partir de Ignoradas.
+  // B8: aviso_pagamento + fatura do mesmo email é ciclo normal, não dup. Só
+  // marcamos dup se ambos tiverem o mesmo document_type.
+  if (invoice.email_message_id && normalizedSupplier && invoice.valor_total !== null) {
+    // escapeLike: nome do fornecedor pode conter _ ou % vindo do Gemini que
+    // virariam wildcards num ilike e davam falsos positivos de dedup.
+    let q = admin.from("invoices")
+      .select("id, supplier_name, valor_total, document_type")
       .eq("tenant_id", invoice.tenant_id)
-      .eq("company_id", invoice.company_id)
-      .ilike("doc_number", invoice.doc_number)
+      .eq("email_message_id", invoice.email_message_id)
+      .ilike("supplier_name", escapeLike(normalizedSupplier))
+      .eq("valor_total", invoice.valor_total)
       .is("deleted_at", null)
-      .neq("id", invoice.id)
-      .limit(1);
+      .neq("id", invoice.id);
+    q = invoice.document_type
+      ? q.eq("document_type", invoice.document_type)
+      : q.is("document_type", null);
+    const { data } = await q.limit(1);
     if (data && data.length > 0) return (data[0].id as string);
   }
+  // Estratégia 1 (strong, doc_number normalizado): "FT-2024/0001" e "FT 2024/0001"
+  // colapsam para "ft20240001". Comparamos com candidatos do mesmo fornecedor.
+  const candidateDoc = normalizeDocNumber(invoice.doc_number);
+  if (candidateDoc && invoice.company_id) {
+    const { data } = await admin.from("invoices")
+      .select("id, doc_number, supplier_name, supplier_id")
+      .eq("tenant_id", invoice.tenant_id)
+      .eq("company_id", invoice.company_id)
+      .is("deleted_at", null)
+      .neq("id", invoice.id)
+      .not("doc_number", "is", null)
+      .limit(50);
+    const match = (data ?? []).find((r) => {
+      if (normalizeDocNumber(r.doc_number as string) !== candidateDoc) return false;
+      if (invoice.supplier_id && r.supplier_id === invoice.supplier_id) return true;
+      if (!invoice.supplier_id && !r.supplier_id && normalizedSupplier
+          && (r.supplier_name as string)?.toUpperCase() === normalizedSupplier.toUpperCase()) return true;
+      return false;
+    });
+    if (match) return match.id as string;
+  }
+  // Estratégia 2 (soft): supplier + doc_date + valor_total (já existia).
   if (normalizedSupplier && invoice.doc_date && invoice.valor_total !== null && invoice.company_id) {
     const { data } = await admin.from("invoices")
       .select("id")
       .eq("tenant_id", invoice.tenant_id)
       .eq("company_id", invoice.company_id)
-      .ilike("supplier_name", normalizedSupplier)
+      .ilike("supplier_name", escapeLike(normalizedSupplier))
       .eq("doc_date", invoice.doc_date)
       .eq("valor_total", invoice.valor_total)
       .is("deleted_at", null)
@@ -509,16 +562,42 @@ async function matchOrCreateSupplier(
   tenantId: string,
   supplierName: string,
   supplierNif: string | null,
-  existing: Array<{ id: string; name: string }>,
+  existing: Array<{ id: string; name: string; nif: string | null }>,
 ): Promise<string | null> {
-  const match = existing.find((s) => s.name.toUpperCase() === supplierName.toUpperCase());
-  if (match) return match.id;
-  const { data } = await admin.from("suppliers").insert({
+  // E2: NIF canónico PT é a chave forte. Match por NIF antes de match por nome
+  // resolve "RNE" vs "Rede Nacional Expressos" (mesmo NIF, nomes diferentes).
+  const nifPt = normalizeNifPT(supplierNif);
+  if (nifPt) {
+    const byNif = existing.find((s) => normalizeNifPT(s.nif) === nifPt);
+    if (byNif) return byNif.id;
+  }
+  const byName = existing.find((s) => s.name.toUpperCase() === supplierName.toUpperCase());
+  if (byName) {
+    // Encontrámos por nome mas o registo não tinha NIF — actualizamos para
+    // ganhar a chave canónica nas próximas faturas.
+    if (nifPt && !normalizeNifPT(byName.nif)) {
+      await admin.from("suppliers").update({ nif: nifPt, updated_at: new Date().toISOString() }).eq("id", byName.id);
+    }
+    return byName.id;
+  }
+  // Insert novo. O unique index em (tenant, normalize_nif_pt(nif)) protege
+  // contra race conditions de N invoices a chegarem ao mesmo tempo.
+  const { data, error } = await admin.from("suppliers").insert({
     tenant_id: tenantId,
     name: supplierName,
     display_name: supplierName,
-    nif: supplierNif,
+    nif: nifPt ?? supplierNif,
   }).select("id").single();
+  if (error) {
+    // Conflict no unique → buscar de novo (outro request criou primeiro).
+    if (nifPt) {
+      const { data: existing2 } = await admin.from("suppliers")
+        .select("id").eq("tenant_id", tenantId).eq("nif", nifPt)
+        .is("deleted_at", null).maybeSingle();
+      return (existing2 as { id: string } | null)?.id ?? null;
+    }
+    return null;
+  }
   return (data as { id: string } | null)?.id ?? null;
 }
 
@@ -546,7 +625,7 @@ async function markReason(admin: SupabaseAdmin, invoiceId: string, reason: strin
   await admin.from("invoices").update({
     status: "review",
     manual_review: true,
-    review_reason: reason.slice(0, 500),
+    review_reason: buildReviewReason("internal_error", reason),
   }).eq("id", invoiceId);
 }
 
@@ -567,7 +646,7 @@ async function logAndReview(
     tenantId,
     metadata: { run_id: runId, invoice_id: invoiceId, stage },
   });
-  await markReason(admin, invoiceId, `${stage}: ${msg.slice(0, 400)}`);
+  await markReason(admin, invoiceId, `${stage}: ${msg.slice(0, 200)}`);
 }
 
 function errString(e: unknown): string {

@@ -13,6 +13,7 @@ import { invoiceIdentifier } from './invoiceDisplay';
 import { useTenant } from '@/contexts/TenantContext';
 import { useRole } from '@/hooks/useRole';
 import { useCategories } from '@/hooks/useCategories';
+import { recoverInvoice } from '@/lib/invoices/recoverInvoice';
 import type { Invoice, InvoiceLineItem } from '@/types/database';
 
 interface Props {
@@ -79,20 +80,7 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
 
   const recoverMutation = useMutation({
     mutationKey: ['invoice-recover', invoice?.id],
-    mutationFn: async () => {
-      const { error } = await supabase.from('invoices')
-        .update({
-          deleted_at: null,
-          status: 'review',
-          manual_review: true,
-          review_reason: 'Recuperada pelo utilizador — verifica os campos',
-        })
-        .eq('id', invoice!.id);
-      if (error) {
-        if (error.code === '23505') throw new Error('Já existe outra fatura com este mesmo anexo. Remove a outra primeiro.');
-        throw error;
-      }
-    },
+    mutationFn: () => recoverInvoice(invoice!.id),
     onSuccess: () => {
       invalidateInvoiceLists(qc);
       toast.success('Fatura recuperada. Vê na aba "Faturas" com o aviso de verificação.');

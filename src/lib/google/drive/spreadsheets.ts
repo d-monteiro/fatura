@@ -2,7 +2,7 @@ import { driveLimiter } from '@/lib/rateLimiter';
 import { reportError } from '@/lib/errors/errorReporter';
 import { DRIVE_TIMEOUT_MS, createTimeoutSignal } from './client';
 import { checkFileExists } from './search';
-import { setupSpreadsheetHeaders, getMonthSheetName } from '../sheets';
+import { setupSpreadsheetHeaders, getMonthSheetName, YEAR_SHEET_NAME } from '../sheets';
 
 async function createNewSpreadsheet(
   accessToken: string,
@@ -10,7 +10,11 @@ async function createNewSpreadsheet(
   parentFolderId: string,
   language = 'pt',
 ): Promise<{ id: string; webViewLink: string }> {
-  const sheets = Array.from({ length: 12 }, (_, i) => getMonthSheetName(i, language));
+  // Aba ANO primeiro (vista agregada do ano), depois as 12 abas mensais.
+  const sheets = [
+    YEAR_SHEET_NAME,
+    ...Array.from({ length: 12 }, (_, i) => getMonthSheetName(i, language)),
+  ];
 
   await driveLimiter.waitForSlot();
   const ct = createTimeoutSignal(DRIVE_TIMEOUT_MS);

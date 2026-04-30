@@ -29,19 +29,33 @@ export interface UploadResult {
   warnings?: string[];
 }
 
-const CONFIDENCE_THRESHOLD = 0.8;
-
+// Os critérios IVA, NIF e document_type vêm do Edge (analyze-document) via
+// `g._validation`, garantindo paridade com o fluxo by-invoice. Aqui só
+// adicionamos critérios cliente-only que a Edge não conhece (data suspeita)
+// e o resultado do validateMontants cliente, que é redundante mas defensivo
+// caso a Edge não tenha enriquecido (fallback grácil).
 function evaluateReview(g: GeminiInvoiceData, validationOk: boolean): { needsReview: boolean; reason: string | null } {
+  const edge = g._validation;
   const curYear = new Date().getFullYear();
-  const lowConfidence = g.confidence_score < CONFIDENCE_THRESHOLD;
   const suspiciousDate = g.doc_year !== null && g.doc_year < curYear - 1;
+
+  if (edge) {
+    if (edge.needs_review) return { needsReview: true, reason: edge.review_reason };
+    if (suspiciousDate) return { needsReview: true, reason: 'manual_request: data suspeita' };
+    if (!validationOk) return { needsReview: true, reason: 'iva_inconsistente: erro de validação cliente' };
+    return { needsReview: false, reason: null };
+  }
+  // Fallback (Edge sem enrichment, ex: versão antiga em flight): apenas
+  // métricas cliente-side. Não é a verdade — para fluxos sem Edge
+  // enriquecida, segue o critério antigo.
+  const lowConfidence = g.confidence_score < 0.8;
   const needsReview = lowConfidence || suspiciousDate || !validationOk;
   if (!needsReview) return { needsReview: false, reason: null };
   const reason = !validationOk
-    ? 'Erro de validação de montantes'
+    ? 'iva_inconsistente: erro de validação de montantes'
     : lowConfidence
-      ? 'Confiança baixa'
-      : 'Data suspeita';
+      ? `low_confidence: ${g.confidence_score.toFixed(2)}`
+      : 'manual_request: data suspeita';
   return { needsReview: true, reason };
 }
 

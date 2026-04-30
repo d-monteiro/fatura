@@ -26,7 +26,8 @@ export function CategoryDonut({ companyId }: CategoryDonutProps) {
       let query = supabase
         .from('invoices')
         .select('category, valor_total')
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .or('document_type.is.null,document_type.neq.aviso_pagamento');
 
       if (companyId) query = query.eq('company_id', companyId);
 

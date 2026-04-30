@@ -6,19 +6,12 @@ import { useI18n } from '@/contexts/I18nContext';
 import type { FaturasFilterState } from './FaturasFilters';
 import { NO_SUPPLIER_VALUE } from './SupplierCombobox';
 import { computeDateRange } from '@/lib/faturas/dateRange';
+import { buildInvoiceExtractWorkbook } from '@/lib/exports/invoiceExtract';
 import type { Invoice } from '@/types/database';
 
 interface ExportButtonProps {
   filters: FaturasFilterState;
   companyId: string | null;
-}
-
-function formatDateDD(dateStr: string | null): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
 async function fetchAllFiltered(filters: FaturasFilterState, companyId: string | null): Promise<Invoice[]> {
@@ -48,26 +41,6 @@ async function fetchAllFiltered(filters: FaturasFilterState, companyId: string |
   return data as Invoice[];
 }
 
-function buildWorkbook(invoices: Invoice[]): XLSX.WorkBook {
-  const rows = invoices.map((inv) => ({
-    'Data': formatDateDD(inv.doc_date),
-    'Nº Fatura': inv.doc_number ?? '',
-    'Fornecedor': inv.supplier_name ?? '',
-    'Categoria': inv.category ?? '',
-    'Valor s/IVA': inv.valor_sem_iva ?? '',
-    'IVA': inv.valor_iva ?? '',
-    'Valor Total': inv.valor_total ?? '',
-    'Taxa IVA': inv.taxa_iva != null ? `${inv.taxa_iva}%` : '',
-    'Resumo': inv.summary ?? '',
-    'Link PDF': inv.drive_link ?? inv.file_url ?? '',
-  }));
-
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Faturas');
-  return wb;
-}
-
 export function ExportButton({ filters, companyId }: ExportButtonProps) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
@@ -76,7 +49,7 @@ export function ExportButton({ filters, companyId }: ExportButtonProps) {
     setLoading(true);
     try {
       const invoices = await fetchAllFiltered(filters, companyId);
-      const wb = buildWorkbook(invoices);
+      const wb = buildInvoiceExtractWorkbook(invoices, { title: 'Extracto de Faturas' });
       const today = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `faturas_export_${today}.xlsx`);
     } finally {

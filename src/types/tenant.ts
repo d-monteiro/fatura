@@ -105,6 +105,9 @@ export interface Tenant {
   auto_sheets: boolean;
   sheet_columns: Record<string, unknown> | null;
 
+  // F2: tipos de documento aceites pelo Gemini para este tenant.
+  allowed_document_types: string[];
+
   // Dashboard config
   dashboard_widgets: Record<string, unknown> | null;
   auto_reports: AutoReports;

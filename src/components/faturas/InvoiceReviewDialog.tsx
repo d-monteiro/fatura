@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { X, ExternalLink, Building2, Calendar, Hash, Tag, FileText, CheckCircle, Pencil, Trash2 } from 'lucide-react';
+import { X, ExternalLink, Building2, Calendar, Hash, Tag, FileText, CheckCircle, Pencil, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useI18n } from '@/contexts/I18nContext';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
+import { humanizeReviewReason, parseReviewReason } from '@/lib/reviewReason';
+import { reanalyzeInvoice } from '@/lib/sync/reanalyze';
+import { invalidateInvoiceLists } from '@/lib/queryKeys';
 import type { Invoice } from '@/types/database';
 
 interface Props {
@@ -34,12 +39,36 @@ function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; labe
 export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit, onDelete, isDeleting }: Props) {
   const { t } = useI18n();
   const { tenant } = useTenant();
+  const qc = useQueryClient();
   const { labelFor } = useCategories(tenant?.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const drivePreviewUrl = invoice.drive_file_id
     ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview`
     : null;
   const categoryLabel = labelFor(invoice.category) || null;
+
+  const reasonHuman = humanizeReviewReason(invoice.review_reason);
+  const reasonKind = parseReviewReason(invoice.review_reason).kind;
+  // Re-correr análise faz sentido para erros transitórios (parse/timeout) ou
+  // mismatch de tipo. IVA inconsistente normalmente não muda — o user edita.
+  const canReanalyze = reasonKind === 'parse_error'
+    || reasonKind === 'timeout'
+    || reasonKind === 'internal_error'
+    || reasonKind === 'document_type_unknown';
+
+  const reanalyze = useMutation({
+    mutationFn: () => reanalyzeInvoice(invoice.id),
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success('Análise relançada — actualiza em alguns segundos.');
+        invalidateInvoiceLists(qc);
+        onClose();
+      } else {
+        toast.error(res.error ?? 'Falhou a relançar análise');
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   if (!open) return null;
 
@@ -78,6 +107,12 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1 min-h-0">
+                {reasonHuman && (
+                  <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{reasonHuman}</span>
+                  </div>
+                )}
                 <DetailRow icon={Building2} label={t('inv.supplier')} value={invoice.supplier_name || '\u2014'} />
                 {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
                 <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
@@ -108,6 +143,16 @@ export function InvoiceReviewDialog({ invoice, open, onClose, onApprove, onEdit,
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700">
                   <CheckCircle className="h-4 w-4" /> {t('review.approve')}
                 </button>
+                {canReanalyze && (
+                  <button
+                    onClick={() => reanalyze.mutate()}
+                    disabled={reanalyze.isPending}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${reanalyze.isPending ? 'animate-spin' : ''}`} />
+                    {reanalyze.isPending ? 'A relançar…' : 'Re-tentar análise'}
+                  </button>
+                )}
                 <div className="flex gap-2">
                   <button onClick={onEdit}
                     className="flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">

@@ -27,6 +27,7 @@ export default function Fornecedores() {
         .from('suppliers')
         .select('*')
         .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
         .order('total_spent', { ascending: false });
 
       if (search) {

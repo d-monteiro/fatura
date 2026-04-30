@@ -68,9 +68,12 @@ async function fetchInvoiceRows(
 ): Promise<InvoiceRow[]> {
   let q = sb
     .from("invoices")
+    // B8: avisos de pagamento são pré-avisos, não custos. Excluí-los dos
+    // relatórios automáticos para que os totais batam com o dashboard.
     .select("doc_date, doc_number, supplier_name, category, valor_sem_iva, valor_iva, valor_total, status, manual_review, company_id")
     .eq("tenant_id", tenantId)
     .is("deleted_at", null)
+    .or("document_type.is.null,document_type.neq.aviso_pagamento")
     .gte("doc_date", periodStart)
     .lte("doc_date", periodEnd);
   if (filters?.companyIds && filters.companyIds.length > 0) {
@@ -179,6 +182,7 @@ export async function fetchPreviousTotalGross(
     .select("valor_total")
     .eq("tenant_id", tenantId)
     .is("deleted_at", null)
+    .or("document_type.is.null,document_type.neq.aviso_pagamento")
     .gte("doc_date", prevStart)
     .lte("doc_date", prevEnd);
   if (filters?.companyIds && filters.companyIds.length > 0) q = q.in("company_id", filters.companyIds);

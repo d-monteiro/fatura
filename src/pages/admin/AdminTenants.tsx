@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase/client';
 import { TenantDetailDrawer } from '@/components/admin/TenantDetailDrawer';
 import { sectorLabel } from '@/lib/admin/labels';
+import { getPlanDisplayState, PLAN_DISPLAY_LABEL, PLAN_DISPLAY_VARIANT } from '@/lib/admin/planDisplay';
 import { ChevronRight } from 'lucide-react';
 import type { TenantOverview } from '@/types/admin';
 
@@ -63,7 +64,10 @@ export default function AdminTenants() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {!t.is_active && <Badge variant="secondary">Suspenso</Badge>}
-                <Badge variant={t.plan_status === 'active' ? 'default' : 'secondary'}>{t.plan_status}</Badge>
+                {(() => {
+                  const display = getPlanDisplayState(t.plan_status);
+                  return <Badge variant={PLAN_DISPLAY_VARIANT[display]}>{PLAN_DISPLAY_LABEL[display]}</Badge>;
+                })()}
                 <span className="text-xs text-muted-foreground hidden sm:inline">{t.invoices_total} faturas</span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>

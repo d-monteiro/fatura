@@ -11,7 +11,14 @@ import {
   currencyLabel, AUTO_REPORTS_LABEL, STORAGE_PROVIDER_LABEL,
 } from '@/lib/admin/labels';
 import { TenantBetaControls } from '@/components/admin/TenantBetaControls';
-import type { Tenant, Plan, PlanStatus } from '@/types/tenant';
+import {
+  getPlanDisplayState,
+  planStatusFromDisplay,
+  PLAN_DISPLAY_OPTIONS,
+  PLAN_DISPLAY_LABEL,
+  type PlanDisplayState,
+} from '@/lib/admin/planDisplay';
+import type { Tenant, Plan } from '@/types/tenant';
 import type { ReportDelivery } from '@/types/admin';
 
 type PlanSummary = Pick<Plan, 'id' | 'slug' | 'name'>;
@@ -26,8 +33,6 @@ interface TenantDetails {
   recent_errors: RecentError[];
   plan: PlanSummary | null;
 }
-
-const PLAN_STATUS: PlanStatus[] = ['trialing', 'active', 'past_due', 'canceled', 'paused', 'pending_contact'];
 
 interface Props { tenantId: string | null; onClose: () => void; }
 
@@ -216,12 +221,22 @@ export function TenantDetailDrawer({ tenantId, onClose }: Props) {
                 </div>
                 <div className="space-y-2">
                   <Label>Estado do plano</Label>
-                  <Select value={tenant.plan_status} onValueChange={(v) => updateMutation.mutate({ plan_status: v as PlanStatus })}>
+                  <Select
+                    value={getPlanDisplayState(tenant.plan_status)}
+                    onValueChange={(v) => updateMutation.mutate({ plan_status: planStatusFromDisplay(v as PlanDisplayState) })}
+                  >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {PLAN_STATUS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {PLAN_DISPLAY_OPTIONS.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {(tenant.plan_status === 'paused' || tenant.plan_status === 'pending_contact') && (
+                    <p className="text-xs text-muted-foreground">
+                      Estado real: <span className="font-mono">{tenant.plan_status}</span> · agrupado em "{PLAN_DISPLAY_LABEL[getPlanDisplayState(tenant.plan_status)]}".
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2 pt-2">
                   <Button

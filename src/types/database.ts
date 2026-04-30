@@ -22,7 +22,19 @@ export interface Company {
 // ==========================================
 // INVOICES (FATURAS)
 // ==========================================
-export type DocumentType = 'fatura' | 'nota_credito' | 'recibo' | 'outro';
+export type DocumentType = 'fatura' | 'nota_credito' | 'recibo' | 'aviso_pagamento' | 'outro';
+
+export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
+  fatura: 'Fatura',
+  recibo: 'Recibo',
+  nota_credito: 'Nota de crédito',
+  aviso_pagamento: 'Aviso de pagamento',
+  outro: 'Outro',
+};
+
+// Tipos que NÃO devem ser contabilizados como custo nos relatórios financeiros
+// e SAF-T (são pré-avisos / instruções de pagamento, não documentos de despesa).
+export const NON_EXPENSE_DOCUMENT_TYPES: DocumentType[] = ['aviso_pagamento'];
 export type InvoiceStatus = 'pending' | 'analyzing' | 'inbox' | 'processed' | 'review' | 'failed';
 export type InvoiceSource = 'upload' | 'email' | 'photo';
 
@@ -92,6 +104,9 @@ export interface Invoice {
   // PAGAMENTOS
   paid_at: string | null;
   payment_notified_at: string | null;
+
+  // CUSTO FIXO/VARIÁVEL — override da categoria. null = herda is_fixed da categoria.
+  is_fixed: boolean | null;
 }
 
 // ==========================================
@@ -289,4 +304,22 @@ export interface GeminiInvoiceData {
     total_sem_iva: number | null;
     taxa_iva: number | null;
   }[];
+
+  // Anexado pela Edge Function depois do Gemini, antes de devolver ao cliente.
+  // Permite ao invoiceProcessor manual aplicar review_reason canónico sem
+  // duplicar a lógica de validação no browser.
+  _validation?: {
+    needs_review: boolean;
+    review_reason: string | null;
+    reason_kind: ReviewReasonKind | null;
+  };
 }
+
+export type ReviewReasonKind =
+  | 'low_confidence'
+  | 'iva_inconsistente'
+  | 'parse_error'
+  | 'timeout'
+  | 'document_type_unknown'
+  | 'internal_error'
+  | 'manual_request';

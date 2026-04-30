@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { buildInvoiceExtractWorkbook } from '@/lib/exports/invoiceExtract';
 import type { Invoice } from '@/types/database';
 
 const MONTH_NAMES = [
@@ -20,20 +21,7 @@ function folderForInvoice(inv: Invoice): string {
 }
 
 function buildSummaryWorkbook(invoices: Invoice[]): ArrayBuffer {
-  const rows = invoices.map((inv) => ({
-    Data: inv.doc_date ?? '',
-    'Nº Fatura': inv.doc_number ?? '',
-    Fornecedor: inv.supplier_name ?? '',
-    Categoria: inv.category ?? '',
-    'Valor s/IVA': inv.valor_sem_iva ?? '',
-    IVA: inv.valor_iva ?? '',
-    'Valor Total': inv.valor_total ?? '',
-    'Taxa IVA': inv.taxa_iva != null ? `${inv.taxa_iva}%` : '',
-    Resumo: inv.summary ?? '',
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Faturas');
+  const wb = buildInvoiceExtractWorkbook(invoices, { title: 'Extracto de Faturas' });
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
 }
 

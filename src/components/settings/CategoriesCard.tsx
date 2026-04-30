@@ -6,6 +6,7 @@ import { Tags, Plus, Check, X, RefreshCw, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORY_TEMPLATES, SECTORS } from '@/components/onboarding/onboardingTypes';
 import { queryKeys } from '@/lib/queryKeys';
+import { slugify } from '@/lib/utils/slugify';
 import type { Category } from '@/types/database';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,11 +19,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-function slugify(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'cat';
-}
 
 export function CategoriesCard() {
   const { tenant } = useTenant();
@@ -84,13 +80,13 @@ export function CategoriesCard() {
 
   return (
     <div className="border border-border rounded-xl p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div className="flex items-start gap-2">
           <Tags size={20} className="mt-0.5 text-muted-foreground" />
           <div>
             <h2 className="text-lg font-semibold leading-tight">Categorias</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Classificação única das tuas despesas. O cadeado marca categorias com comportamento de custo fixo.
+              Classificação única das tuas despesas. O cadeado define o tipo de custo padrão.
             </p>
           </div>
         </div>
@@ -106,6 +102,24 @@ export function CategoriesCard() {
             {seedStandard.isPending ? 'A aplicar…' : `Repor template ${sectorLabel}`}
           </button>
         )}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex h-5 items-center rounded-full bg-violet-100 px-2 text-violet-800">
+            <Lock className="h-3 w-3" />
+          </span>
+          Custo fixo (default)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex h-5 items-center rounded-full bg-gray-100 px-2 text-gray-700">
+            <Lock className="h-3 w-3 text-gray-400" />
+          </span>
+          Custo variável (default)
+        </span>
+        <span className="text-muted-foreground">
+          Cada fatura pode ser ajustada individualmente.
+        </span>
       </div>
 
       <CategoriesEditor tenantId={tenant.id} />

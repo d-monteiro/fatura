@@ -1,11 +1,14 @@
-// Google Sheets REST API — extrato anual com aba por mês.
+// Google Sheets REST API — extrato anual com aba por mês + aba "ANO" agregada.
 // Headers e nomes de meses são determinados pelo idioma do tenant.
+// A aba "ANO" contém TODAS as faturas do ano para vista agregada e é mantida
+// em sync com as month tabs em todos os append/update.
 
 import { sheetsLimiter } from '@/lib/rateLimiter';
 import { getMonthName } from '@/lib/utils/months';
 
 const SHEETS_TIMEOUT_MS = 30_000;
 const COLUMN_COUNT = 12;
+export const YEAR_SHEET_NAME = 'ANO';
 
 // Mapeamento campo → índice de coluna (0-based), alinhado com HEADERS_BY_LANG.
 // A ordem tem de coincidir com a construção da row em appendInvoiceToSheet.
@@ -69,9 +72,7 @@ export async function appendInvoiceToSheet(
     const d = new Date(data.doc_date);
     if (!isNaN(d.getTime())) monthIdx = d.getMonth();
   }
-  const sheetName = getMonthSheetName(monthIdx, language);
-
-  await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName, headers);
+  const monthSheet = getMonthSheetName(monthIdx, language);
 
   const row = [
     data.doc_date || '',
@@ -88,8 +89,24 @@ export async function appendInvoiceToSheet(
     new Date().toISOString().split('T')[0],
   ];
 
-  const range = `'${sheetName}'!A2:L`;
+  // Append paralelo: month tab + ANO tab. Se uma falhar, a outra completa
+  // — preferimos consistência parcial a falhar tudo (sync best-effort).
+  await Promise.all([
+    appendRowToTab(accessToken, spreadsheetId, monthSheet, headers, row),
+    appendRowToTab(accessToken, spreadsheetId, YEAR_SHEET_NAME, headers, row),
+  ]);
+}
 
+async function appendRowToTab(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string,
+  headers: string[],
+  row: Array<string | number>,
+): Promise<void> {
+  await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName, headers);
+
+  const range = `'${sheetName}'!A2:L`;
   await sheetsLimiter.waitForSlot();
   const t = createTimeoutSignal(SHEETS_TIMEOUT_MS);
   const response = await fetch(
@@ -105,7 +122,7 @@ export async function appendInvoiceToSheet(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Erro ao escrever no Sheets: ${response.status} - ${error}`);
+    throw new Error(`Erro ao escrever no Sheets (${sheetName}): ${response.status} - ${error}`);
   }
 }
 
@@ -200,6 +217,7 @@ export async function setupSpreadsheetHeaders(
   for (let i = 0; i < 12; i++) {
     await ensureSheetHasHeader(accessToken, spreadsheetId, getMonthSheetName(i, language), headers);
   }
+  await ensureSheetHasHeader(accessToken, spreadsheetId, YEAR_SHEET_NAME, headers);
 }
 
 function columnIndexToLetter(index: number): string {

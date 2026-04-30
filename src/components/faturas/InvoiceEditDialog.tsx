@@ -8,8 +8,9 @@ import { updateInvoiceEverywhere, type InvoicePatch } from '@/lib/sync/updateInv
 import { useUploadDeps } from '@/hooks/useUploadDeps';
 import { useTenant } from '@/contexts/TenantContext';
 import { InvoiceDocPreview } from './InvoiceDocPreview';
-import { InvoiceEditFormFields } from './InvoiceEditForm';
+import { InvoiceEditFormFields, type InvoiceEditFormData } from './InvoiceEditForm';
 import { InvoicePaymentStatus } from './InvoicePaymentStatus';
+import { normalizeNifPT } from '@/lib/utils/nif';
 import type { Invoice } from '@/types/database';
 
 interface Props { invoice: Invoice; open: boolean; onClose: () => void; }
@@ -22,12 +23,15 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
   const { accessToken } = useUploadDeps();
   const { tenant } = useTenant();
 
-  const initialForm = useMemo(() => ({
+  const initialForm = useMemo<InvoiceEditFormData>(() => ({
     supplier_name: invoice.supplier_name ?? '', supplier_nif: invoice.supplier_nif ?? '',
     doc_number: invoice.doc_number ?? '', doc_date: invoice.doc_date ?? '',
     valor_sem_iva: n(invoice.valor_sem_iva), valor_iva: n(invoice.valor_iva),
     valor_total: n(invoice.valor_total), taxa_iva: n(invoice.taxa_iva),
     category: invoice.category ?? '', summary: invoice.summary ?? '',
+    // null = herda da categoria; '' no form representa null.
+    is_fixed: invoice.is_fixed === null || invoice.is_fixed === undefined
+      ? '' : invoice.is_fixed ? 'fixed' : 'variable',
   }), [invoice]);
 
   const [form, setForm] = useState(initialForm);
@@ -52,7 +56,8 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
       const pf = (v: string) => (v ? parseFloat(v) : null);
       const updates: InvoicePatch = {
         supplier_name: form.supplier_name || null,
-        supplier_nif: form.supplier_nif || null,
+        // Strip "PT" e espaços; mantém raw se não normaliza para 9 dígitos.
+        supplier_nif: normalizeNifPT(form.supplier_nif) ?? (form.supplier_nif || null),
         doc_number: form.doc_number || null,
         doc_date: form.doc_date || null,
         valor_sem_iva: pf(form.valor_sem_iva),
@@ -61,6 +66,7 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
         taxa_iva: pf(form.taxa_iva),
         category: form.category || null,
         summary: form.summary || null,
+        is_fixed: form.is_fixed === '' ? null : form.is_fixed === 'fixed',
       };
       const res = await updateInvoiceEverywhere({
         invoice, updates, accessToken, language: tenant?.language ?? 'pt',
@@ -79,13 +85,18 @@ export function InvoiceEditDialog({ invoice, open, onClose }: Props) {
     },
   });
 
-  // ESC fecha (com guard de dirty)
+  // ESC fecha o modal mais interno: se o ConfirmDialog "Descartar?" estiver
+  // aberto, ESC fecha-o em vez de o reabrir via tryClose().
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') tryClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showDiscardConfirm) { setShowDiscardConfirm(false); return; }
+      tryClose();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, tryClose]);
+  }, [open, tryClose, showDiscardConfirm]);
 
   if (!open) return null;
 

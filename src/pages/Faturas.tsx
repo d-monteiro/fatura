@@ -24,6 +24,7 @@ import { cn } from '@/lib/cn';
 import type { Invoice } from '@/types/database';
 import { queryKeys, invalidateInvoiceLists } from '@/lib/queryKeys';
 import { escapeLike } from '@/lib/utils/queries';
+import { recoverInvoice } from '@/lib/invoices/recoverInvoice';
 
 const PAGE_SIZE = 20;
 const IGNORED_DAYS = 30;
@@ -48,14 +49,14 @@ export default function Faturas() {
 
   const [filters, setFilters] = useState<FaturasFilterState>({
     search: '', year: '', month: '', dateStart: '', dateEnd: '', supplierId: '',
-    category: '',
+    category: '', documentType: '',
   });
   const [sortField, setSortField] = useState<SortField>('doc_date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [recoveringId, setRecoveringId] = useState<string | null>(null);
+  const [recoveringIds, setRecoveringIds] = useState<ReadonlySet<string>>(() => new Set());
   const [saftOpen, setSaftOpen] = useState(false);
 
   const bulk = useBulkActions();
@@ -111,6 +112,7 @@ export default function Faturas() {
       }
 
       if (filters.category) query = query.eq('category', filters.category);
+      if (filters.documentType) query = query.eq('document_type', filters.documentType);
 
       const { data: rows, count, error } = await query;
       if (error) throw error;
@@ -140,20 +142,12 @@ export default function Faturas() {
 
   const recoverMutation = useMutation({
     mutationFn: async (inv: Invoice) => {
-      setRecoveringId(inv.id);
-      const { error } = await supabase.from('invoices')
-        .update({
-          deleted_at: null,
-          status: 'review',
-          manual_review: true,
-          review_reason: 'Recuperada pelo utilizador — verifica os campos',
-        }).eq('id', inv.id);
-      if (error) {
-        if (error.code === '23505') {
-          throw new Error('Já existe outra fatura com este mesmo anexo. Remove a outra primeiro.');
-        }
-        throw new Error(error.message);
-      }
+      setRecoveringIds((prev) => {
+        const next = new Set(prev);
+        next.add(inv.id);
+        return next;
+      });
+      await recoverInvoice(inv.id);
     },
     onSuccess: () => {
       invalidateInvoiceLists(qc);
@@ -162,7 +156,13 @@ export default function Faturas() {
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Erro a recuperar');
     },
-    onSettled: () => setRecoveringId(null),
+    onSettled: (_data, _err, inv) => {
+      setRecoveringIds((prev) => {
+        const next = new Set(prev);
+        next.delete(inv.id);
+        return next;
+      });
+    },
   });
 
   const handleSort = (field: SortField) => {
@@ -243,7 +243,7 @@ export default function Faturas() {
           invoices={invoices}
           onRowClick={handleRowClick}
           onRecover={(inv) => recoverMutation.mutate(inv)}
-          recoveringId={recoveringId}
+          isRecovering={(id) => recoveringIds.has(id)}
         />
       ) : (
         <FaturasTable

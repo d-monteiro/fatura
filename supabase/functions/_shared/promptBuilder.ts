@@ -8,7 +8,7 @@ export interface TenantAIConfig {
   currency: string;
   nameVariations: string[];
   vatRates: number[];
-  categories: { code: string; label: string }[];
+  categories: { code: string; label: string; isFixed?: boolean }[];
   knownSuppliers: { normalized: string; variations: string[] }[];
   documentTypes: string[];
 }
@@ -48,9 +48,10 @@ Se um documento contém VÁRIAS faturas (números de documento diferentes), extr
 4. Caso contrário → is_valid_document: true.`);
 
   parts.push(`# CATEGORIA DA DESPESA
-Escolhe exactamente UM dos códigos abaixo (ou null se mesmo nenhum se aplicar):
+Escolhe exactamente UM dos códigos abaixo (ou null se mesmo nenhum se aplicar).
+A flag [fixo] indica que despesas desta categoria são tipicamente recorrentes mensais (default — pode ser ajustada por fatura):
 ${c.categories.length
-    ? c.categories.map((x) => `- "${x.code}": ${x.label}`).join("\n")
+    ? c.categories.map((x) => `- "${x.code}": ${x.label}${x.isFixed ? ' [fixo]' : ''}`).join("\n")
     : '- (sem categorias configuradas — devolve null)'}`);
 
   if (c.knownSuppliers.length) {
@@ -66,8 +67,17 @@ ${c.knownSuppliers.map((s) => `- ${s.variations.map((v) => `"${v}"`).join(" ou "
 - Se houver autoliquidação (subempreitada): IVA = 0% e autoliquidacao: true
 - Montantes em formato numérico (ex.: 1234.56, sem espaços nem vírgulas)
 - supplier_name: nome do FORNECEDOR em MAIÚSCULAS (quem emite a fatura)
+- supplier_nif: NIF do fornecedor. Para Portugal usa apenas os 9 dígitos (sem prefixo "PT", sem espaços). Para fornecedores estrangeiros, mantém o formato original.
 - destinatario_nome: nome do destinatário (quem recebe — útil para identificar a empresa correcta entre as do tenant)
-- Tipos de documento aceites: ${c.documentTypes.join(", ")}
+- Tipos de documento aceites neste tenant: ${c.documentTypes.join(", ")}
+
+## TIPOS DE DOCUMENTO (regras de classificação)
+- "fatura": documento principal de venda/compra (PT: "Fatura", "Factura", "Invoice").
+- "recibo": prova de pagamento já efectuado (PT: "Recibo", "Receipt"). Não é fatura.
+- "nota_credito": correcção a fatura emitida — valores negativos para o destinatário (PT: "Nota de Crédito", "Credit note").
+- "aviso_pagamento": pré-aviso ou comunicação de débito futuro / instrução de pagamento. NÃO é fatura nem recibo (PT: "Aviso de pagamento", "Aviso de débito", "Payment notice"). Não conta como custo nos relatórios.
+- "outro": qualquer outro documento financeiro não classificável acima.
+Devolve sempre o tipo na lista — não inventes outros valores.
 
 ## REGRAS CRÍTICAS DE IVA (não confundir colunas decorativas com base tributável)
 - valor_sem_iva = base tributável (linha rotulada literalmente como "Total sem IVA", "Base tributável", "Total líquido", "Subtotal", "Valor net").
@@ -87,7 +97,7 @@ SEMPRE devolves { "invoices": [...] }, mesmo que seja uma só fatura.
     {
       "is_valid_document": boolean,
       "rejection_reason": "nao_e_documento" | "documento_ilegivel" | "nao_e_fatura" | "fatura_propria" | null,
-      "document_type": "fatura" | "nota_credito" | "recibo" | "outro" | null,
+      "document_type": "fatura" | "recibo" | "nota_credito" | "aviso_pagamento" | "outro" | null,
       "category": ${c.categories.length ? c.categories.map((x) => `"${x.code}"`).join(" | ") + " | null" : "null"},
       "doc_year": number | null,
       "doc_date": "YYYY-MM-DD" | null,

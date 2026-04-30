@@ -12,6 +12,8 @@ import { buildTenantPrompt, getVatRatesForCountry, type TenantAIConfig } from ".
 import { getCorsHeaders, getFrontendUrl } from "../_shared/cors.ts";
 import { logEdgeError } from "../_shared/logError.ts";
 import { finalizeInvoice } from "../_shared/finalizeInvoice.ts";
+import { buildReviewReason } from "../_shared/reviewReason.ts";
+import { classifyInvoice, normalizeNifPT } from "../_shared/extractValidation.ts";
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const API_TIMEOUT_MS = 120_000;
@@ -78,7 +80,7 @@ interface OnboardingData {
 
 async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenantId: string): Promise<TenantAIConfig | null> {
   const { data: tenant } = await supabase.from("tenants")
-    .select("name, nif, sector, country, language, currency, invoice_name_variations, onboarding_data")
+    .select("name, nif, sector, country, language, currency, invoice_name_variations, onboarding_data, allowed_document_types")
     .eq("id", tenantId).is("deleted_at", null).single();
   if (!tenant) return null;
 
@@ -91,7 +93,11 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
 
   const ob = (tenant.onboarding_data ?? {}) as OnboardingData;
 
-  const categories = (cats ?? []).map((c) => ({ code: c.code as string, label: c.label as string }));
+  const categories = (cats ?? []).map((c) => ({
+    code: c.code as string,
+    label: c.label as string,
+    isFixed: !!c.is_fixed,
+  }));
 
   if (categories.length === 0 && Array.isArray(ob.categories)) {
     ob.categories.forEach((cat, i) => categories.push({
@@ -108,6 +114,15 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
     ob.topSuppliers.forEach((s) => knownSuppliers.push({ normalized: s.toUpperCase(), variations: [s] }));
   }
 
+  // Tipos de documento aceites: F2 movemos para coluna dedicada; fallback ao
+  // onboarding_data antigo enquanto n\u00e3o h\u00e1 backfill em todos os tenants.
+  const allowedFromCol = Array.isArray(tenant.allowed_document_types)
+    ? (tenant.allowed_document_types as string[]).filter((s) => typeof s === "string" && s.length > 0)
+    : [];
+  const documentTypes = allowedFromCol.length
+    ? allowedFromCol
+    : (Array.isArray(ob.documentTypes) && ob.documentTypes.length ? ob.documentTypes : ["fatura", "recibo"]);
+
   return {
     companyName: tenant.name as string,
     nif: (tenant.nif as string) ?? "",
@@ -120,8 +135,7 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
     vatRates: getVatRatesForCountry((tenant.country as string) ?? "PT"),
     categories,
     knownSuppliers,
-    documentTypes: Array.isArray(ob.documentTypes) && ob.documentTypes.length
-      ? ob.documentTypes : ["fatura", "recibo"],
+    documentTypes,
   };
 }
 
@@ -213,15 +227,41 @@ Deno.serve(async (req) => {
     }
 
     let prompt = FALLBACK_PROMPT;
+    let allowedTypes = new Set<string>();
     if (tenantId) {
       const cfg = await loadTenantConfig(adminClient, tenantId);
-      if (cfg) prompt = buildTenantPrompt(cfg);
+      if (cfg) {
+        prompt = buildTenantPrompt(cfg);
+        allowedTypes = new Set(cfg.documentTypes.map((s) => s.toLowerCase()));
+      }
     }
 
     const geminiResult = await runGemini(prompt, data, mimeType);
     if (!geminiResult.ok) return json(geminiResult.status, { error: geminiResult.error }, corsHeaders);
 
-    return json(200, geminiResult.normalized, corsHeaders);
+    // B4: corre as mesmas validações do fluxo by-invoice e enriquece o output
+    // com normalized_nif/needs_review/review_reason/document_type. O frontend
+    // grava estes campos directamente — não pode haver um caminho que escape
+    // a validação E.
+    const enrichedInvoices = (geminiResult.normalized.invoices ?? []).map((inv) => {
+      const row = (inv && typeof inv === "object" ? inv : {}) as Record<string, unknown>;
+      const verdict = classifyInvoice(row, { allowedTypes });
+      return {
+        ...row,
+        // Sobrepõe: para o cliente NÃO conseguir gravar um NIF estrangeiro
+        // ou parcial como se fosse válido. Original strangeiro é descartado
+        // (a UI deixa o user editar o supplier directamente depois).
+        supplier_nif: verdict.normalizedNif,
+        document_type: verdict.docType,
+        _validation: {
+          needs_review: verdict.needsReview,
+          review_reason: verdict.reviewReason,
+          reason_kind: verdict.reasonKind,
+        },
+      };
+    });
+
+    return json(200, { invoices: enrichedInvoices }, corsHeaders);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     await logEdgeError({
@@ -309,9 +349,11 @@ async function analyzeByInvoiceId(
 
   const tenantId = invoice.tenant_id as string;
 
-  // status analyzing durante a corrida — idempotente se já está analyzing
+  // status analyzing durante a corrida — idempotente se já está analyzing.
+  // S6: reset manual_review também, senão fatura que estava em failed/review
+  // mantinha o badge "Verificação manual" durante a re-análise. UI confusa.
   await adminClient.from("invoices").update({
-    status: "analyzing", review_reason: null,
+    status: "analyzing", review_reason: null, manual_review: false,
   }).eq("id", invoiceId);
 
   const { data: file, error: dlErr } = await adminClient.storage
@@ -360,25 +402,22 @@ async function analyzeByInvoiceId(
     return json(200, { ok: true, state: "rejected" }, corsHeaders);
   }
 
+  const allowedTypes = new Set<string>(
+    (cfg?.documentTypes ?? []).map((s) => s.toLowerCase())
+  );
+  const verdict = classifyInvoice(first, { allowedTypes });
+  const { needsReview, reviewReason, normalizedNif, docType } = verdict;
   const confidence = (first.confidence_score as number | undefined) ?? 0;
-  // Gemini devolve confidence em 0-1
-  const ivaCheck = checkIvaConsistency(first);
-  const lowConfidence = confidence < 0.8;
-  const needsReview = lowConfidence || !ivaCheck.ok;
-  const reviewReason = !ivaCheck.ok
-    ? `iva_inconsistente: ${ivaCheck.reason}`
-    : lowConfidence
-      ? "Confiança baixa"
-      : null;
 
   const { error: updateErr } = await adminClient.from("invoices").update({
-    document_type: first.document_type ?? null,
+    document_type: docType,
     category: (first.category as string | undefined) ?? null,
     doc_date: first.doc_date ?? null,
     doc_year: first.doc_year ?? null,
     data_vencimento: (first.data_vencimento as string | undefined) ?? null,
     supplier_name: typeof first.supplier_name === "string" ? (first.supplier_name as string).toUpperCase() : null,
-    supplier_nif: first.supplier_nif ?? null,
+    // E6: NIF canónico PT (9 dígitos) ou null se Gemini devolve algo estrangeiro/lixo.
+    supplier_nif: normalizedNif,
     doc_number: first.doc_number ?? null,
     valor_sem_iva: (first.valor_sem_iva as number | undefined) ?? null,
     taxa_iva: (first.taxa_iva as number | undefined) ?? null,
@@ -402,7 +441,7 @@ async function analyzeByInvoiceId(
 
   const lineItems = Array.isArray(first.line_items) ? first.line_items as Array<Record<string, unknown>> : [];
   if (lineItems.length) {
-    await adminClient.from("invoice_line_items").insert(
+    const { error: liErr } = await adminClient.from("invoice_line_items").insert(
       lineItems.map((li, idx) => ({
         tenant_id: tenantId,
         invoice_id: invoiceId,
@@ -415,6 +454,16 @@ async function analyzeByInvoiceId(
         taxa_iva: li.taxa_iva ?? null,
       })),
     );
+    // Não-fatal: a fatura cabeça já foi gravada; só registamos para depois
+    // poder ser rerun se for útil.
+    if (liErr) {
+      await logEdgeError({
+        functionName: "analyze-document", level: "warn",
+        message: "Falha a inserir invoice_line_items",
+        error: liErr, tenantId,
+        metadata: { invoice_id: invoiceId, lines: lineItems.length },
+      });
+    }
   }
 
   // Fase 2: Drive + Sheets + supplier match + dedup via finalizeInvoice.
@@ -441,8 +490,18 @@ async function analyzeByInvoiceId(
 async function markFailed(
   adminClient: ReturnType<typeof createClient>, invoiceId: string, reason: string,
 ) {
+  // Heurística para escolher o kind certo: timeout vs. parse vs. erro genérico.
+  // Permite ao watchdog filtrar por tipo e à UI mostrar tooltip humano.
+  const lower = reason.toLowerCase();
+  const kind = lower.includes("timeout") || lower.includes("aborted")
+    ? "timeout"
+    : lower.includes("json") || lower.includes("parse")
+      ? "parse_error"
+      : "internal_error";
   await adminClient.from("invoices").update({
-    status: "failed", manual_review: true, review_reason: reason.slice(0, 500),
+    status: "failed",
+    manual_review: true,
+    review_reason: buildReviewReason(kind, reason),
   }).eq("id", invoiceId);
 }
 
@@ -503,43 +562,6 @@ async function checkInvoiceLimit(
     .gte("created_at", lowerBound.toISOString());
   const used = count ?? 0;
   return used >= limit ? { ok: false, limit, used } : { ok: true };
-}
-
-// Validador de consistência IVA: apanha o caso "Fidelidade" (taxa_iva=0% mas
-// valor_total > valor_sem_iva, ou aritmética inconsistente). Tolerância 2c
-// para arredondamentos.
-type IvaCheck = { ok: true } | { ok: false; reason: string };
-function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
-  const sem = num(row.valor_sem_iva);
-  const iva = num(row.valor_iva);
-  const total = num(row.valor_total);
-  const taxa = num(row.taxa_iva);
-  const autoliq = row.autoliquidacao === true;
-
-  if (autoliq) return { ok: true };
-
-  if (sem != null && iva != null && total != null) {
-    if (Math.abs((sem + iva) - total) > 0.02) {
-      return { ok: false, reason: `sem_iva (${sem}) + iva (${iva}) ≠ total (${total})` };
-    }
-  }
-  if (taxa === 0 && iva != null && iva > 0.02) {
-    return { ok: false, reason: `taxa_iva 0% mas valor_iva = ${iva}` };
-  }
-  if (taxa === 0 && sem != null && total != null && Math.abs(total - sem) > 0.02) {
-    return { ok: false, reason: `taxa_iva 0% mas total (${total}) ≠ sem_iva (${sem})` };
-  }
-  if (taxa != null && taxa > 0 && sem != null && total != null) {
-    const expected = sem * (1 + taxa / 100);
-    if (Math.abs(expected - total) > 0.02) {
-      return { ok: false, reason: `total (${total}) não bate com sem_iva×(1+${taxa}%)` };
-    }
-  }
-  return { ok: true };
-}
-
-function num(v: unknown): number | null {
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {

@@ -1,7 +1,7 @@
 // Google Drive REST API. Porta do frontend (src/lib/google/drive.ts).
 // Remove deps browser-only (errorReporter). Usa FormData/Blob globais (Deno ≥1.11).
 import { driveLimiter } from "./rateLimiter.ts";
-import { setupSpreadsheetHeaders, getMonthSheetName } from "./sheets.ts";
+import { setupSpreadsheetHeaders, getMonthSheetName, YEAR_SHEET_NAME } from "./sheets.ts";
 
 const DRIVE_TIMEOUT_MS = 30_000;
 const DRIVE_UPLOAD_TIMEOUT_MS = 120_000;
@@ -98,7 +98,11 @@ export async function createNewSpreadsheet(
   parentFolderId: string,
   language = 'pt',
 ): Promise<{ id: string; webViewLink: string }> {
-  const sheets = Array.from({ length: 12 }, (_, i) => getMonthSheetName(i, language));
+  // Aba ANO primeiro (vista agregada do ano), depois as 12 abas mensais.
+  const sheets = [
+    YEAR_SHEET_NAME,
+    ...Array.from({ length: 12 }, (_, i) => getMonthSheetName(i, language)),
+  ];
   await driveLimiter.waitForSlot();
   const ct = timeoutSignal(DRIVE_TIMEOUT_MS);
   const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {

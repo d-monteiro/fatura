@@ -5,6 +5,7 @@ import { useI18n } from '@/contexts/I18nContext';
 import type { Supplier } from '@/types/database';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { normalizeNifPT, isValidNifPT } from '@/lib/utils/nif';
 
 interface Props {
   supplier: Supplier;
@@ -48,23 +49,35 @@ export function SupplierEditForm({ supplier, onCancel, onSaved }: Props) {
 
   const updateString = (field: FieldKey, value: string) => setForm((p) => ({ ...p, [field]: value }));
 
+  const nifNormalized = normalizeNifPT(form.nif);
+  const nifFilled = form.nif.trim().length > 0;
+  const nifWarn = nifFilled && (!nifNormalized || !isValidNifPT(nifNormalized));
+
   const mutation = useMutation({
     mutationFn: async () => {
-      const nifClean = form.nif.replace(/\s/g, '');
-      if (nifClean && !/^\d{9}$/.test(nifClean)) throw new Error(t('sup.nif_invalid'));
-
+      // Não bloqueamos NIF inválido — Gemini extrai a vezes mal e o utilizador
+      // precisa de guardar para depois corrigir. Apenas avisamos visualmente.
+      // S4: se o user escreve um NIF parcial (<9 dígitos) preservamos o raw
+      // em vez de gravar null e perder o NIF que estava antes.
+      const trimmed = form.nif.trim();
+      const nifToSave = nifNormalized ?? (trimmed ? trimmed : null);
       const { error: dbErr } = await supabase
         .from('suppliers')
         .update({
           display_name: form.name || null,
-          nif: nifClean || null,
+          nif: nifToSave,
           iban: form.iban || null,
           address: form.address || null,
           is_subcontractor: form.is_subcontractor,
           updated_at: new Date().toISOString(),
         })
         .eq('id', supplier.id);
-      if (dbErr) throw dbErr;
+      if (dbErr) {
+        if (dbErr.code === '23505') {
+          throw new Error('Já existe outro fornecedor com este NIF.');
+        }
+        throw dbErr;
+      }
     },
     onSuccess: onSaved,
     onError: (e: Error) => setError(e.message),
@@ -75,7 +88,21 @@ export function SupplierEditForm({ supplier, onCancel, onSaved }: Props) {
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="grid grid-cols-2 gap-3">
         <Field id={`sup-${supplier.id}-name`} label={t('sup.name')} field="name" value={form.name} onChange={updateString} />
-        <Field id={`sup-${supplier.id}-nif`} label={t('inv.nif')} field="nif" value={form.nif} mono onChange={updateString} />
+        <div className="space-y-1.5">
+          <Label htmlFor={`sup-${supplier.id}-nif`}>{t('inv.nif')}</Label>
+          <Input
+            id={`sup-${supplier.id}-nif`}
+            className={`font-mono ${nifWarn ? 'border-amber-400 focus-visible:ring-amber-300' : ''}`}
+            value={form.nif}
+            onChange={(e) => updateString('nif', e.target.value)}
+            placeholder="123 456 789"
+          />
+          {nifWarn && (
+            <p className="text-xs text-amber-700">
+              NIF inválido — verifica o último dígito. Será guardado mesmo assim.
+            </p>
+          )}
+        </div>
         <Field id={`sup-${supplier.id}-iban`} label={t('sup.iban')} field="iban" value={form.iban} mono onChange={updateString} />
         <div className="col-span-2">
           <Field id={`sup-${supplier.id}-address`} label={t('sup.address')} field="address" value={form.address} onChange={updateString} />

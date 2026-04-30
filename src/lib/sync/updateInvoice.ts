@@ -6,6 +6,11 @@
 // se o append falhar a meio, retornamos warning e o utilizador vê duas linhas
 // (uma vazia + uma nova). É o trade-off aceite porque a alternativa (delete
 // real) reorganiza linhas e quebra outros editores em concorrência.
+//
+// Sync v3 (G4): a aba "ANO" é mantida em paralelo. Cada append em
+// `appendInvoiceToSheet` já cobre month tab + ANO. Em edição in-place o ANO
+// recebe um update separado por `findInvoiceRowIndex` em ANO. Quando muda de
+// mês, a row velha em ANO é limpa (a nova já entrou pelo append).
 
 import { supabase } from '@/lib/supabase/client';
 import {
@@ -14,6 +19,7 @@ import {
   clearInvoiceRowInSheet,
   appendInvoiceToSheet,
   getMonthSheetName,
+  YEAR_SHEET_NAME,
   type InvoiceRowUpdates,
 } from '@/lib/google/sheets';
 import { reportError } from '@/lib/errors/errorReporter';
@@ -22,7 +28,7 @@ import type { Invoice } from '@/types/database';
 export type InvoicePatch = Partial<Pick<Invoice,
   | 'supplier_name' | 'supplier_nif' | 'doc_number' | 'doc_date'
   | 'valor_sem_iva' | 'valor_iva' | 'valor_total' | 'taxa_iva'
-  | 'category' | 'summary'
+  | 'category' | 'summary' | 'is_fixed'
 >>;
 
 export interface UpdateInvoiceResult {
@@ -63,8 +69,62 @@ export async function updateInvoiceEverywhere(input: {
     : oldSheetName;
   const tabChanged = newSheetName !== oldSheetName;
 
+  const monthResult = await syncMonthTab({
+    accessToken,
+    spreadsheetId: invoice.spreadsheet_id,
+    invoice,
+    updated: updated as Invoice,
+    updates,
+    oldSheetName,
+    newSheetName,
+    tabChanged,
+    language,
+  });
+
+  // ANO sync best-effort. Não altera o resultado; só logamos warnings.
+  if (monthResult.attemptYearSync) {
+    try {
+      await syncYearTab({
+        accessToken,
+        spreadsheetId: invoice.spreadsheet_id,
+        invoice,
+        updates,
+        tabChanged,
+      });
+    } catch (err) {
+      void reportError(err, {
+        component: 'sync/updateInvoiceEverywhere/syncYearTab',
+        tenantId: invoice.tenant_id,
+        level: 'warn',
+        extra: { invoiceId: invoice.id, spreadsheetId: invoice.spreadsheet_id },
+      });
+    }
+  }
+
+  return monthResult.result;
+}
+
+interface MonthSyncOutcome {
+  result: UpdateInvoiceResult;
+  // Só tentamos ANO se o month sync teve sucesso (consistência).
+  attemptYearSync: boolean;
+}
+
+async function syncMonthTab(args: {
+  accessToken: string;
+  spreadsheetId: string;
+  invoice: Invoice;
+  updated: Invoice;
+  updates: InvoicePatch;
+  oldSheetName: string;
+  newSheetName: string;
+  tabChanged: boolean;
+  language: string;
+}): Promise<MonthSyncOutcome> {
+  const { accessToken, spreadsheetId, invoice, updated, updates, oldSheetName, newSheetName, tabChanged, language } = args;
+
   try {
-    const rowIndex = await findInvoiceRowIndex(accessToken, invoice.spreadsheet_id, oldSheetName, {
+    const rowIndex = await findInvoiceRowIndex(accessToken, spreadsheetId, oldSheetName, {
       doc_number: invoice.doc_number,
       supplier_name: invoice.supplier_name,
       valor_total: invoice.valor_total,
@@ -75,29 +135,37 @@ export async function updateInvoiceEverywhere(input: {
       // Pode ter sido removida manualmente. Se mudou de mês, ainda assim
       // damos uma chance: anexamos à nova aba para restaurar a presença.
       if (tabChanged) {
-        await appendUpdatedRow(accessToken, invoice.spreadsheet_id, updated as Invoice, language);
+        await appendUpdatedRow(accessToken, spreadsheetId, updated, language);
         return {
-          success: true, sheetsSynced: true, invoice: updated as Invoice,
-          warning: 'Linha original não encontrada na aba antiga — adicionada na nova.',
+          result: {
+            success: true, sheetsSynced: true, invoice: updated,
+            warning: 'Linha original não encontrada na aba antiga — adicionada na nova.',
+          },
+          attemptYearSync: true,
         };
       }
       return {
-        success: true, sheetsSynced: false, invoice: updated as Invoice,
-        warning: 'Linha não encontrada no Sheets (pode ter sido removida manualmente).',
+        result: {
+          success: true, sheetsSynced: false, invoice: updated,
+          warning: 'Linha não encontrada no Sheets (pode ter sido removida manualmente).',
+        },
+        attemptYearSync: false,
       };
     }
 
     if (tabChanged) {
-      // Sync v2: clear na aba antiga + append na nova com row completa.
-      const cleared = await clearInvoiceRowInSheet(accessToken, invoice.spreadsheet_id, oldSheetName, rowIndex);
+      const cleared = await clearInvoiceRowInSheet(accessToken, spreadsheetId, oldSheetName, rowIndex);
       if (!cleared) {
         return {
-          success: true, sheetsSynced: false, invoice: updated as Invoice,
-          warning: 'Falhou a limpar linha antiga no Sheets — não movido (edita manualmente).',
+          result: {
+            success: true, sheetsSynced: false, invoice: updated,
+            warning: 'Falhou a limpar linha antiga no Sheets — não movido (edita manualmente).',
+          },
+          attemptYearSync: false,
         };
       }
       try {
-        await appendUpdatedRow(accessToken, invoice.spreadsheet_id, updated as Invoice, language);
+        await appendUpdatedRow(accessToken, spreadsheetId, updated, language);
       } catch (appendErr) {
         void reportError(appendErr, {
           component: 'sync/updateInvoiceEverywhere/appendAfterClear',
@@ -106,35 +174,86 @@ export async function updateInvoiceEverywhere(input: {
           extra: { invoiceId: invoice.id, oldSheetName, newSheetName },
         });
         return {
-          success: true, sheetsSynced: false, invoice: updated as Invoice,
-          warning: 'Linha removida da aba antiga mas falhou append na nova. Revê manualmente.',
+          result: {
+            success: true, sheetsSynced: false, invoice: updated,
+            warning: 'Linha removida da aba antiga mas falhou append na nova. Revê manualmente.',
+          },
+          attemptYearSync: false,
         };
       }
-      return { success: true, sheetsSynced: true, invoice: updated as Invoice };
-    }
-
-    const sheetUpdates: InvoiceRowUpdates = mapPatchToSheetRow(updates);
-    const ok = await updateInvoiceRowInSheet(accessToken, invoice.spreadsheet_id, oldSheetName, rowIndex, sheetUpdates);
-    if (!ok) {
       return {
-        success: true, sheetsSynced: false, invoice: updated as Invoice,
-        warning: 'Sheets rejeitou a atualização — tente novamente ou edite manualmente.',
+        result: { success: true, sheetsSynced: true, invoice: updated },
+        attemptYearSync: true,
       };
     }
 
-    return { success: true, sheetsSynced: true, invoice: updated as Invoice };
+    const sheetUpdates = mapPatchToSheetRow(updates);
+    const ok = await updateInvoiceRowInSheet(accessToken, spreadsheetId, oldSheetName, rowIndex, sheetUpdates);
+    if (!ok) {
+      return {
+        result: {
+          success: true, sheetsSynced: false, invoice: updated,
+          warning: 'Sheets rejeitou a atualização — tente novamente ou edite manualmente.',
+        },
+        attemptYearSync: false,
+      };
+    }
+    return {
+      result: { success: true, sheetsSynced: true, invoice: updated },
+      attemptYearSync: true,
+    };
   } catch (err) {
     void reportError(err, {
-      component: 'sync/updateInvoiceEverywhere',
+      component: 'sync/updateInvoiceEverywhere/syncMonthTab',
       tenantId: invoice.tenant_id,
       level: 'warn',
-      extra: { invoiceId: invoice.id, spreadsheetId: invoice.spreadsheet_id },
+      extra: { invoiceId: invoice.id, spreadsheetId },
     });
     return {
-      success: true, sheetsSynced: false, invoice: updated as Invoice,
-      warning: 'Falha na sincronização com Google Sheets (fatura guardada).',
+      result: {
+        success: true, sheetsSynced: false, invoice: updated,
+        warning: 'Falha na sincronização com Google Sheets (fatura guardada).',
+      },
+      attemptYearSync: false,
     };
   }
+}
+
+// Sincroniza a aba ANO com base no estado pré-edição (criteria) → row a tocar.
+//
+// - `tabChanged` (mês alterado): a row nova já entrou na ANO via
+//   appendInvoiceToSheet (chamado pelo month sync). Só limpamos a row velha.
+// - !tabChanged: update in-place na ANO usando o mesmo patch.
+//
+// Se a row velha não for encontrada na ANO, é benigno (pode ter sido apagada
+// manualmente ou nunca ter sido sincronizada).
+async function syncYearTab(args: {
+  accessToken: string;
+  spreadsheetId: string;
+  invoice: Invoice;
+  updates: InvoicePatch;
+  tabChanged: boolean;
+}): Promise<void> {
+  const { accessToken, spreadsheetId, invoice, updates, tabChanged } = args;
+
+  const oldRow = await findInvoiceRowIndex(accessToken, spreadsheetId, YEAR_SHEET_NAME, {
+    doc_number: invoice.doc_number,
+    supplier_name: invoice.supplier_name,
+    valor_total: invoice.valor_total,
+    doc_date: invoice.doc_date,
+  });
+
+  if (tabChanged) {
+    if (oldRow) {
+      await clearInvoiceRowInSheet(accessToken, spreadsheetId, YEAR_SHEET_NAME, oldRow);
+    }
+    return;
+  }
+
+  if (!oldRow) return;
+  const sheetUpdates = mapPatchToSheetRow(updates);
+  if (Object.keys(sheetUpdates).length === 0) return;
+  await updateInvoiceRowInSheet(accessToken, spreadsheetId, YEAR_SHEET_NAME, oldRow, sheetUpdates);
 }
 
 async function appendUpdatedRow(

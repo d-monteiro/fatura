@@ -65,18 +65,62 @@ Deno.serve(async (req) => {
 
   console.log(`[reprocess][${runId}] mode=${mode} user=${scopedUserId} explicit=${body.invoice_ids?.length ?? 0}`);
 
+  const isExplicit = !!(body.invoice_ids && body.invoice_ids.length > 0);
+
+  // SEGURANÇA: para mode=user/admin, validamos que cada invoice_id pertence
+  // mesmo ao escopo permitido ANTES de tocar em qualquer linha. Sem isto,
+  // um user autenticado podia mandar IDs de outro tenant e o reset preventivo
+  // (que corre com service role) ressuscitava-os. Ver code review B1.
+  let allowedIds: string[] = [];
+  if (isExplicit && (mode === "user" || mode === "admin")) {
+    let scopeQ = admin.from("invoices")
+      .select("id")
+      .in("id", body.invoice_ids!);
+    if (mode === "user" && scopedUserId) {
+      scopeQ = scopeQ.eq("user_id", scopedUserId);
+    } else if (body.tenant_id && mode === "admin") {
+      scopeQ = scopeQ.eq("tenant_id", body.tenant_id);
+    }
+    const { data: scoped } = await scopeQ;
+    allowedIds = ((scoped ?? []) as Array<{ id: string }>).map((r) => r.id);
+
+    if (allowedIds.length > 0) {
+      // Reset preventivo: limpa drive_file_id para o pipeline correr todo,
+      // tira deleted_at para faturas rejeitadas. Apenas nos IDs validados.
+      await admin.from("invoices").update({
+        status: "analyzing",
+        drive_file_id: null,
+        drive_link: null,
+        manual_review: false,
+        review_reason: null,
+        deleted_at: null,
+      }).in("id", allowedIds);
+    }
+  }
+
   // Selecção de candidatos
   let query = admin.from("invoices")
     .select("id, user_id, tenant_id, created_at, updated_at, supplier_name, valor_total, status")
     .is("deleted_at", null)
-    .is("drive_file_id", null)
-    .not("storage_path", "is", null)
-    .in("status", ["inbox", "review", "analyzing"]);
+    .not("storage_path", "is", null);
 
-  if (body.invoice_ids && body.invoice_ids.length > 0) {
-    query = query.in("id", body.invoice_ids);
+  if (isExplicit) {
+    // mode=user/admin: usa só IDs validados; mode=cron/internal: confia.
+    const idsToProcess = (mode === "user" || mode === "admin")
+      ? allowedIds
+      : body.invoice_ids!;
+    if (idsToProcess.length === 0) {
+      return json(200, {
+        success: true, run_id: runId, total: 0, results: [],
+        message: "Sem invoices acessíveis ao chamador",
+      }, corsHeaders);
+    }
+    query = query.in("id", idsToProcess);
   } else {
-    // Evita apanhar invoices em processamento activo (< 5 min)
+    // Cron path: só apanha as que estão "presas" (sem drive_file_id e há
+    // mais de 5 min). Não toca em failed/rejected — esses precisam de ser
+    // explicitamente despoletados.
+    query = query.is("drive_file_id", null).in("status", ["inbox", "review", "analyzing"]);
     const cutoff = new Date(Date.now() - STUCK_SINCE_MINUTES * 60 * 1000).toISOString();
     query = query.lt("created_at", cutoff);
   }

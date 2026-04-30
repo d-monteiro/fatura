@@ -1,8 +1,10 @@
 import { useI18n } from '@/contexts/I18nContext';
 import { useCategories } from '@/hooks/useCategories';
+import { useTenant } from '@/contexts/TenantContext';
 import { FilterBar, FilterSearch, FilterSelect, type FilterOption } from '@/components/ui/filter-bar';
 import { SupplierCombobox } from './SupplierCombobox';
 import { DateRangePicker } from './DateRangePicker';
+import { DOCUMENT_TYPE_LABEL, type DocumentType } from '@/types/database';
 
 export interface FaturasFilterState {
   search: string;
@@ -12,6 +14,7 @@ export interface FaturasFilterState {
   dateEnd: string;
   supplierId: string;
   category: string;
+  documentType: string;
 }
 
 const EMPTY_FILTERS: FaturasFilterState = {
@@ -22,6 +25,7 @@ const EMPTY_FILTERS: FaturasFilterState = {
   dateEnd: '',
   supplierId: '',
   category: '',
+  documentType: '',
 };
 
 interface FaturasFiltersProps {
@@ -30,15 +34,28 @@ interface FaturasFiltersProps {
   tenantId: string | null;
 }
 
-const YEARS: FilterOption[] = ['2026', '2025', '2024', '2023'].map((y) => ({ value: y, label: y }));
+// Janela rolante: ano corrente + 4 anos anteriores. Deixa de ficar
+// desactualizado quando vira o ano sem ninguém mexer.
+const YEAR_OPTIONS = ((): FilterOption[] => {
+  const current = new Date().getFullYear();
+  return Array.from({ length: 5 }, (_, i) => {
+    const y = String(current - i);
+    return { value: y, label: y };
+  });
+})();
 
 export function FaturasFilters({ filters, onChange, tenantId }: FaturasFiltersProps) {
   const { t } = useI18n();
   const { categories } = useCategories(tenantId);
+  const { tenant } = useTenant();
   const months: FilterOption[] = Array.from({ length: 12 }, (_, i) => ({
     value: String(i + 1),
     label: t(`month.${i + 1}` as 'month.1'),
   }));
+  const allowedTypes = (tenant?.allowed_document_types ?? []) as DocumentType[];
+  const docTypeOptions: FilterOption[] = allowedTypes
+    .filter((dt): dt is DocumentType => dt in DOCUMENT_TYPE_LABEL)
+    .map((dt) => ({ value: dt, label: DOCUMENT_TYPE_LABEL[dt] }));
   const set = (key: keyof FaturasFilterState, value: string) =>
     onChange({ ...filters, [key]: value });
 
@@ -61,7 +78,7 @@ export function FaturasFilters({ filters, onChange, tenantId }: FaturasFiltersPr
         <FilterSelect
           placeholder={t('filter.year')}
           value={filters.year}
-          options={YEARS}
+          options={YEAR_OPTIONS}
           onValueChange={(v) => set('year', v)}
           disabled={hasDateRange}
         />
@@ -90,6 +107,14 @@ export function FaturasFilters({ filters, onChange, tenantId }: FaturasFiltersPr
             value={filters.category}
             options={categories.map((c) => ({ value: c.code, label: c.label }))}
             onValueChange={(v) => set('category', v)}
+          />
+        )}
+        {docTypeOptions.length > 0 && (
+          <FilterSelect
+            placeholder="Tipo"
+            value={filters.documentType}
+            options={docTypeOptions}
+            onValueChange={(v) => set('documentType', v)}
           />
         )}
       </FilterBar>

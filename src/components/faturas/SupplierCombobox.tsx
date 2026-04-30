@@ -19,11 +19,13 @@ interface SupplierComboboxProps {
   value: string;
   onValueChange: (v: string) => void;
   placeholder?: string;
+  // 'filter' restringe a fornecedores com >0 faturas activas; 'all' mostra todos.
+  scope?: 'filter' | 'all';
 }
 
-export function SupplierCombobox({ value, onValueChange, placeholder = 'Fornecedor' }: SupplierComboboxProps) {
+export function SupplierCombobox({ value, onValueChange, placeholder = 'Fornecedor', scope = 'filter' }: SupplierComboboxProps) {
   const [open, setOpen] = useState(false);
-  const { suppliers, noSupplierCount, isLoading } = useTenantSuppliers();
+  const { suppliers, noSupplierCount, isLoading } = useTenantSuppliers({ scope });
 
   const supplierMatch = suppliers.find((s) => s.id === value);
   const selectedLabel = value === NO_SUPPLIER_VALUE

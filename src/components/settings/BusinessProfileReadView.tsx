@@ -39,8 +39,6 @@ export function BusinessProfileReadView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="NIF" value={tenant.nif} />
         <Field label="País" value={tenant.country} />
-        <Field label="Moeda" value={tenant.currency} />
-        <Field label="Idioma" value={tenant.language} />
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ import { CompanyList } from '@/components/settings/CompanyList';
 import { BusinessProfileCard } from '@/components/settings/BusinessProfileCard';
 import { BusinessProfileReadView } from '@/components/settings/BusinessProfileReadView';
 import { CategoriesCard } from '@/components/settings/CategoriesCard';
+import { DocumentTypesCard } from '@/components/settings/DocumentTypesCard';
+import { DuplicateSuppliersCard } from '@/components/settings/DuplicateSuppliersCard';
 import { GoogleAccountsUnified } from '@/components/settings/GoogleAccountsUnified';
 import { PasswordCard } from '@/components/settings/PasswordCard';
 import { ReportsCard } from '@/components/settings/ReportsCard';
@@ -19,7 +21,7 @@ import { queryKeys } from '@/lib/queryKeys';
 export default function Settings() {
   const { t } = useI18n();
   const { user } = useAuth();
-  const { isReadOnly } = useRole();
+  const { isReadOnly, can } = useRole();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -54,10 +56,12 @@ export default function Settings() {
       <h1 className="text-xl font-bold sm:text-2xl">{t('nav.settings')}</h1>
       <BusinessProfileCard />
       <CategoriesCard />
+      <DocumentTypesCard />
+      <DuplicateSuppliersCard />
       <ReportsCard />
       {user && <GoogleAccountsUnified userId={user.id} />}
-      <CompanyList />
-      <TeamCard />
+      {can('view_companies') && <CompanyList />}
+      {can('view_team') && <TeamCard />}
       <PasswordCard />
     </div>
   );

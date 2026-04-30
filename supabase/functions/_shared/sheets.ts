@@ -1,9 +1,12 @@
-// Google Sheets REST API — extrato anual com aba por mês. Porta do frontend.
+// Google Sheets REST API — extrato anual com aba por mês + aba "ANO" agregada.
+// Porta do frontend src/lib/google/sheets.ts. A aba "ANO" recolhe TODAS as
+// faturas do ano para vista única, sincronizada em todos os append.
 import { sheetsLimiter } from "./rateLimiter.ts";
 import { getMonthName } from "./months.ts";
 
 const SHEETS_TIMEOUT_MS = 30_000;
 const COLUMN_COUNT = 12;
+export const YEAR_SHEET_NAME = "ANO";
 
 function timeoutSignal(ms: number) {
   const controller = new AbortController();
@@ -50,9 +53,7 @@ export async function appendInvoiceToSheet(
     const d = new Date(data.doc_date);
     if (!isNaN(d.getTime())) monthIdx = d.getMonth();
   }
-  const sheetName = getMonthSheetName(monthIdx, language);
-
-  await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName, headers);
+  const monthSheet = getMonthSheetName(monthIdx, language);
 
   const row = [
     data.doc_date || '',
@@ -69,6 +70,22 @@ export async function appendInvoiceToSheet(
     new Date().toISOString().split('T')[0],
   ];
 
+  // Append paralelo: aba do mês + aba ANO. Same row, dois destinos.
+  await Promise.all([
+    appendRowToTab(accessToken, spreadsheetId, monthSheet, headers, row),
+    appendRowToTab(accessToken, spreadsheetId, YEAR_SHEET_NAME, headers, row),
+  ]);
+}
+
+async function appendRowToTab(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string,
+  headers: string[],
+  row: Array<string | number>,
+): Promise<void> {
+  await ensureSheetHasHeader(accessToken, spreadsheetId, sheetName, headers);
+
   const range = `'${sheetName}'!A2:L`;
   await sheetsLimiter.waitForSlot();
   const t = timeoutSignal(SHEETS_TIMEOUT_MS);
@@ -84,7 +101,7 @@ export async function appendInvoiceToSheet(
   t.clear();
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Sheets append ${response.status}: ${error.slice(0, 200)}`);
+    throw new Error(`Sheets append ${sheetName} ${response.status}: ${error.slice(0, 200)}`);
   }
 }
 
@@ -173,4 +190,5 @@ export async function setupSpreadsheetHeaders(
   for (let i = 0; i < 12; i++) {
     await ensureSheetHasHeader(accessToken, spreadsheetId, getMonthSheetName(i, language), headers);
   }
+  await ensureSheetHasHeader(accessToken, spreadsheetId, YEAR_SHEET_NAME, headers);
 }

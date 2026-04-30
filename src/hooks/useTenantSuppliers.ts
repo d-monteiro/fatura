@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 import { queryKeys } from '@/lib/queryKeys';
@@ -17,9 +18,15 @@ export interface UseTenantSuppliersResult {
   isLoading: boolean;
 }
 
+interface UseTenantSuppliersOptions {
+  // F3: filtros mostram só fornecedores com faturas activas (>0). UIs de
+  // criação/edição mostram todos para permitir escolher um existente sem
+  // faturas ainda.
+  scope?: 'filter' | 'all';
+}
+
 // Todos os suppliers activos do tenant + contagem de faturas sem supplier_id.
-// Usada pelo combobox de filtro: se `noSupplierCount > 0`, expõe opção "Sem fornecedor".
-export function useTenantSuppliers(): UseTenantSuppliersResult {
+export function useTenantSuppliers({ scope = 'all' }: UseTenantSuppliersOptions = {}): UseTenantSuppliersResult {
   const { tenant } = useTenant();
   const tenantId = tenant?.id ?? null;
 
@@ -55,8 +62,13 @@ export function useTenantSuppliers(): UseTenantSuppliersResult {
     enabled: !!tenantId,
   });
 
+  const filtered = useMemo(() => {
+    const all = data?.suppliers ?? [];
+    return scope === 'filter' ? all.filter((s) => (s.invoice_count ?? 0) > 0) : all;
+  }, [data?.suppliers, scope]);
+
   return {
-    suppliers: data?.suppliers ?? [],
+    suppliers: filtered,
     noSupplierCount: data?.noSupplierCount ?? 0,
     isLoading,
   };

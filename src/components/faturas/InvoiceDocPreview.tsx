@@ -14,13 +14,12 @@ function stripQuery(url: string) {
 
 // Iframes do Drive devolvem 200 mesmo quando o ficheiro foi apagado/movido
 // (mostram página interna de erro), por isso onError nem sempre dispara.
-// Damos ao utilizador uma forma manual de fazer fallback para o Supabase
-// quando o preview falha visualmente.
+// Damos ao utilizador um fallback manual para o Supabase quando o preview
+// falha visualmente.
 export function InvoiceDocPreview({ invoice }: Props) {
   const { t } = useI18n();
-  // Reset do fallback ao trocar de invoice via pattern "store info from prev props".
-  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
   const [forceFallback, setForceFallback] = useState(false);
+  // Reset do fallback ao trocar de invoice (storing info from prev props).
   const [prevId, setPrevId] = useState(invoice.id);
   if (prevId !== invoice.id) {
     setPrevId(invoice.id);

@@ -1,4 +1,5 @@
 import { formatDatePT } from '@/lib/utils/validation';
+import { humanizeReviewReason, parseReviewReason } from '@/lib/reviewReason';
 import type { Invoice } from '@/types/database';
 
 // Quando o Gemini rejeita o documento ou a extração falha não temos
@@ -35,8 +36,11 @@ export function invoiceDisplayDate(inv: Invoice): string {
   return formatDatePT(inv.doc_date || (inv.email_received_at ? inv.email_received_at.slice(0, 10) : null));
 }
 
+// Razões de rejeição vão como texto livre (analyze-document → rejectInvoice).
+// A 1ª regex que matche vence. Strings com prefixo kind:detail (vocabulário
+// reviewReason.ts) são humanizadas via humanizeReviewReason; só caímos aqui
+// para legacy ou rejection_reason livre.
 const IGNORED_REASON_MAP: Array<[RegExp, string]> = [
-  [/^duplicada/i, ''],
   [/(não|nao) (é|e) um documento/i, 'Não era um documento'],
   [/(não|nao) (é|e) uma fatura/i, 'Não era uma fatura'],
   [/(ilegível|ilegivel)/i, 'Documento ilegível'],
@@ -45,8 +49,13 @@ const IGNORED_REASON_MAP: Array<[RegExp, string]> = [
 
 export function humanIgnoredReason(reason: string | null): string {
   if (!reason) return 'Descartada automaticamente';
+  // Se a razão segue o vocabulário kind:detail, deixa o helper canónico
+  // formatá-la — assim "Recuperada → ignorada de novo" continua coerente.
+  if (parseReviewReason(reason).kind) {
+    return humanizeReviewReason(reason) ?? reason;
+  }
   for (const [re, msg] of IGNORED_REASON_MAP) {
-    if (re.test(reason)) return msg || reason;
+    if (re.test(reason)) return msg;
   }
   return reason;
 }

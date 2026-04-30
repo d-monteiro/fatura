@@ -131,10 +131,14 @@ Deno.serve(async (req) => {
   }
 
   // 3) Carregar faturas do período + linhas + fornecedores.
+  // B8: avisos de pagamento NÃO são despesa contabilística — excluídos do
+  // SAF-T (a AT não os aceita como custo). Se um dia precisarmos de os
+  // exportar, vai numa secção separada.
   const { data: invoices, error: iErr } = await admin.from("invoices")
     .select("id, doc_number, doc_date, document_type, supplier_id, supplier_name, supplier_nif, valor_sem_iva, valor_iva, valor_total, taxa_iva, autoliquidacao, storage_path, drive_file_id")
     .eq("tenant_id", tenantId).eq("company_id", companyId)
     .is("deleted_at", null)
+    .or("document_type.is.null,document_type.neq.aviso_pagamento")
     .gte("doc_date", periodStart).lte("doc_date", periodEnd)
     .order("doc_date", { ascending: true });
   if (iErr) {

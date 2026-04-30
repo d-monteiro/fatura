@@ -9,7 +9,7 @@ interface IgnoradasTableProps {
   invoices: Invoice[];
   onRowClick: (invoice: Invoice) => void;
   onRecover: (invoice: Invoice) => void;
-  recoveringId?: string | null;
+  isRecovering: (id: string) => boolean;
 }
 
 function ViewFileButton({ inv }: { inv: Invoice }) {
@@ -29,7 +29,7 @@ function ViewFileButton({ inv }: { inv: Invoice }) {
   );
 }
 
-export function IgnoradasTable({ invoices, onRowClick, onRecover, recoveringId }: IgnoradasTableProps) {
+export function IgnoradasTable({ invoices, onRowClick, onRecover, isRecovering }: IgnoradasTableProps) {
   const isMobile = useIsMobile();
   const { can } = useRole();
   const canRecover = can('recover_invoice');
@@ -69,11 +69,11 @@ export function IgnoradasTable({ invoices, onRowClick, onRecover, recoveringId }
                 {canRecover && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onRecover(inv); }}
-                    disabled={recoveringId === inv.id}
+                    disabled={isRecovering(inv.id)}
                     className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    Recuperar
+                    {isRecovering(inv.id) ? 'A recuperar…' : 'Recuperar'}
                   </button>
                 )}
               </div>
@@ -118,11 +118,11 @@ export function IgnoradasTable({ invoices, onRowClick, onRecover, recoveringId }
                     {canRecover && (
                       <button
                         onClick={() => onRecover(inv)}
-                        disabled={recoveringId === inv.id}
+                        disabled={isRecovering(inv.id)}
                         className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
-                        {recoveringId === inv.id ? 'A recuperar…' : 'Recuperar'}
+                        {isRecovering(inv.id) ? 'A recuperar…' : 'Recuperar'}
                       </button>
                     )}
                   </div>

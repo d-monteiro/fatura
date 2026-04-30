@@ -27,10 +27,13 @@ export default function Dashboard() {
   const { data: metrics } = useQuery({
     queryKey: queryKeys.dashboardByCompany(companyId),
     queryFn: async () => {
+      // B8: avisos de pagamento são pré-avisos de débito futuro, não custos.
+      // Excluí-los aqui mantém os totais do dashboard fiéis ao gasto real.
       let query = supabase
         .from('invoices')
         .select('valor_total, category, status')
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .or('document_type.is.null,document_type.neq.aviso_pagamento');
 
       if (companyId) query = query.eq('company_id', companyId);
 

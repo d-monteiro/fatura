@@ -1,17 +1,10 @@
+import { isValidNifPT } from './nif';
+
 const VALID_IVA_RATES = [0, 6, 13, 23]; // PT: isento/reduzido/intermédio/normal
 const IVA_TOLERANCE = 0.02; // EUR — margem para arredondamentos do emissor
 
-// NIF PT: 9 dígitos, último é checksum módulo 11.
-export function isValidNif(nif: string | null): boolean {
-  if (!nif) return false;
-  const clean = nif.replace(/\s/g, '');
-  if (!/^\d{9}$/.test(clean)) return false;
-  let sum = 0;
-  for (let i = 0; i < 8; i++) sum += parseInt(clean[i]) * (9 - i);
-  const check = 11 - (sum % 11);
-  const expected = check >= 10 ? 0 : check;
-  return expected === parseInt(clean[8]);
-}
+// Re-export como façade — preferir importar isValidNifPT directamente.
+export { isValidNifPT as isValidNif };
 
 // Valida coerência líquido + IVA = bruto dentro de IVA_TOLERANCE.
 export function validateMontants(

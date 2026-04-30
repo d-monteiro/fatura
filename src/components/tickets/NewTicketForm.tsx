@@ -11,9 +11,17 @@ import { notifySlack } from '@/lib/slack/notify';
 import { Send } from 'lucide-react';
 import type { TicketCategory, TicketPriority } from '@/types/tickets';
 
+interface Preset {
+  subject?: string;
+  description?: string;
+  category?: TicketCategory;
+  priority?: TicketPriority;
+}
+
 interface Props {
   onCreated: () => void;
   onCancel: () => void;
+  preset?: Preset;
 }
 
 const CATEGORIES: { value: TicketCategory; label: string }[] = [
@@ -31,13 +39,13 @@ const PRIORITIES: { value: TicketPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgente' },
 ];
 
-export function NewTicketForm({ onCreated, onCancel }: Props) {
+export function NewTicketForm({ onCreated, onCancel, preset }: Props) {
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const [subject, setSubject] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<TicketCategory>('general');
-  const [priority, setPriority] = useState<TicketPriority>('medium');
+  const [subject, setSubject] = useState(preset?.subject ?? '');
+  const [description, setDescription] = useState(preset?.description ?? '');
+  const [category, setCategory] = useState<TicketCategory>(preset?.category ?? 'general');
+  const [priority, setPriority] = useState<TicketPriority>(preset?.priority ?? 'medium');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {

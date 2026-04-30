@@ -37,7 +37,7 @@ export type PermissionAction =
   // Tickets
   | 'create_ticket';
 
-const READONLY_ACTIONS: PermissionAction[] = [
+const READ_ONLY_ACTIONS: PermissionAction[] = [
   'view_dashboard',
   'view_invoices',
   'view_suppliers',
@@ -49,7 +49,7 @@ const READONLY_ACTIONS: PermissionAction[] = [
 ];
 
 const MEMBER_ACTIONS: PermissionAction[] = [
-  ...READONLY_ACTIONS,
+  ...READ_ONLY_ACTIONS,
   'view_billing',
   'view_reports',
   'view_companies',
@@ -77,7 +77,7 @@ const OWNER_ACTIONS: PermissionAction[] = [
 ];
 
 const PERMISSIONS: Record<TenantRole, ReadonlySet<PermissionAction>> = {
-  readonly: new Set(READONLY_ACTIONS),
+  readonly: new Set(READ_ONLY_ACTIONS),
   member: new Set(MEMBER_ACTIONS),
   owner: new Set(OWNER_ACTIONS),
 };
@@ -86,10 +86,4 @@ export function can(role: TenantRole, action: PermissionAction): boolean {
   return PERMISSIONS[role].has(action);
 }
 
-export function isReadOnly(role: TenantRole): boolean {
-  return role === 'readonly';
-}
-
-// Texto reutilizável para tooltips/disabled hints. Mantém consistência em todos
-// os botões inline desactivados em UI quando o user é readonly.
 export const READ_ONLY_HINT = 'Conta de consulta — sem permissão para editar';

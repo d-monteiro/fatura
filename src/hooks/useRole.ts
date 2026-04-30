@@ -4,24 +4,29 @@ import { can as canDo, type PermissionAction } from '@/lib/auth/permissions';
 import type { TenantRole } from '@/types/tenant';
 
 export interface RoleHelpers {
-  role: TenantRole;
+  // null enquanto o tenant ainda não resolveu — distingue de "readonly real".
+  role: TenantRole | null;
+  loading: boolean;
   isReadOnly: boolean;
   can: (action: PermissionAction) => boolean;
 }
 
-// Default 'readonly' (least privilege) se chamado fora de TenantProvider ou
-// antes de loadTenant resolver — assim um flicker inicial nunca expõe acções
-// destrutivas a quem ainda não foi resolvido como member/owner.
+// Devolver `role: null + loading: true` em vez de defaultar a 'readonly'
+// evita falsos positivos: um owner que recarrega /upload nunca vê toast
+// "Conta de consulta…" só porque o TenantContext ainda não terminou.
 export function useRole(): RoleHelpers {
   const ctx = useTenantOptional();
-  const role: TenantRole = ctx?.tenant ? ctx.role : 'readonly';
+  const loading = !ctx || ctx.loading;
+  const role: TenantRole | null = ctx?.tenant ? ctx.role : null;
+
   return useMemo(
     () => ({
       role,
+      loading,
       isReadOnly: role === 'readonly',
-      can: (action: PermissionAction) => canDo(role, action),
+      can: (action) => (role === null ? false : canDo(role, action)),
     }),
-    [role],
+    [role, loading],
   );
 }
 
