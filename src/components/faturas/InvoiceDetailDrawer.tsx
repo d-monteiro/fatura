@@ -9,7 +9,9 @@ import { reportError } from '@/lib/errors/errorReporter';
 import { InvoiceReviewDialog } from './InvoiceReviewDialog';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 import { NormalDrawerContent, NormalDrawerFooter } from './InvoiceNormalDrawer';
+import { invoiceIdentifier } from './invoiceDisplay';
 import { useTenant } from '@/contexts/TenantContext';
+import { useRole } from '@/hooks/useRole';
 import { useCategories } from '@/hooks/useCategories';
 import type { Invoice, InvoiceLineItem } from '@/types/database';
 
@@ -22,14 +24,19 @@ interface Props {
 export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
   const { t } = useI18n();
   const { tenant } = useTenant();
+  const { can } = useRole();
   const { labelFor } = useCategories(tenant?.id);
   const qc = useQueryClient();
   const [internalEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const isReviewMode = invoice?.status === 'review' || invoice?.status === 'inbox';
-  const isEditing = open && internalEditing;
+  const canEdit = can('edit_invoice');
+  const canDelete = can('delete_invoice');
+  const canApprove = can('approve_invoice');
+  const isIgnored = !!invoice?.deleted_at;
+  const isReviewMode = !isIgnored && canApprove && (invoice?.status === 'review' || invoice?.status === 'inbox');
+  const isEditing = open && internalEditing && canEdit;
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -70,6 +77,33 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
     onSuccess: () => { invalidateInvoiceLists(qc); onClose(); },
   });
 
+  const recoverMutation = useMutation({
+    mutationKey: ['invoice-recover', invoice?.id],
+    mutationFn: async () => {
+      const { error } = await supabase.from('invoices')
+        .update({
+          deleted_at: null,
+          status: 'review',
+          manual_review: true,
+          review_reason: 'Recuperada pelo utilizador — verifica os campos',
+        })
+        .eq('id', invoice!.id);
+      if (error) {
+        if (error.code === '23505') throw new Error('Já existe outra fatura com este mesmo anexo. Remove a outra primeiro.');
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      invalidateInvoiceLists(qc);
+      toast.success('Fatura recuperada. Vê na aba "Faturas" com o aviso de verificação.');
+      onClose();
+    },
+    onError: (err) => {
+      void reportError(err, { component: 'InvoiceDetailDrawer.recoverMutation', extra: { invoiceId: invoice?.id } });
+      toast.error(err instanceof Error ? err.message : 'Erro a recuperar');
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationKey: ['invoice-delete', invoice?.id],
     mutationFn: async () => {
@@ -94,10 +128,13 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
     onSettled: () => setIsDeleting(false),
   });
 
-  const handleStartEdit = useCallback(() => setIsEditing(true), []);
+  const handleStartEdit = useCallback(() => { if (canEdit) setIsEditing(true); }, [canEdit]);
   const handleCloseEdit = useCallback(() => setIsEditing(false), []);
-  const handleDelete = useCallback(() => deleteMutation.mutate(), [deleteMutation]);
-  const handleApprove = useCallback(() => approveMutation.mutate(), [approveMutation]);
+  const handleDelete = useCallback(() => { if (canDelete) deleteMutation.mutate(); }, [canDelete, deleteMutation]);
+  const handleApprove = useCallback(() => { if (canApprove) approveMutation.mutate(); }, [canApprove, approveMutation]);
+  const handleRecover = useCallback(() => {
+    if (can('recover_invoice')) recoverMutation.mutate();
+  }, [can, recoverMutation]);
 
   if (!open || !invoice) return null;
 
@@ -112,8 +149,10 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
     );
   }
 
-  // MODE 1 - Normal drawer
+  // MODE 1 - Normal drawer (also handles ignored items via isIgnored flag)
   const categoryLabel = labelFor(invoice.category) || null;
+  const ident = invoiceIdentifier(invoice);
+  const canRecover = can('recover_invoice');
 
   return (
     <>
@@ -122,25 +161,40 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
         <div className="border-b px-5 py-4">
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold text-gray-900 truncate">{invoice.supplier_name || '\u2014'}</h2>
+              <h2 className="text-xl font-bold text-gray-900 truncate">{ident.primary}</h2>
+              {ident.secondary && <p className="truncate text-xs text-gray-500">{ident.secondary}</p>}
               {company?.name && <p className="text-sm text-gray-500">{company.name}</p>}
             </div>
             <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100"><X className="h-5 w-5" /></button>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            {invoice.document_type && (
+            {isIgnored && (
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">Ignorado</span>
+            )}
+            {invoice.document_type && !isIgnored && (
               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">{invoice.document_type}</span>
             )}
-            {categoryLabel && (
+            {categoryLabel && !isIgnored && (
               <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{categoryLabel}</span>
             )}
-            {invoice.autoliquidacao && (
+            {invoice.autoliquidacao && !isIgnored && (
               <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">{t('inv.autoliquidacao')}</span>
             )}
           </div>
         </div>
-        <NormalDrawerContent invoice={invoice} lineItems={lineItems ?? []} t={t} />
-        <NormalDrawerFooter invoice={invoice} t={t} onEdit={handleStartEdit} onDelete={() => setShowDeleteConfirm(true)} />
+        <NormalDrawerContent invoice={invoice} lineItems={lineItems ?? []} t={t} isIgnored={isIgnored} />
+        <NormalDrawerFooter
+          invoice={invoice}
+          t={t}
+          onEdit={handleStartEdit}
+          onDelete={() => setShowDeleteConfirm(true)}
+          onRecover={handleRecover}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          canRecover={canRecover}
+          isIgnored={isIgnored}
+          isRecovering={recoverMutation.isPending}
+        />
       </div>
 
       {showDeleteConfirm && (

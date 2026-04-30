@@ -9,6 +9,7 @@ import { UploadQueueProvider } from '@/contexts/UploadQueueContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RequireTenant } from '@/components/common/RequireTenant';
+import { RequirePermission } from '@/components/common/RequirePermission';
 import Dashboard from '@/pages/Dashboard';
 import Faturas from '@/pages/Faturas';
 import Duplicates from '@/pages/Duplicates';
@@ -120,9 +121,9 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="invoices" element={<Faturas />} />
         <Route path="invoices/duplicates" element={<Duplicates />} />
-        <Route path="upload" element={<Upload />} />
+        <Route path="upload" element={<RequirePermission action="upload_invoice"><Upload /></RequirePermission>} />
         <Route path="suppliers" element={<Fornecedores />} />
-        <Route path="billing" element={<Billing />} />
+        <Route path="billing" element={<RequirePermission action="view_billing"><Billing /></RequirePermission>} />
         <Route path="tickets" element={<Tickets />} />
         <Route path="settings" element={<Settings />} />
       </Route>

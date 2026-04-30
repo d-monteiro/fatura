@@ -1,7 +1,8 @@
-import { ExternalLink, Building2, Calendar, Hash, Tag, FileText, Table2, Pencil, Trash2 } from 'lucide-react';
+import { ExternalLink, Building2, Calendar, Hash, Tag, FileText, Table2, Pencil, Trash2, RotateCcw, AlertCircle } from 'lucide-react';
 import { formatEUR, formatDatePT } from '@/lib/utils/validation';
 import { LineItemsTable } from './LineItemsTable';
 import { InvoicePaymentStatus } from './InvoicePaymentStatus';
+import { humanIgnoredReason, invoiceDisplayDate } from './invoiceDisplay';
 import { useTenant } from '@/contexts/TenantContext';
 import { useCategories } from '@/hooks/useCategories';
 import type { TranslationKey } from '@/lib/i18n';
@@ -27,48 +28,84 @@ interface ContentProps {
   invoice: Invoice;
   lineItems: InvoiceLineItem[];
   t: TFn;
+  isIgnored?: boolean;
 }
 
-export function NormalDrawerContent({ invoice, lineItems, t }: ContentProps) {
+export function NormalDrawerContent({ invoice, lineItems, t, isIgnored = false }: ContentProps) {
   const { tenant } = useTenant();
   const { labelFor } = useCategories(tenant?.id);
   const categoryLabel = labelFor(invoice.category) || null;
+  const displayDate = invoiceDisplayDate(invoice);
+  const isPending = !isIgnored && (invoice.status === 'inbox' || invoice.status === 'analyzing' || invoice.status === 'pending');
 
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
+      {isIgnored && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-medium text-amber-900">Razão para ignorar</p>
+            <p className="text-amber-800/80">{humanIgnoredReason(invoice.review_reason)}</p>
+          </div>
+        </div>
+      )}
+
+      {isPending && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
+          <div>
+            <p className="font-medium text-blue-900">Em análise</p>
+            <p className="text-blue-800/80">A IA ainda está a extrair os dados. Volta daqui a uns minutos.</p>
+          </div>
+        </div>
+      )}
+
       <DetailRow icon={Building2} label={t('inv.supplier')} value={invoice.supplier_name || '—'} />
       {invoice.supplier_nif && <DetailRow icon={Hash} label={t('inv.nif')} value={invoice.supplier_nif} />}
-      <DetailRow icon={Calendar} label={t('inv.date')} value={formatDatePT(invoice.doc_date)} />
+      <DetailRow icon={Calendar} label={t('inv.date')} value={displayDate} />
       {invoice.doc_number && <DetailRow icon={FileText} label={t('inv.doc_number')} value={invoice.doc_number} />}
       {categoryLabel && <DetailRow icon={Tag} label={t('inv.category')} value={categoryLabel} />}
       {invoice.taxa_iva != null && (
         <DetailRow icon={Hash} label={t('inv.iva_rate')} value={`${invoice.taxa_iva}%`} />
       )}
+      {isIgnored && invoice.email_subject && (
+        <DetailRow icon={FileText} label="Assunto do email" value={invoice.email_subject} />
+      )}
+      {isIgnored && invoice.email_from && (
+        <DetailRow icon={Building2} label="Remetente" value={invoice.email_from} />
+      )}
 
-      <div className="border-t my-3" />
+      {(invoice.valor_total != null || invoice.valor_sem_iva != null) && (
+        <>
+          <div className="border-t my-3" />
+          <div className="space-y-1">
+            {invoice.valor_sem_iva != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">{t('inv.amount_net')}</span>
+                <span className="font-medium text-gray-700">{formatEUR(invoice.valor_sem_iva)}</span>
+              </div>
+            )}
+            {invoice.valor_iva != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">{t('inv.iva')}</span>
+                <span className="font-medium text-gray-700">{formatEUR(invoice.valor_iva)}</span>
+              </div>
+            )}
+            {invoice.valor_total != null && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-base font-semibold text-gray-500">{t('drawer.total')}</span>
+                <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.valor_total)}</span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
-      <div className="space-y-1">
-        {invoice.valor_sem_iva != null && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('inv.amount_net')}</span>
-            <span className="font-medium text-gray-700">{formatEUR(invoice.valor_sem_iva)}</span>
-          </div>
-        )}
-        {invoice.valor_iva != null && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('inv.iva')}</span>
-            <span className="font-medium text-gray-700">{formatEUR(invoice.valor_iva)}</span>
-          </div>
-        )}
-        <div className="flex items-center justify-between py-2">
-          <span className="text-base font-semibold text-gray-500">{t('drawer.total')}</span>
-          <span className="text-2xl font-bold text-gray-900">{formatEUR(invoice.valor_total)}</span>
+      {!isIgnored && (
+        <div className="mt-2">
+          <InvoicePaymentStatus invoice={invoice} />
         </div>
-      </div>
-
-      <div className="mt-2">
-        <InvoicePaymentStatus invoice={invoice} />
-      </div>
+      )}
 
       {invoice.summary && (
         <div className="rounded-lg bg-gray-50 p-3 mt-2">
@@ -97,13 +134,24 @@ interface FooterProps {
   t: TFn;
   onEdit: () => void;
   onDelete: () => void;
+  onRecover: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+  canRecover: boolean;
+  isIgnored: boolean;
+  isRecovering: boolean;
 }
 
-export function NormalDrawerFooter({ invoice, t, onEdit, onDelete }: FooterProps) {
+export function NormalDrawerFooter({
+  invoice, t, onEdit, onDelete, onRecover,
+  canEdit, canDelete, canRecover, isIgnored, isRecovering,
+}: FooterProps) {
   // Para faturas ignoradas (deleted_at != null) não há Drive — mostrar
   // antes o file_url do bucket Supabase.
   const fileLink = invoice.drive_link || invoice.file_url || null;
   const isStorageOnly = !invoice.drive_link && !!invoice.file_url;
+  const showActiveActions = !isIgnored && (canEdit || canDelete);
+  const showIgnoredActions = isIgnored && canRecover;
 
   return (
     <div className="border-t px-5 py-3 space-y-2">
@@ -115,7 +163,7 @@ export function NormalDrawerFooter({ invoice, t, onEdit, onDelete }: FooterProps
             {isStorageOnly ? t('drawer.view_file') : t('drawer.view_pdf')}
           </a>
         )}
-        {invoice.spreadsheet_id && (
+        {invoice.spreadsheet_id && !isIgnored && (
           <a href={`https://docs.google.com/spreadsheets/d/${invoice.spreadsheet_id}/edit`}
             target="_blank" rel="noopener noreferrer"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -123,16 +171,28 @@ export function NormalDrawerFooter({ invoice, t, onEdit, onDelete }: FooterProps
           </a>
         )}
       </div>
-      <div className="flex gap-2">
-        <button onClick={onEdit}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all">
-          <Pencil className="h-4 w-4" /> {t('drawer.edit')}
+      {showActiveActions && (
+        <div className="flex gap-2">
+          {canEdit && (
+            <button onClick={onEdit}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all">
+              <Pencil className="h-4 w-4" /> {t('drawer.edit')}
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={onDelete}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">
+              <Trash2 className="h-4 w-4" /> {t('drawer.delete')}
+            </button>
+          )}
+        </div>
+      )}
+      {showIgnoredActions && (
+        <button onClick={onRecover} disabled={isRecovering}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition-all disabled:opacity-60">
+          <RotateCcw className="h-4 w-4" /> {isRecovering ? 'A recuperar…' : 'Recuperar como fatura'}
         </button>
-        <button onClick={onDelete}
-          className="flex items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">
-          <Trash2 className="h-4 w-4" /> {t('drawer.delete')}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

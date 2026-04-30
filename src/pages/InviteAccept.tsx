@@ -58,7 +58,7 @@ export default function InviteAccept() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>('login');
+  const [tab, setTab] = useState<Tab>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

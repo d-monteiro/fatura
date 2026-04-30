@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useTenant } from '@/contexts/TenantContext';
+import { useRole } from '@/hooks/useRole';
 import { cn } from '@/lib/cn';
 import { CompanySelector } from './CompanySelector';
 import { TenantSwitcher } from './TenantSwitcher';
@@ -27,18 +28,19 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { t } = useI18n();
   const { isAdmin } = useIsAdmin();
   const { tenant } = useTenant();
+  const { can } = useRole();
   const tenantId = tenant?.id ?? null;
 
   const navItems = [
-    { to: '/', icon: LayoutDashboard, label: t('nav.dashboard') },
-    { to: '/invoices', icon: FileText, label: t('nav.invoices') },
-    { to: '/upload', icon: Upload, label: t('nav.upload') },
-    { to: '/suppliers', icon: Users, label: t('nav.suppliers') },
-    { to: '/billing', icon: CreditCard, label: t('nav.billing') },
-    { to: '/tickets', icon: LifeBuoy, label: t('nav.tickets') },
-    { to: '/settings', icon: Settings, label: t('nav.settings') },
-    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin' }] : []),
-  ];
+    { to: '/', icon: LayoutDashboard, label: t('nav.dashboard'), show: can('view_dashboard') },
+    { to: '/invoices', icon: FileText, label: t('nav.invoices'), show: can('view_invoices') },
+    { to: '/upload', icon: Upload, label: t('nav.upload'), show: can('upload_invoice') },
+    { to: '/suppliers', icon: Users, label: t('nav.suppliers'), show: can('view_suppliers') },
+    { to: '/billing', icon: CreditCard, label: t('nav.billing'), show: can('view_billing') },
+    { to: '/tickets', icon: LifeBuoy, label: t('nav.tickets'), show: can('view_tickets') },
+    { to: '/settings', icon: Settings, label: t('nav.settings'), show: true },
+    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin', show: true }] : []),
+  ].filter((item) => item.show);
 
   const { data: companies = [] } = useQuery({
     queryKey: [...queryKeys.companies, tenantId],

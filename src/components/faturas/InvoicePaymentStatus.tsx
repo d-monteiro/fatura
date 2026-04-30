@@ -4,6 +4,7 @@ import { Check, RotateCcw } from 'lucide-react';
 import { setInvoicePaid } from '@/lib/invoices/markAsPaid';
 import { invalidateInvoiceLists } from '@/lib/queryKeys';
 import { formatDatePT } from '@/lib/utils/validation';
+import { useRole } from '@/hooks/useRole';
 import type { Invoice } from '@/types/database';
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
 
 export function InvoicePaymentStatus({ invoice }: Props) {
   const qc = useQueryClient();
+  const { can } = useRole();
+  const canMarkPaid = can('mark_paid');
   const isPaid = !!invoice.paid_at;
 
   const mutation = useMutation({
@@ -37,14 +40,16 @@ export function InvoicePaymentStatus({ invoice }: Props) {
           <p className="text-xs text-amber-700">vence {formatDatePT(invoice.data_vencimento)}</p>
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => mutation.mutate(!isPaid)}
-        disabled={mutation.isPending}
-        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${isPaid ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' : 'bg-green-600 text-white hover:bg-green-700'}`}
-      >
-        {isPaid ? <><RotateCcw className="h-3.5 w-3.5" /> Desmarcar</> : <><Check className="h-3.5 w-3.5" /> Marcar pago</>}
-      </button>
+      {canMarkPaid && (
+        <button
+          type="button"
+          onClick={() => mutation.mutate(!isPaid)}
+          disabled={mutation.isPending}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${isPaid ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' : 'bg-green-600 text-white hover:bg-green-700'}`}
+        >
+          {isPaid ? <><RotateCcw className="h-3.5 w-3.5" /> Desmarcar</> : <><Check className="h-3.5 w-3.5" /> Marcar pago</>}
+        </button>
+      )}
     </div>
   );
 }

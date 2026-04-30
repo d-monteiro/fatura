@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import { redirectToGoogleOAuth } from '@/lib/google/oauth';
 import { hasStorageScopes } from '@/lib/google/scopes';
 import { queryKeys } from '@/lib/queryKeys';
@@ -20,7 +21,9 @@ async function startOAuth(loginHint?: string) {
 
 export function ConnectGoogleBanner() {
   const { user } = useAuth();
+  const { can } = useRole();
   const userId = user?.id ?? null;
+  const canConnect = can('manage_google_accounts');
 
   const { data: primary, isLoading } = useQuery<PrimaryToken>({
     queryKey: [...queryKeys.oauthTokens, userId, 'primary'],
@@ -39,7 +42,7 @@ export function ConnectGoogleBanner() {
     staleTime: 60 * 1000,
   });
 
-  if (!userId || isLoading) return null;
+  if (!userId || isLoading || !canConnect) return null;
 
   if (!primary) {
     return (

@@ -5,6 +5,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { MobileInvoiceCard } from './MobileInvoiceCard';
 import { StatusBadge } from './StatusBadge';
 import { useTenant } from '@/contexts/TenantContext';
+import { useRole } from '@/hooks/useRole';
 import { useCategories } from '@/hooks/useCategories';
 import type { Invoice } from '@/types/database';
 
@@ -36,7 +37,9 @@ export function FaturasTable({
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const { tenant } = useTenant();
+  const { can } = useRole();
   const { labelFor } = useCategories(tenant?.id);
+  const showSelection = can('bulk_actions');
   const allSelected = invoices.length > 0 && invoices.every((inv) => selectedIds.has(inv.id));
 
   if (isMobile) {
@@ -60,10 +63,12 @@ export function FaturasTable({
       <table className="w-full min-w-[700px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50/50">
-            <th className="w-10 px-3 py-3">
-              <input type="checkbox" checked={allSelected} onChange={onToggleAll}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-            </th>
+            {showSelection && (
+              <th className="w-10 px-3 py-3">
+                <input type="checkbox" checked={allSelected} onChange={onToggleAll}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              </th>
+            )}
             {COLUMNS.map((col) => (
               <th key={col.field} onClick={() => onSort(col.field)}
                 className={`cursor-pointer px-4 py-3 font-medium text-gray-500 select-none hover:text-gray-700 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
@@ -81,11 +86,13 @@ export function FaturasTable({
           {invoices.map((inv) => (
             <tr key={inv.id}
               className={`cursor-pointer border-b border-gray-50 transition-all duration-150 hover:bg-blue-50/60 hover:shadow-sm ${selectedIds.has(inv.id) ? 'bg-blue-50' : ''}`}>
-              <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                <input type="checkbox" checked={selectedIds.has(inv.id)}
-                  onChange={() => onToggleSelect(inv.id)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              </td>
+              {showSelection && (
+                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedIds.has(inv.id)}
+                    onChange={() => onToggleSelect(inv.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                </td>
+              )}
               <td className="px-4 py-3 text-gray-600" onClick={() => onRowClick(inv)}>{formatDatePT(inv.doc_date)}</td>
               <td className="px-4 py-3 font-medium text-gray-900" onClick={() => onRowClick(inv)}>
                 <div className="flex items-center gap-2">
@@ -102,7 +109,7 @@ export function FaturasTable({
             </tr>
           ))}
           {invoices.length === 0 && (
-            <tr><td colSpan={5} className="py-12 text-center text-gray-400">{t('inbox.empty')}</td></tr>
+            <tr><td colSpan={showSelection ? 5 : 4} className="py-12 text-center text-gray-400">{t('inbox.empty')}</td></tr>
           )}
         </tbody>
       </table>
