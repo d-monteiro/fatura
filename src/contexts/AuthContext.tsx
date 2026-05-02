@@ -25,25 +25,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      setLoading(false);
-    });
-
-    // NEVER await supabase calls inside this callback (deadlock).
-    // TOKEN_REFRESHED dispara ao voltar à tab; se o user é o mesmo, não
-    // propagar novas referências para evitar remount em cascata (RequireTenant).
+    // Em PKCE, /auth/callback?code=... só vira sessão depois do exchange feito
+    // pelo cliente. Marcar loading=false antes desse exchange dispara um
+    // Navigate to="/login" prematuro no AuthCallback. INITIAL_SESSION (v2)
+    // dispara uma vez após o cliente processar a URL — só aí libertamos o gate.
+    // NEVER await supabase calls inside this callback (deadlock auth lock).
+    let initialResolved = false;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, s) => {
+      (event, s) => {
         const nextUserId = s?.user?.id ?? null;
         setUser(prev => (prev?.id === nextUserId ? prev : s?.user ?? null));
         setSession(prev => (prev?.user?.id === nextUserId ? prev : s));
-        setLoading(false);
+        if (!initialResolved && event === 'INITIAL_SESSION') {
+          initialResolved = true;
+          setLoading(false);
+        }
       },
     );
 
-    return () => subscription.unsubscribe();
+    // Safety net: se INITIAL_SESSION não chegar (servidor lento, cliente
+    // antigo), libertamos o gate na mesma para não ficar preso em spinner.
+    const timer = setTimeout(() => {
+      if (!initialResolved) {
+        initialResolved = true;
+        setLoading(false);
+      }
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {

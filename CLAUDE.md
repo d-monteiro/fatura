@@ -21,6 +21,32 @@ SaaS de faturação multi-empresa com IA (OCR + extração). Mercado: PT. Dev ú
 - When deploying Edge Functions, use the existing `source/` path layout and `config.toml` conventions; don't regenerate scaffolding.
 - Check storage buckets, RLS INSERT policies, and unique constraints early when diagnosing data/insert errors.
 
+### Apagar utilizadores/tenants para refazer testes
+
+**Nunca** apagar `auth.users` directamente nem `tenants` à mão pelo SQL Editor. Várias FKs estão `NO ACTION` (tickets.user_id, user_oauth_tokens.user_id, email_accounts.user_id, audit_log.user_id, etc.) — DELETE bruto deixa rows órfãs. Em particular **`auth.identities` ficam para trás** mesmo com `ON DELETE CASCADE` se forem inseridas antes da FK existir, e isso causa **`error=server_error&error_description=User+not+found`** no próximo OAuth pelo mesmo provider_id Google (Supabase encontra a identity, falha o lookup do user, devolve "User not found" e o `AuthCallback` engole o erro com redirect a `/login`).
+
+Usar sempre a RPC:
+
+```sql
+SELECT public.admin_delete_user_by_email('email@dominio.pt');
+-- ou
+SELECT public.admin_delete_user_completely('uuid-do-user');
+```
+
+Restrita a admins globais (`is_admin_global`). Apaga tenants onde o user é único owner (CASCADE limpa invoices/suppliers/tickets/etc.), limpa as FKs `NO ACTION` (tickets, oauth tokens, email_accounts, audit_log, error_logs, onboarding_submissions, tenant_invites/users.invited_by), e por fim apaga `auth.users` (CASCADE limpa identities/sessions/mfa). Bypass do trigger `prevent_orphan_tenant` via `session_replication_role=replica`. Definida em [supabase/migrations/20260502120000_admin_delete_user_completely.sql](supabase/migrations/20260502120000_admin_delete_user_completely.sql).
+
+Se já houver órfãos prévios, limpar com:
+```sql
+BEGIN; SET LOCAL session_replication_role='replica';
+  DELETE FROM public.ticket_messages WHERE ticket_id IN (SELECT id FROM public.tickets t LEFT JOIN auth.users u ON u.id=t.user_id WHERE u.id IS NULL);
+  DELETE FROM public.tickets t USING (SELECT t2.id FROM public.tickets t2 LEFT JOIN auth.users u ON u.id=t2.user_id WHERE u.id IS NULL) o WHERE t.id=o.id;
+  DELETE FROM public.user_oauth_tokens WHERE user_id NOT IN (SELECT id FROM auth.users);
+  DELETE FROM public.email_accounts WHERE user_id NOT IN (SELECT id FROM auth.users);
+  DELETE FROM public.tenant_users WHERE user_id NOT IN (SELECT id FROM auth.users);
+  DELETE FROM auth.identities WHERE user_id NOT IN (SELECT id FROM auth.users);
+COMMIT;
+```
+
 ## Idioma
 
 - UI e código (identifiers, comentários, commits) em **PT-PT** com acordo ortográfico.
