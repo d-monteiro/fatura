@@ -1,4 +1,4 @@
-import { Clock, AlertTriangle, Percent, FileWarning, RefreshCw, Hourglass } from 'lucide-react';
+import { Clock, AlertTriangle, Percent, FileWarning, RefreshCw, Hourglass, Ban } from 'lucide-react';
 import type { Invoice } from '@/types/database';
 import { humanizeReviewReason, parseReviewReason } from '@/lib/reviewReason';
 
@@ -10,14 +10,38 @@ const KIND_VISUAL = {
   internal_error: { Icon: AlertTriangle, label: 'Erro interno' },
   low_confidence: { Icon: AlertTriangle, label: 'Verificação manual' },
   manual_request: { Icon: RefreshCw, label: 'Em revisão' },
+  sync_cancelled: { Icon: Ban, label: 'Sync cancelado' },
 } as const;
 
 export function StatusBadge({ invoice }: { invoice: Invoice }) {
-  if (invoice.status === 'analyzing') {
+  if (invoice.status === 'analyzing' || invoice.status === 'discovered'
+      || invoice.status === 'fetching' || invoice.status === 'extracted') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
         <Clock className="h-3 w-3 animate-pulse" />
         A processar
+      </span>
+    );
+  }
+  if (invoice.status === 'cancelled') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+        title={humanizeReviewReason(invoice.review_reason)}
+      >
+        <Ban className="h-3 w-3" />
+        Cancelado
+      </span>
+    );
+  }
+  if (invoice.status === 'failed_permanent') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700"
+        title={invoice.review_reason ?? 'Limite de tentativas excedido'}
+      >
+        <AlertTriangle className="h-3 w-3" />
+        Falha permanente
       </span>
     );
   }

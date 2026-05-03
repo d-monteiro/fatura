@@ -31,10 +31,10 @@
 |---|---|---|---|---|
 | 0 | Quick fix do sangramento (remover `EdgeRuntime.waitUntil`, fechar `sync_runs` síncrono) | ~1h | ✅ 2026-05-03 | Próximo cron 23:58 fecha como `done`, zero HTTP 546 |
 | 1 | Migration `sync_jobs` + state machine + colunas novas em `invoices` | 1 dia | ✅ 2026-05-03 | Migration aplicada, frontend não parte (rename adiado para Fase 2) |
-| 2 | Worker `discover-emails` + cron trigger + watchdog 1min | 1 dia | ✅ 2026-05-03 | Cron 23:58 cria `sync_jobs`, invoices entram como `discovered` |
-| 3 | Worker `fetch-attachments` (download Gmail → Storage) | 1 dia | ✅ 2026-05-03 | Invoices `discovered` → `analyzing` em <1h, nada preso em `fetching` >5min |
-| 4 | Worker `analyze-batch` (Gemini com rate limit por concorrência) | 0.5 dia | ✅ 2026-05-03 | 100 emails/dia processados em <2h, Gemini ≤50/min |
-| 5 | Worker `finalize-batch` (Drive + Sheets) | 0.5 dia | ✅ 2026-05-03 | Invoices `extracted` → `completed` em <5min |
+| 2 | Worker `discover-emails` + cron trigger + watchdog 1min | 1 dia | ✅ 2026-05-03 (review fix 2026-05-03) | Cron 23:58 cria `sync_jobs`, invoices entram como `discovered` |
+| 3 | Worker `fetch-attachments` (download Gmail → Storage) | 1 dia | ✅ 2026-05-03 (review fix 2026-05-03) | Invoices `discovered` → `analyzing` em <1h, sem locks órfãos em 'fetching' |
+| 4 | Worker `analyze-batch` (Gemini com rate limit por concorrência) | 0.5 dia | ✅ 2026-05-03 (review fix 2026-05-03) | 100 emails/dia processados em <2h, Gemini ≤50/min |
+| 5 | Worker `finalize-batch` (Drive + Sheets) | 0.5 dia | ✅ 2026-05-03 (review fix 2026-05-03) | Invoices `extracted` → `completed` em <5min |
 | 6 | UI admin `/admin/sync-jobs` + detail page | 1 dia | ☐ | Admin vê em tempo real estado de cada tenant |
 | 7 | UI user `/sync/:job_id` + botão "Importar últimos 3 meses" | 1.5 dia | ☐ | User clica "3 meses", vê progresso, recebe notificação |
 | 8 | Hardening: retry backoff, circuit breaker, alertas Slack, cleanup velho | 1-2 dias | ☐ | Kill Gemini deliberado → sistema recupera sem perder items |
@@ -799,3 +799,95 @@ Quando começarmos a Fase 0:
 **Última actualização:** 2026-05-03
 **Autor:** Claude Opus 4.7 + duartemmonteiro2005
 **Status:** Approved, pending Fase 0 kickoff.
+
+---
+
+## Nota desvio Fases 2+3 (review 2026-05-03)
+
+Code review pós-deploy das Fases 2+3 (commit `d35a0f1`, código Codex) apanhou 4 críticos
++ 11 sérios + nits. Migrations `20260503160000_phase4_5_review_fixes.sql` (cobre fase 4/5)
+e `20260503170000_phase2_3_review_fixes.sql` (cobre fase 2/3) corrigem em conjunto:
+
+**Críticos:**
+- **C1 — Items presos em `status='fetching'`**: trigger reset zerava `locked_until`,
+  watchdog `WHERE locked_until IS NOT NULL` nunca recuperava. Fix: trigger reset
+  bucket-aware (só zera attempts/lock_release_count em transição entre buckets) +
+  workers deixam de fazer `update({status:'fetching'})` cosmético. Lock vive em
+  `'discovered'` enquanto activo.
+- **C2 — Retry budget quebrado**: pickup não bumpava attempts (correcto), workers
+  também não bumpavam em falha logical → retry infinito. Fix: RPC
+  `bump_invoice_attempt(id, expected_status, last_error, next_retry_at)` atómica +
+  `lock_release_count` (incrementado pelo watchdog em release). Limite 3 em qualquer
+  budget → `failed_permanent`.
+- **C3 — CRON_SECRET hardcoded em git**: migrations 14h e 15h continham secret real.
+  Fix: `trigger_sync_worker` lê `current_setting('app.sync_worker_secret', true)`
+  via GUC. Operacional: rotacionar secret + setar GUC + re-deploy edge functions
+  (ver §10.4).
+- **C4 — Race em discover cria stubs duplicados**: index unique sem `NULLS NOT
+  DISTINCT`, dois stubs (NULL em `email_attachment_id`) não eram detectados como
+  duplicados. Fix: re-create index com `NULLS NOT DISTINCT` (PG 15+).
+
+**Sérios:**
+- **S1**: discover-emails pseudo-lock racy → RPC `sync_job_acquire_discover_lock`.
+- **S2**: cancelamento usava `markRejected` (soft delete) → status `'cancelled'`
+  próprio (sem `deleted_at`).
+- **S3**: jobs em `paused_reauth` ficavam órfãos → trigger AFTER UPDATE em
+  `user_oauth_tokens` requeue automático quando `needs_reauth` true→false.
+- **S5**: `snapshotCountsByStatus` SELECT-all em JS → RPC
+  `refresh_sync_job_counts(p_job_id)` GROUP BY no Postgres.
+- **S6**: watchdog disparava 1× fetch-attachments → `generate_series(1,5)`.
+- **S8/S9**: `last_sync_at` só avança se viu mensagens; `failJob`/`pauseFor*` com
+  `.in("status", terminais)` para não sobrepor `cancelled`.
+- **S10**: multi-attachment INSERT propaga `sync_run_id`.
+- **S11**: error mapping 401/403/404/429/5xx em `fetch-attachments`.
+
+**Nits:** helpers consolidados em `_shared/syncWorkers.ts` (markCancelled,
+markRejected, markFailedPermanent, releaseLock, bumpAttempt, refreshSyncJobCounts,
+acquireSyncJobDiscoverLock, ensureFreshToken, refreshGoogleToken, triggerSyncWorker,
+backoffDelay). Dead code removido (i===0 redundante, dupla UPDATE defensiva).
+Status novos (`cancelled`, `failed_permanent`, etc.) adicionados a
+`InvoiceStatus` type + StatusBadge UI.
+
+### §10.4 — Operacional para aplicar review fix Fases 2+3
+
+Antes de aplicar `20260503170000_phase2_3_review_fixes.sql`:
+
+1. **Rodar CRON_SECRET no Supabase Dashboard** para cada Edge Function do pipeline:
+   `discover-emails`, `fetch-attachments`, `analyze-batch`, `finalize-batch`,
+   `reprocess-pending`, `send-auto-reports`, `check-due-dates`,
+   `drive-folders-dedup`, `sync-email`. Gerar valor novo (e.g. `openssl rand -hex 32`).
+   Re-deploy de cada uma para o secret novo activar.
+
+2. **Setar GUC** com o mesmo valor:
+   ```sql
+   ALTER DATABASE postgres SET app.sync_worker_secret = '<novo_valor>';
+   SELECT pg_reload_conf();
+   ```
+   Verificar:
+   ```sql
+   SHOW app.sync_worker_secret;  -- deve devolver o valor
+   ```
+
+3. **Aplicar 16h e 17h em sequência** (a 17h depende de funções/colunas
+   definidas em 16h: `lock_release_count`, `bump_invoice_attempt`,
+   `refresh_sync_job_counts`, `has_pickable_invoices_for_*`). Aplicar a 16h
+   sozinha deixa o cron a usar `trigger_sync_worker` antigo (com secret antigo)
+   — o passo 1 já rotacionou os secrets, portanto enquanto não aplicar a 17h,
+   os workers respondem 401 ao watchdog (não há perda de dados, apenas backlog
+   de 1-2 min). Aplicar consecutivo via `mcp__supabase__apply_migration`. A
+   17h faz pre-flight check no GUC e falha cedo com mensagem clara se não
+   estiver setado.
+
+4. **Verificar cron**:
+   ```sql
+   SELECT jobname, schedule FROM cron.job WHERE jobname LIKE 'sync-jobs-%';
+   -- sync-jobs-cron-trigger    58 23 * * *
+   -- sync-jobs-watchdog        * * * * *
+   ```
+
+5. **Smoke test**: criar `sync_job` manual em SQL Editor e ver `discover-emails`
+   ser disparado pelo watchdog em < 90s, criar stubs, e fetch-attachments começar a
+   drenar.
+
+6. Após 1 ciclo cron 23:58 sem incidentes, considerar Fases 2+3 verdadeiramente
+   estáveis e avançar para Fase 6 (UI admin) e Fase 7 (UI user + backfill 3m).

@@ -35,7 +35,21 @@ export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
 // Tipos que NÃO devem ser contabilizados como custo nos relatórios financeiros
 // e SAF-T (são pré-avisos / instruções de pagamento, não documentos de despesa).
 export const NON_EXPENSE_DOCUMENT_TYPES: DocumentType[] = ['aviso_pagamento'];
-export type InvoiceStatus = 'pending' | 'analyzing' | 'inbox' | 'processed' | 'review' | 'failed';
+export type InvoiceStatus =
+  | 'pending'
+  | 'analyzing'
+  | 'inbox'
+  | 'processed'
+  | 'review'
+  | 'failed'
+  | 'discovered'
+  | 'fetching'
+  | 'extracted'
+  | 'completed'
+  | 'rejected'
+  | 'duplicate'
+  | 'failed_permanent'
+  | 'cancelled';
 export type InvoiceSource = 'upload' | 'email' | 'photo';
 
 export interface Invoice {

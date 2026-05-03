@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +9,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { notifySlack } from '@/lib/slack/notify';
+import { reportError } from '@/lib/errors/errorReporter';
 import { Send } from 'lucide-react';
 import type { TicketCategory, TicketPriority } from '@/types/tickets';
 
@@ -54,7 +56,7 @@ export function NewTicketForm({ onCreated, onCancel, preset }: Props) {
 
     setSubmitting(true);
     try {
-      const { data: ticket } = await supabase.from('tickets').insert({
+      const { data: ticket, error } = await supabase.from('tickets').insert({
         tenant_id: tenant.id,
         user_id: user.id,
         subject: subject.trim(),
@@ -65,21 +67,30 @@ export function NewTicketForm({ onCreated, onCancel, preset }: Props) {
         browser_info: { userAgent: navigator.userAgent },
       }).select('id').single();
 
-      if (ticket) {
-        void notifySlack({
-          channel: 'tickets',
-          payload: {
-            tenant_name: tenant.name,
-            plan_name: tenant.plan_id ? 'Plano ativo' : undefined,
-            subject: subject.trim(),
-            category,
-            priority,
-            email: user.email ?? '',
-            description: description.trim(),
-            ticket_id: ticket.id,
-          },
+      if (error || !ticket?.id) {
+        void reportError(error ?? new Error('ticket insert returned no row'), {
+          component: 'NewTicketForm/submit',
+          tenantId: tenant.id,
+          level: 'warn',
+          extra: { category, priority, code: error?.code },
         });
+        toast.error(error?.message ?? 'Não foi possível criar o pedido. Tenta de novo.');
+        return;
       }
+
+      void notifySlack({
+        channel: 'tickets',
+        payload: {
+          tenant_name: tenant.name,
+          plan_name: tenant.plan_id ? 'Plano ativo' : undefined,
+          subject: subject.trim(),
+          category,
+          priority,
+          email: user.email ?? '',
+          description: description.trim(),
+          ticket_id: ticket.id,
+        },
+      });
 
       onCreated();
     } finally {

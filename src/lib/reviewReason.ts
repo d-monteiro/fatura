@@ -9,7 +9,8 @@ export type ReviewReasonKind =
   | 'timeout'
   | 'document_type_unknown'
   | 'internal_error'
-  | 'manual_request';
+  | 'manual_request'
+  | 'sync_cancelled';
 
 const ALL_KINDS: ReviewReasonKind[] = [
   'low_confidence',
@@ -19,6 +20,7 @@ const ALL_KINDS: ReviewReasonKind[] = [
   'document_type_unknown',
   'internal_error',
   'manual_request',
+  'sync_cancelled',
 ];
 
 const HUMAN_LABEL: Record<ReviewReasonKind, string> = {
@@ -29,6 +31,7 @@ const HUMAN_LABEL: Record<ReviewReasonKind, string> = {
   document_type_unknown: 'Tipo de documento não está nos aceites para a empresa.',
   internal_error: 'Erro interno na análise.',
   manual_request: 'Marcada manualmente para revisão.',
+  sync_cancelled: 'Sincronização cancelada antes de terminar.',
 };
 
 export interface ParsedReviewReason {

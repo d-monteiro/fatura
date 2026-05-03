@@ -1,15 +1,5 @@
 // Razões de revisão / falha — vocabulário fixo para a UI mostrar tooltips
 // consistentes e o cron watchdog filtrar. O detalhe vai depois de ":".
-//
-//   low_confidence: <score>
-//   iva_inconsistente: <explicação humana>
-//   parse_error: <mensagem técnica>
-//   timeout
-//   document_type_unknown: <tipo recebido>
-//   internal_error: <mensagem>
-//   manual_request
-//
-// Quando a UI lê review_reason, mostra a chave traduzida + o detalhe em tooltip.
 
 export type ReviewReasonKind =
   | 'low_confidence'
@@ -18,7 +8,8 @@ export type ReviewReasonKind =
   | 'timeout'
   | 'document_type_unknown'
   | 'internal_error'
-  | 'manual_request';
+  | 'manual_request'
+  | 'sync_cancelled';
 
 export function buildReviewReason(kind: ReviewReasonKind, detail?: string): string {
   if (!detail) return kind;
@@ -37,6 +28,7 @@ export function reviewReasonKind(reason: string | null | undefined): ReviewReaso
     case 'document_type_unknown':
     case 'internal_error':
     case 'manual_request':
+    case 'sync_cancelled':
       return head;
     default:
       return null;
