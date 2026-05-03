@@ -5,9 +5,15 @@
 // Drive + Sheets) corre depois via reprocess-pending (cron 15min) — este
 // pipeline será substituído pelos workers stateless da Fase 2+ do hardening.
 //
-// Anteriormente: EdgeRuntime.waitUntil(finishRun) fazia o fan-out em background,
-// mas o worker era morto a meio (HTTP 546) — sync_runs ficavam em "running" e
-// 12 órfãos foram limpos a 2026-05-03. Ver PLAN_HARDENING.md Fase 0.
+// Histórico:
+// - Antes do hardening: EdgeRuntime.waitUntil(finishRun) corria fan-out em
+//   background, mas o worker era morto a meio (HTTP 546) e sync_runs ficavam
+//   em "running" indefinidamente. Ver PLAN_HARDENING.md Fase 0.
+// - Fase 0 (2026-05-03): finishRun foi removido e fanout fire-and-forget
+//   tomou o lugar.
+// - Hardening review (2026-05-03): fanout fire-and-forget também foi removido
+//   — fetches sem EdgeRuntime.waitUntil eram cancelados pelo runtime antes de
+//   chegar ao receiver. A análise depende 100% do cron de reprocess-pending.
 // ============================================
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -78,7 +84,6 @@ Deno.serve(async (req) => {
 
   const triggerKind: SyncTrigger = isCron ? "cron" : adminTenantHeader ? "admin" : "manual";
   const results: AccountResult[] = [];
-  const createdInvoiceIds: string[] = [];
   // tenant_id → sync_runs.id; uma linha por tenant distinto nesta execução.
   const syncRunByTenant = new Map<string, string>();
 
@@ -135,22 +140,21 @@ Deno.serve(async (req) => {
     for (const accountRaw of accounts) {
       const account = accountRaw as AccountWithJoins;
       const r = await processAccount(account, {
-        supabase, supabaseUrl, clientId, clientSecret, runId,
+        supabase, supabaseUrl, clientId, clientSecret, runId, syncRunByTenant,
       });
       results.push(r);
-      createdInvoiceIds.push(...r.invoice_ids);
-      await supabase.from("email_accounts").update({ last_sync_at: new Date().toISOString() }).eq("id", account.id);
+      // last_sync_at só avança em sucesso parcial (algo descoberto/dedup) ou
+      // sucesso total (sem erros). Falha completa não actualiza — UI continua
+      // a mostrar o último sync OK em vez de gaslightar o user.
+      if (r.errors === 0 || r.discovered > 0 || r.duplicates > 0) {
+        await supabase.from("email_accounts").update({ last_sync_at: new Date().toISOString() }).eq("id", account.id);
+      }
     }
 
-    // Fecha sync_runs síncrono com totais de descoberta. A análise corre depois
-    // via reprocess-pending (cron 15min) — não bloqueamos a HTTP response com
-    // Gemini+Drive+Sheets para evitar HTTP 546 (worker terminated).
+    // Fecha sync_runs síncrono com totais de descoberta. total_rejected é
+    // mantido em real-time pelo trigger trg_invoices_bump_rejected conforme
+    // analyze-document marca invoices como rejeitadas.
     await writeDiscoveryTotals(supabase, syncRunByTenant, results);
-
-    // Fan-out a analyze-document fire-and-forget. Sem await, sem promessa de
-    // completion. Se o worker morrer antes de despachar, reprocess-pending pega
-    // os items pelo cron de 15min.
-    fireAndForgetFanout(createdInvoiceIds, { supabaseUrl, serviceKey, runId });
 
     const totals = results.reduce(
       (s, r) => ({
@@ -204,7 +208,7 @@ Deno.serve(async (req) => {
     return json(200, {
       success: true,
       run_id: runId,
-      results: results.map(({ invoice_ids: _ids, ...rest }) => rest),
+      results,
       total_discovered: totals.discovered,
       total_duplicates: totals.duplicates,
       total_skipped: totals.skipped,
@@ -246,6 +250,7 @@ interface AccountCtx {
   clientId: string;
   clientSecret: string;
   runId: string;
+  syncRunByTenant: Map<string, string>;
 }
 
 interface AccountResult {
@@ -259,7 +264,6 @@ interface AccountResult {
   attachments_seen: number;
   skip_reasons: Record<string, number>;
   note?: string;
-  invoice_ids: string[];
 }
 
 type AccountRow = {
@@ -303,19 +307,25 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<AccountResult> {
-  const { supabase, clientId, clientSecret, runId } = ctx;
+  const { supabase, clientId, clientSecret, runId, syncRunByTenant } = ctx;
   const base: AccountResult = {
     email: account.email,
     tenant_id: account.tenant_id,
     discovered: 0, duplicates: 0, skipped: 0, errors: 0,
     messages_found: 0, attachments_seen: 0,
     skip_reasons: {},
-    invoice_ids: [],
   };
 
   const token = account.user_oauth_tokens;
   if (!token?.access_token) {
-    console.warn(`[sync-email][${runId}] account=${account.email} skip=sem_access_token`);
+    await logEdgeError({
+      functionName: "sync-email",
+      level: "warn",
+      message: "Conta Gmail sem access_token — precisa re-ligar",
+      userId: account.user_id,
+      tenantId: account.tenant_id,
+      metadata: { run_id: runId, email: account.email },
+    });
     return { ...base, skipped: 1, note: "sem token" };
   }
 
@@ -454,10 +464,12 @@ async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<Acc
     `estimate=${listData.resultSizeEstimate ?? "?"}`,
   );
 
+  const syncRunId = syncRunByTenant.get(tenantId) ?? null;
+
   for (const msg of messages) {
     try {
       const r = await processMessage(msg.id, {
-        ctx, account, tenantId, companyId, accessToken,
+        ctx, account, tenantId, companyId, accessToken, syncRunId,
       });
       base.discovered += r.discovered;
       base.duplicates += r.duplicates;
@@ -467,7 +479,6 @@ async function processAccount(account: AccountRow, ctx: AccountCtx): Promise<Acc
       for (const [k, v] of Object.entries(r.skip_reasons)) {
         base.skip_reasons[k] = (base.skip_reasons[k] || 0) + v;
       }
-      base.invoice_ids.push(...r.invoice_ids);
     } catch (e) {
       base.errors++;
       base.note = `msg ${msg.id}: ${e instanceof Error ? e.message.slice(0, 80) : String(e)}`;
@@ -484,6 +495,7 @@ interface MessageCtx {
   tenantId: string;
   companyId: string;
   accessToken: string;
+  syncRunId: string | null;
 }
 
 interface MessageResult {
@@ -493,14 +505,13 @@ interface MessageResult {
   errors: number;
   attachments_seen: number;
   skip_reasons: Record<string, number>;
-  invoice_ids: string[];
 }
 
 async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResult> {
   const { supabase, runId } = m.ctx;
   const out: MessageResult = {
     discovered: 0, duplicates: 0, skipped: 0, errors: 0,
-    attachments_seen: 0, skip_reasons: {}, invoice_ids: [],
+    attachments_seen: 0, skip_reasons: {},
   };
 
   const msgResp = await fetch(
@@ -617,15 +628,13 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
     const attachmentHash = await sha256Hex(fileBytes);
     const { data: existingByHash } = await supabase
       .from("invoices")
-      .select("id, deleted_at, review_reason")
+      .select("id")
       .eq("tenant_id", m.tenantId)
       .eq("attachment_hash", attachmentHash)
       .limit(1);
     if (existingByHash && existingByHash.length > 0) {
       out.duplicates++;
-      const prev = existingByHash[0] as { id: string; deleted_at: string | null; review_reason: string | null };
-      const state = prev.deleted_at ? "previously_rejected" : "active";
-      console.log(`[sync-email][${runId}] msg=${msgId} dup_hash state=${state} file=${filename} hash=${attachmentHash.slice(0, 12)}`);
+      console.log(`[sync-email][${runId}] msg=${msgId} dup_hash file=${filename} hash=${attachmentHash.slice(0, 12)}`);
       continue;
     }
 
@@ -666,7 +675,7 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
       .createSignedUrl(storageData.path, 60 * 60 * 24 * 30);
     const fileUrl = signed?.signedUrl ?? "";
 
-    const { data: inserted, error: insertErr } = await supabase
+    const { error: insertErr } = await supabase
       .from("invoices")
       .insert({
         tenant_id: m.tenantId,
@@ -682,6 +691,7 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
         file_url: fileUrl,
         storage_path: storageData.path,
         status: "analyzing",
+        sync_run_id: m.syncRunId,
       })
       .select("id")
       .single();
@@ -712,8 +722,7 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
     }
 
     out.discovered++;
-    if (inserted?.id) out.invoice_ids.push(inserted.id);
-    console.log(`[sync-email][${runId}] msg=${msgId} discovered id=${inserted?.id} file=${filename}`);
+    console.log(`[sync-email][${runId}] msg=${msgId} discovered file=${filename}`);
   }
 
   return out;
@@ -721,42 +730,11 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface FanoutOpts { supabaseUrl: string; serviceKey: string; runId: string }
-
-// Fire-and-forget: notifica analyze-document para cada invoice criada e dispara
-// reprocess-pending no fim. Sem await — se o worker morrer, reprocess-pending
-// (cron 15min) recolhe os items presos em status='analyzing' sem drive_file_id.
-function fireAndForgetFanout(invoiceIds: string[], opts: FanoutOpts): void {
-  if (invoiceIds.length === 0) return;
-  console.log(`[sync-email][${opts.runId}] fanout fire_and_forget count=${invoiceIds.length}`);
-
-  for (const id of invoiceIds) {
-    fetch(`${opts.supabaseUrl}/functions/v1/analyze-document`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-internal-secret": opts.serviceKey },
-      body: JSON.stringify({ invoice_id: id, skip_finalize: true }),
-    }).catch((e) => {
-      console.warn(`[sync-email][${opts.runId}] fanout invoice=${id} fire_failed`, e instanceof Error ? e.message : e);
-    });
-  }
-
-  // Trigger do reprocess-pending para fazer Drive+Sheets em batch. Concorrência
-  // controlada lá dentro — sem await aqui.
-  fetch(`${opts.supabaseUrl}/functions/v1/reprocess-pending`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-internal-secret": opts.serviceKey },
-    body: JSON.stringify({ invoice_ids: invoiceIds }),
-  }).catch((e) => {
-    console.warn(`[sync-email][${opts.runId}] reprocess fire_failed`, e instanceof Error ? e.message : e);
-  });
-}
-
-// Fecha cada sync_runs sincronamente com totais de descoberta (fase 1):
-//   total_discovered = invoices criadas (vão a Gemini depois)
+// Fecha cada sync_runs sincronamente com totais de descoberta:
+//   total_discovered = invoices criadas (vão a Gemini depois via reprocess-pending)
 //   total_duplicates = dedup precoce (msg+att) + dedup hash
-// Não conta rejected (Gemini ainda não correu) — ficará em 0; reprocess-pending
-// é responsável pela análise/finalização. Se o tenant não teve invoices criadas,
-// também fecha como 'done' com zeros.
+//   total_rejected   = mantido em real-time pelo trigger trg_invoices_bump_rejected
+//                      conforme analyze-document marca invoices como rejeitadas.
 async function writeDiscoveryTotals(
   admin: ReturnType<typeof createClient>,
   syncRunByTenant: Map<string, string>,
@@ -773,7 +751,6 @@ async function writeDiscoveryTotals(
       total_messages: a.messages_found,
       total_discovered: a.discovered,
       total_duplicates: a.duplicates,
-      total_rejected: 0,
       total_skipped: a.skipped,
       total_errors: a.errors,
     }).eq("id", runId);
@@ -786,11 +763,10 @@ interface TenantAgg {
   duplicates: number;
   skipped: number;
   errors: number;
-  invoice_ids: string[];
 }
 
 function emptyAgg(): TenantAgg {
-  return { messages_found: 0, discovered: 0, duplicates: 0, skipped: 0, errors: 0, invoice_ids: [] };
+  return { messages_found: 0, discovered: 0, duplicates: 0, skipped: 0, errors: 0 };
 }
 
 function aggregateByTenant(results: AccountResult[]): Map<string, TenantAgg> {
@@ -803,7 +779,6 @@ function aggregateByTenant(results: AccountResult[]): Map<string, TenantAgg> {
     cur.duplicates += r.duplicates;
     cur.skipped += r.skipped;
     cur.errors += r.errors;
-    cur.invoice_ids.push(...r.invoice_ids);
     out.set(r.tenant_id, cur);
   }
   return out;
