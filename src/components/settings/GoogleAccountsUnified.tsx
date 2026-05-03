@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useTenant } from '@/contexts/TenantContext';
 import { useFeatureGate } from '@/hooks/useFeatureGate';
 import { redirectToGoogleOAuth } from '@/lib/google/oauth';
-import { hasStorageScopes, hasGmailScopes, SCOPE_SHEETS } from '@/lib/google/scopes';
+import { hasStorageScopes, hasGmailScopes } from '@/lib/google/scopes';
 import { queryKeys } from '@/lib/queryKeys';
 import type { OAuthToken, Company, EmailAccount } from '@/types/database';
 import {
@@ -162,14 +162,13 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
         <p className="text-muted-foreground text-sm">A carregar...</p>
       ) : tokens.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          Ainda não ligaste nenhuma conta Google. Adiciona uma conta para ativar Drive, Sheets e sincronização de Gmail.
+          Ainda não ligaste nenhuma conta Google. Adiciona uma conta para ativar Drive e sincronização de Gmail.
         </p>
       ) : (
         <ul className="space-y-3">
           {tokens.map((t) => {
             const storage = hasStorageScopes(t.scopes);
             const gmail = hasGmailScopes(t.scopes);
-            const sheets = t.scopes?.includes(SCOPE_SHEETS);
             const linkedCompanies = t.email_accounts?.filter((e) => e.is_active) ?? [];
             const availableCompanies = companies.filter(
               (c) => !linkedCompanies.some((l) => l.company_id === c.id),
@@ -204,7 +203,6 @@ export function GoogleAccountsUnified({ userId }: { userId: string }) {
                   <p className="text-xs text-muted-foreground mb-1.5">Com permissões em:</p>
                   <div className="flex flex-wrap gap-1.5">
                     <PermissionBadge active={storage}>Drive</PermissionBadge>
-                    <PermissionBadge active={!!sheets}>Sheets</PermissionBadge>
                     <PermissionBadge active={gmail}>Gmail</PermissionBadge>
                   </div>
                 </div>

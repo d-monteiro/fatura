@@ -6,7 +6,7 @@ export default function Privacy() {
       <div className="mx-auto max-w-3xl px-4">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">&larr; Voltar</Link>
         <h1 className="mt-6 text-3xl font-bold">Política de Privacidade</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Última atualização: 18 de abril de 2026</p>
+        <p className="mt-2 text-sm text-muted-foreground">Última atualização: 3 de maio de 2026</p>
 
         <div className="prose prose-sm mt-8 max-w-none space-y-6">
           <section>
@@ -22,7 +22,7 @@ export default function Privacy() {
             <ul className="list-disc pl-6">
               <li><strong>Conta e empresa</strong>: nome, email, NIF, sector, país da empresa.</li>
               <li><strong>Faturas</strong>: ficheiros PDF/imagem carregados por si ou importados de Gmail com os dados extraídos (fornecedor, valores, datas).</li>
-              <li><strong>Google APIs</strong> (opt-in, via OAuth): leitura de emails com anexos de faturas (<em>gmail.readonly</em>), criação de pastas e ficheiros no Drive (<em>drive.file</em>), escrita numa folha de cálculo Google Sheets (<em>spreadsheets</em>). Não lemos emails que não tenham anexos de fatura. Não modificamos emails.</li>
+              <li><strong>Google APIs</strong> (opt-in, via OAuth): leitura de emails com anexos de faturas (<em>gmail.readonly</em>), criação e gestão de pastas, PDFs e folhas de cálculo criadas pela app no Drive (<em>drive.file</em>). Só acedemos a ficheiros criados ou abertos pela própria FaturaAI — nunca ao restante do seu Drive. Não lemos emails sem anexos de fatura. Não modificamos emails.</li>
               <li><strong>Técnicos</strong>: logs de erros anónimos, endereço IP para rate-limiting.</li>
             </ul>
           </section>

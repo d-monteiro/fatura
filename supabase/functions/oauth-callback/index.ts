@@ -162,7 +162,6 @@ Deno.serve(async (req) => {
       "email", "profile",
       "https://www.googleapis.com/auth/gmail.readonly",
       "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
     ];
 
     const { data: existing } = await supabase

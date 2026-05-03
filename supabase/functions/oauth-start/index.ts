@@ -11,12 +11,14 @@ import { getCorsHeaders, getAllowedOrigins } from "../_shared/cors.ts";
 import { signState } from "../_shared/oauthState.ts";
 import { logEdgeError } from "../_shared/logError.ts";
 
+// drive.file cobre a Sheets API para spreadsheets criadas pela app
+// (toda a interação acontece em ficheiros criados via createNewSpreadsheet),
+// pelo que o scope "spreadsheets" é desnecessário e exigiria CASA.
 const FULL_SCOPES = [
   "email",
   "profile",
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/drive.file",
-  "https://www.googleapis.com/auth/spreadsheets",
 ];
 
 const ALLOWED_SOURCES = new Set(["onboarding", "upload", "settings"]);
