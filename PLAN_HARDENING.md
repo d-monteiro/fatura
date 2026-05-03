@@ -33,8 +33,8 @@
 | 1 | Migration `sync_jobs` + state machine + colunas novas em `invoices` | 1 dia | ✅ 2026-05-03 | Migration aplicada, frontend não parte (rename adiado para Fase 2) |
 | 2 | Worker `discover-emails` + cron trigger + watchdog 1min | 1 dia | ✅ 2026-05-03 | Cron 23:58 cria `sync_jobs`, invoices entram como `discovered` |
 | 3 | Worker `fetch-attachments` (download Gmail → Storage) | 1 dia | ✅ 2026-05-03 | Invoices `discovered` → `analyzing` em <1h, nada preso em `fetching` >5min |
-| 4 | Worker `analyze-batch` (Gemini com rate limit por concorrência) | 0.5 dia | ☐ | 100 emails/dia processados em <2h, Gemini ≤50/min |
-| 5 | Worker `finalize-batch` (Drive + Sheets) | 0.5 dia | ☐ | Invoices `extracted` → `completed` em <5min |
+| 4 | Worker `analyze-batch` (Gemini com rate limit por concorrência) | 0.5 dia | ✅ 2026-05-03 | 100 emails/dia processados em <2h, Gemini ≤50/min |
+| 5 | Worker `finalize-batch` (Drive + Sheets) | 0.5 dia | ✅ 2026-05-03 | Invoices `extracted` → `completed` em <5min |
 | 6 | UI admin `/admin/sync-jobs` + detail page | 1 dia | ☐ | Admin vê em tempo real estado de cada tenant |
 | 7 | UI user `/sync/:job_id` + botão "Importar últimos 3 meses" | 1.5 dia | ☐ | User clica "3 meses", vê progresso, recebe notificação |
 | 8 | Hardening: retry backoff, circuit breaker, alertas Slack, cleanup velho | 1-2 dias | ☐ | Kill Gemini deliberado → sistema recupera sem perder items |

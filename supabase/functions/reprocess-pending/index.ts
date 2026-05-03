@@ -120,9 +120,16 @@ Deno.serve(async (req) => {
     // Cron path: só apanha as que estão "presas" (sem drive_file_id e há
     // mais de 5 min). Não toca em failed/rejected — esses precisam de ser
     // explicitamente despoletados.
-    query = query.is("drive_file_id", null).in("status", ["inbox", "review", "analyzing"]);
+    // Inclui 'extracted' (Fase 4) para resgatar items presos pós-Gemini caso
+    // o finalize-batch falhe sistemicamente.
+    query = query.is("drive_file_id", null).in("status", ["inbox", "review", "analyzing", "extracted"]);
     const cutoff = new Date(Date.now() - STUCK_SINCE_MINUTES * 60 * 1000).toISOString();
     query = query.lt("created_at", cutoff);
+    // Respeita lock optimista do pipeline novo (analyze-batch / finalize-batch).
+    // Sem isto, race condition: reprocess-pending corria finalizeInvoice em
+    // paralelo e subia 2 ficheiros ao Drive. A idempotência do helper só vê
+    // drive_file_id depois de já estar persisted — janela de race real.
+    query = query.or(`locked_until.is.null,locked_until.lt.${new Date().toISOString()}`);
   }
 
   if (mode === "user" && scopedUserId) {

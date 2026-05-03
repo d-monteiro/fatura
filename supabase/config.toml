@@ -52,3 +52,15 @@ verify_jwt = false
 
 [functions.send-report-now]
 verify_jwt = false
+
+[functions.discover-emails]
+verify_jwt = false
+
+[functions.fetch-attachments]
+verify_jwt = false
+
+[functions.analyze-batch]
+verify_jwt = false
+
+[functions.finalize-batch]
+verify_jwt = false

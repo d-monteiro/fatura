@@ -429,7 +429,15 @@ async function analyzeByInvoiceId(
     summary: first.summary ?? null,
     destinatario_nome: (first.destinatario_nome as string | undefined) ?? null,
     confidence_score: confidence,
-    status: needsReview ? "review" : "inbox",
+    // skip_finalize=true (worker analyze-batch da Fase 4): status='extracted' é
+    // o estado intermédio que o watchdog reconhece como "ainda em pipeline" e
+    // o finalize-batch pega para fazer Drive+Sheets. Sem isto, status='inbox'
+    // antes de Drive marcaria sync_jobs como 'done' prematuramente. needsReview
+    // mantém 'review' independente do skip — distinção entre "infra terminou"
+    // e "infra pendente" passa a ser via drive_file_id IS (NOT) NULL.
+    // skip_finalize=false (frontend upload directo): mantém 'inbox' como antes
+    // porque o finalizeInvoice corre logo a seguir nesta mesma invocação.
+    status: needsReview ? "review" : (skipFinalize ? "extracted" : "inbox"),
     manual_review: needsReview,
     review_reason: reviewReason,
   }).eq("id", invoiceId);
@@ -472,7 +480,7 @@ async function analyzeByInvoiceId(
   if (skipFinalize) {
     return json(200, {
       ok: true,
-      state: needsReview ? "review" : "inbox",
+      state: needsReview ? "review" : "extracted",
       finalize_skipped: true,
     }, corsHeaders);
   }
