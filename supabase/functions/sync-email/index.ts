@@ -1,8 +1,13 @@
 // ============================================
 // Edge Function: sync-email
-// Fase 1 (curta): descobre mensagens Gmail + cria stubs `analyzing` em BD.
-// Fase 2 (background): fan-out paralelo a `analyze-document { invoice_id }`
-// via EdgeRuntime.waitUntil — devolve logo ao frontend.
+// Descobre mensagens Gmail + cria stubs `analyzing` em BD.
+// Fecha sync_runs síncronamente com totais de descoberta. A análise (Gemini +
+// Drive + Sheets) corre depois via reprocess-pending (cron 15min) — este
+// pipeline será substituído pelos workers stateless da Fase 2+ do hardening.
+//
+// Anteriormente: EdgeRuntime.waitUntil(finishRun) fazia o fan-out em background,
+// mas o worker era morto a meio (HTTP 546) — sync_runs ficavam em "running" e
+// 12 órfãos foram limpos a 2026-05-03. Ver PLAN_HARDENING.md Fase 0.
 // ============================================
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -23,9 +28,6 @@ const ALLOWED_MIMES = new Set([
   "image/png",
 ]);
 const ALLOWED_EXT_RE = /\.(pdf|jpe?g|png)$/i;
-const FANOUT_CONCURRENCY = 10;
-
-declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -140,19 +142,15 @@ Deno.serve(async (req) => {
       await supabase.from("email_accounts").update({ last_sync_at: new Date().toISOString() }).eq("id", account.id);
     }
 
-    // Totais parciais por tenant (fase 1 apenas — fan-out actualiza no fim).
-    await writePartialTotals(supabase, syncRunByTenant, results);
+    // Fecha sync_runs síncrono com totais de descoberta. A análise corre depois
+    // via reprocess-pending (cron 15min) — não bloqueamos a HTTP response com
+    // Gemini+Drive+Sheets para evitar HTTP 546 (worker terminated).
+    await writeDiscoveryTotals(supabase, syncRunByTenant, results);
 
-    // Fan-out + completion em background. Devolve já ao cliente.
-    if (typeof EdgeRuntime !== "undefined") {
-      EdgeRuntime.waitUntil(
-        finishRun(createdInvoiceIds, syncRunByTenant, results, { supabaseUrl, serviceKey, runId }),
-      );
-    } else {
-      // Ambiente sem EdgeRuntime (testes locais) — não bloqueia o HTTP response, mas
-      // marca done inline para não deixar runs em 'running' eternamente.
-      await markAllRunsDone(supabase, syncRunByTenant);
-    }
+    // Fan-out a analyze-document fire-and-forget. Sem await, sem promessa de
+    // completion. Se o worker morrer antes de despachar, reprocess-pending pega
+    // os items pelo cron de 15min.
+    fireAndForgetFanout(createdInvoiceIds, { supabaseUrl, serviceKey, runId });
 
     const totals = results.reduce(
       (s, r) => ({
@@ -723,96 +721,43 @@ async function processMessage(msgId: string, m: MessageCtx): Promise<MessageResu
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface FinishOpts { supabaseUrl: string; serviceKey: string; runId: string }
+interface FanoutOpts { supabaseUrl: string; serviceKey: string; runId: string }
 
-// Em background: corre Gemini + Drive/Sheets e fecha cada sync_runs com totais reais.
-async function finishRun(
-  invoiceIds: string[],
-  syncRunByTenant: Map<string, string>,
-  results: AccountResult[],
-  opts: FinishOpts,
-): Promise<void> {
-  const admin = createClient(opts.supabaseUrl, opts.serviceKey, { auth: { persistSession: false } });
-  try {
-    if (invoiceIds.length > 0) {
-      await fanOutGemini(invoiceIds, opts);
-      await triggerFinalize(invoiceIds, opts);
-    }
-    await writeFinalTotals(admin, syncRunByTenant, results);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[sync-email][${opts.runId}] finishRun excepção`, e);
-    if (syncRunByTenant.size > 0) {
-      await admin.from("sync_runs")
-        .update({ status: "error", completed_at: new Date().toISOString(), error_message: msg.slice(0, 500) })
-        .in("id", Array.from(syncRunByTenant.values()));
-    }
+// Fire-and-forget: notifica analyze-document para cada invoice criada e dispara
+// reprocess-pending no fim. Sem await — se o worker morrer, reprocess-pending
+// (cron 15min) recolhe os items presos em status='analyzing' sem drive_file_id.
+function fireAndForgetFanout(invoiceIds: string[], opts: FanoutOpts): void {
+  if (invoiceIds.length === 0) return;
+  console.log(`[sync-email][${opts.runId}] fanout fire_and_forget count=${invoiceIds.length}`);
+
+  for (const id of invoiceIds) {
+    fetch(`${opts.supabaseUrl}/functions/v1/analyze-document`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-secret": opts.serviceKey },
+      body: JSON.stringify({ invoice_id: id, skip_finalize: true }),
+    }).catch((e) => {
+      console.warn(`[sync-email][${opts.runId}] fanout invoice=${id} fire_failed`, e instanceof Error ? e.message : e);
+    });
   }
-}
 
-async function fanOutGemini(invoiceIds: string[], opts: FinishOpts): Promise<void> {
-  console.log(`[sync-email][${opts.runId}] fanout start count=${invoiceIds.length}`);
-  let cursor = 0;
-  let ok = 0;
-  let fail = 0;
-  async function worker() {
-    while (cursor < invoiceIds.length) {
-      const idx = cursor++;
-      const id = invoiceIds[idx];
-      try {
-        const resp = await fetch(`${opts.supabaseUrl}/functions/v1/analyze-document`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-internal-secret": opts.serviceKey },
-          body: JSON.stringify({ invoice_id: id, skip_finalize: true }),
-        });
-        if (resp.ok) ok++;
-        else { fail++; console.warn(`[sync-email][${opts.runId}] fanout invoice=${id} status=${resp.status}`); }
-      } catch (e) {
-        fail++;
-        console.error(`[sync-email][${opts.runId}] fanout invoice=${id} excepção`, e);
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(FANOUT_CONCURRENCY, invoiceIds.length) }, worker));
-  console.log(`[sync-email][${opts.runId}] fanout gemini_done ok=${ok} fail=${fail}`);
-}
-
-async function triggerFinalize(invoiceIds: string[], opts: FinishOpts): Promise<void> {
-  // Dispara reprocess-pending para fazer Drive+Sheets em batch. Drive é serial
-  // (concorrência 3) — não saturar quota e dar 1 ponto de retry para invoices
-  // que ficaram sem drive_file_id.
-  const resp = await fetch(`${opts.supabaseUrl}/functions/v1/reprocess-pending`, {
+  // Trigger do reprocess-pending para fazer Drive+Sheets em batch. Concorrência
+  // controlada lá dentro — sem await aqui.
+  fetch(`${opts.supabaseUrl}/functions/v1/reprocess-pending`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-internal-secret": opts.serviceKey },
     body: JSON.stringify({ invoice_ids: invoiceIds }),
+  }).catch((e) => {
+    console.warn(`[sync-email][${opts.runId}] reprocess fire_failed`, e instanceof Error ? e.message : e);
   });
-  console.log(`[sync-email][${opts.runId}] fanout finalize status=${resp.status}`);
 }
 
-// Acumula totais de fase 1 por tenant (discovered/duplicates/skipped/errors/messages)
-// e escreve. Ainda status=running — finishRun faz o done com totais reais.
-async function writePartialTotals(
-  admin: ReturnType<typeof createClient>,
-  syncRunByTenant: Map<string, string>,
-  results: AccountResult[],
-): Promise<void> {
-  const agg = aggregateByTenant(results);
-  for (const [tenantId, runId] of syncRunByTenant.entries()) {
-    const a = agg.get(tenantId);
-    if (!a) continue;
-    await admin.from("sync_runs").update({
-      total_messages: a.messages_found,
-      total_discovered: a.discovered,
-      total_duplicates: a.duplicates,
-      total_skipped: a.skipped,
-      total_errors: a.errors,
-    }).eq("id", runId);
-  }
-}
-
-// Fecha cada sync_runs com totais reais (contando soft-deletes pós-finalize)
-// e status=done. Se algum tenant não teve invoices criadas, também fecha.
-async function writeFinalTotals(
+// Fecha cada sync_runs sincronamente com totais de descoberta (fase 1):
+//   total_discovered = invoices criadas (vão a Gemini depois)
+//   total_duplicates = dedup precoce (msg+att) + dedup hash
+// Não conta rejected (Gemini ainda não correu) — ficará em 0; reprocess-pending
+// é responsável pela análise/finalização. Se o tenant não teve invoices criadas,
+// também fecha como 'done' com zeros.
+async function writeDiscoveryTotals(
   admin: ReturnType<typeof createClient>,
   syncRunByTenant: Map<string, string>,
   results: AccountResult[],
@@ -822,43 +767,17 @@ async function writeFinalTotals(
 
   for (const [tenantId, runId] of syncRunByTenant.entries()) {
     const a = agg.get(tenantId) ?? emptyAgg();
-    // Recount final: das invoices criadas nesta run, quantas ficaram vivas,
-    // quantas foram soft-deleted por duplicado, quantas por rejeição Gemini.
-    let kept = 0;
-    let duplicatedPostFinalize = 0;
-    let rejectedPostGemini = 0;
-    if (a.invoice_ids.length > 0) {
-      const { data: rows } = await admin.from("invoices")
-        .select("deleted_at, review_reason")
-        .in("id", a.invoice_ids);
-      for (const r of (rows ?? []) as Array<{ deleted_at: string | null; review_reason: string | null }>) {
-        if (r.deleted_at === null) { kept++; continue; }
-        const reason = (r.review_reason ?? "").toLowerCase();
-        if (reason.startsWith("duplicada")) duplicatedPostFinalize++;
-        else rejectedPostGemini++;
-      }
-    }
     await admin.from("sync_runs").update({
       status: "done",
       completed_at: now,
       total_messages: a.messages_found,
-      total_discovered: kept,
-      total_duplicates: a.duplicates + duplicatedPostFinalize,
-      total_rejected: rejectedPostGemini,
+      total_discovered: a.discovered,
+      total_duplicates: a.duplicates,
+      total_rejected: 0,
       total_skipped: a.skipped,
       total_errors: a.errors,
     }).eq("id", runId);
   }
-}
-
-async function markAllRunsDone(
-  admin: ReturnType<typeof createClient>,
-  syncRunByTenant: Map<string, string>,
-): Promise<void> {
-  if (syncRunByTenant.size === 0) return;
-  await admin.from("sync_runs")
-    .update({ status: "done", completed_at: new Date().toISOString() })
-    .in("id", Array.from(syncRunByTenant.values()));
 }
 
 interface TenantAgg {
