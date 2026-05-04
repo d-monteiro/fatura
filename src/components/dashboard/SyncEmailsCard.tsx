@@ -1,100 +1,73 @@
-import { useState } from 'react';
-import { Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Mail, Loader2, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/contexts/I18nContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/lib/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { invalidateInvoiceLists } from '@/lib/queryKeys';
-import { useAuth } from '@/contexts/AuthContext';
-import { hasGmailScopes } from '@/lib/google/scopes';
-
-interface SyncResult {
-  discovered: number;
-  duplicates: number;
-  skipped: number;
-  errors: number;
-  messagesFound: number;
-  attachmentsSeen: number;
-}
+import { queryKeys } from '@/lib/queryKeys';
+import { SyncJobStatusBadge } from '@/components/admin/SyncJobBadges';
+import type { SyncJob } from '@/types/sync';
 
 export function SyncEmailsCard() {
   const { t } = useI18n();
+  const { tenant } = useTenant();
   const qc = useQueryClient();
-  const { user } = useAuth();
-  const [syncing, setSyncing] = useState(false);
-  const [result, setResult] = useState<SyncResult | null>(null);
+  const navigate = useNavigate();
 
+  const tenantId = tenant?.id ?? null;
+
+  // Conta Gmail vive por tenant (não por user). Membro convidado deve ver
+  // "Verificar agora" se o owner já ligou Gmail à empresa — RLS filtra por
+  // get_user_tenant_ids(), portanto qualquer membro lê.
   const { data: hasGmail = false } = useQuery({
-    queryKey: ['has-gmail-account', user?.id],
-    enabled: !!user,
+    queryKey: ['has-gmail-account', 'tenant', tenantId],
+    enabled: !!tenantId,
     queryFn: async () => {
-      const { data } = await supabase.from('user_oauth_tokens')
-        .select('scopes').eq('user_id', user!.id);
-      return ((data as { scopes: string[] | null }[] | null) ?? [])
-        .some((row) => hasGmailScopes(row.scopes));
+      const { data } = await supabase.from('email_accounts')
+        .select('id')
+        .eq('tenant_id', tenantId!)
+        .eq('is_active', true)
+        .limit(1);
+      return Array.isArray(data) && data.length > 0;
     },
   });
 
-  async function handleSync() {
-    setSyncing(true);
-    setResult(null);
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!supabaseUrl || !anonKey || !session?.access_token) {
-        toast.error(t('sync.error'));
-        return;
-      }
+  const { data: activeJob } = useQuery<SyncJob | null>({
+    queryKey: queryKeys.syncJobActive(tenantId),
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('sync_jobs')
+        .select('*')
+        .eq('tenant_id', tenantId!)
+        .in('status', ['queued', 'discovering', 'processing', 'paused_reauth'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data as SyncJob | null) ?? null;
+    },
+    refetchInterval: 10_000,
+  });
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/sync-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${session.access_token}`,
-        },
+  const startMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenantId) throw new Error('Sem tenant activo');
+      const { data, error } = await supabase.rpc('start_sync_job', {
+        p_tenant_id: tenantId,
+        p_trigger: 'manual',
+        p_email_account_id: null,
       });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        toast.error(data.error || data.message || `${t('sync.error')} (HTTP ${response.status})`);
-        return;
-      }
-
-      const r: SyncResult = {
-        discovered: data.total_discovered ?? 0,
-        duplicates: data.total_duplicates ?? 0,
-        skipped: data.total_skipped ?? 0,
-        errors: data.total_errors ?? 0,
-        messagesFound: data.total_messages_found ?? 0,
-        attachmentsSeen: data.total_attachments_seen ?? 0,
-      };
-      setResult(r);
-
-      if (data.code === 'no_accounts') {
-        toast.info(data.message);
-      } else if (r.discovered > 0) {
-        toast.success(`${r.discovered} ${t('sync.processed')}`);
-        invalidateInvoiceLists(qc);
-      } else if (r.duplicates > 0) {
-        toast.info(`${r.duplicates} ${t('sync.duplicates')}`);
-      } else if (r.errors > 0) {
-        toast.error(t('sync.errors_found'));
-      } else if (r.messagesFound === 0) {
-        toast.info(t('sync.no_emails'));
-      } else if (r.skipped > 0) {
-        toast.info(`${r.skipped} ${t('sync.skipped_only')}`);
-      } else {
-        // Gmail devolveu mensagens mas nenhuma tinha anexo elegível
-        toast.info(`${r.messagesFound} ${t('sync.no_matches')}`);
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('sync.error'));
-    } finally {
-      setSyncing(false);
-    }
-  }
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (jobId) => {
+      toast.success(t('sync.job_started'), { description: t('sync.job_started_desc') });
+      qc.invalidateQueries({ queryKey: queryKeys.syncJobActive(tenantId) });
+      navigate(`/sync/${jobId}`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('sync.error')),
+  });
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
@@ -109,25 +82,7 @@ export function SyncEmailsCard() {
       </div>
 
       <div className="flex items-center gap-3">
-        {result && (
-          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-            {result.messagesFound} emails · {result.attachmentsSeen} anexos · {result.discovered} nova(s)
-          </span>
-        )}
-        {hasGmail ? (
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            {syncing ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />{t('auto.checking')}</>
-            ) : (
-              <><Mail className="h-4 w-4" />{t('auto.check_now')}</>
-            )}
-          </button>
-        ) : (
+        {!hasGmail ? (
           <Link
             to="/settings"
             className="inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
@@ -136,6 +91,26 @@ export function SyncEmailsCard() {
             <AlertCircle className="h-4 w-4" />
             Ligar Google
           </Link>
+        ) : activeJob ? (
+          <button
+            onClick={() => navigate(`/sync/${activeJob.id}`)}
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-muted/50"
+          >
+            <SyncJobStatusBadge status={activeJob.status} />
+            <span>{t('sync.view_progress')}</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => startMutation.mutate()}
+            disabled={startMutation.isPending}
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {startMutation.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />{t('sync.starting')}</>
+            ) : (
+              <><Mail className="h-4 w-4" />{t('sync.start_now')}</>
+            )}
+          </button>
         )}
       </div>
     </div>

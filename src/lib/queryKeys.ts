@@ -21,6 +21,10 @@ export const queryKeys = {
   company: (companyId: string) => ['company', companyId] as const,
   syncRuns: ['sync-runs'] as const,
   syncRunsLatest: (tenantId: string | null) => ['sync-runs', 'latest', tenantId] as const,
+  syncJob: (jobId: string | null) => ['sync-jobs', 'detail', jobId] as const,
+  syncJobActive: (tenantId: string | null) => ['sync-jobs', 'active', tenantId] as const,
+  adminSyncJobs: (filter: string) => ['admin', 'sync-jobs', filter] as const,
+  adminSyncJobDetail: (jobId: string | null) => ['admin', 'sync-jobs', 'detail', jobId] as const,
   duplicates: (tenantId: string | null, companyId: string | null) =>
     ['duplicates', tenantId, companyId] as const,
   upcomingPayments: (tenantId: string | null, companyId: string | null) =>

@@ -8,6 +8,11 @@ project_id = "sxfwprydmllovnxxjhrh"
 [functions.oauth-start]
 verify_jwt = false
 
+# Google redirecciona para esta função sem Authorization header — JWT é
+# impossível aqui. A validação é feita via state HMAC-assinado dentro da função.
+[functions.oauth-callback]
+verify_jwt = false
+
 [functions.analyze-document]
 verify_jwt = false
 

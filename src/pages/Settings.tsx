@@ -9,6 +9,7 @@ import { CategoriesCard } from '@/components/settings/CategoriesCard';
 import { DocumentTypesCard } from '@/components/settings/DocumentTypesCard';
 import { DuplicateSuppliersCard } from '@/components/settings/DuplicateSuppliersCard';
 import { GoogleAccountsUnified } from '@/components/settings/GoogleAccountsUnified';
+import { SyncBackfillCard } from '@/components/settings/SyncBackfillCard';
 import { PasswordCard } from '@/components/settings/PasswordCard';
 import { ReportsCard } from '@/components/settings/ReportsCard';
 import { TeamCard } from '@/components/settings/TeamCard';
@@ -60,6 +61,7 @@ export default function Settings() {
       <DuplicateSuppliersCard />
       <ReportsCard />
       {user && <GoogleAccountsUnified userId={user.id} />}
+      <SyncBackfillCard />
       {can('view_companies') && <CompanyList />}
       {can('view_team') && <TeamCard />}
       <PasswordCard />

@@ -37,6 +37,8 @@ import AdminOnboarding from '@/pages/admin/AdminOnboarding';
 import AdminLeads from '@/pages/admin/AdminLeads';
 import AdminAdmins from '@/pages/admin/AdminAdmins';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics';
+import AdminSyncJobs from '@/pages/admin/AdminSyncJobs';
+import SyncProgress from '@/pages/SyncProgress';
 import AuthCallback from '@/pages/AuthCallback';
 import NotFound from '@/pages/NotFound';
 import { usePageViews } from '@/lib/analytics/usePageViews';
@@ -116,6 +118,7 @@ function AppRoutes() {
         <Route path="onboarding" element={<AdminOnboarding />} />
         <Route path="leads" element={<AdminLeads />} />
         <Route path="admins" element={<AdminAdmins />} />
+        <Route path="sync-jobs" element={<AdminSyncJobs />} />
       </Route>
       <Route element={<RequireTenant><UploadQueueProvider><AppLayout /></UploadQueueProvider></RequireTenant>}>
         <Route index element={<Dashboard />} />
@@ -126,6 +129,7 @@ function AppRoutes() {
         <Route path="billing" element={<RequirePermission action="view_billing"><Billing /></RequirePermission>} />
         <Route path="tickets" element={<Tickets />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="sync/:jobId" element={<SyncProgress />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
