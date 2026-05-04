@@ -177,6 +177,136 @@ export function backoffDelay(attempts: number): Date {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Circuit breaker (Fase 8 + review): Gemini, Drive, per-tenant + global.
+// 3 falhas em 60s → state='open' por 5min → probe via 'half_open'.
+// tenantId=null/undefined → breaker GLOBAL do serviço (use para 429/quota
+// que afecta toda a API). Para 5xx/auth/permissão específica, passar tenantId.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CircuitService = "gemini" | "drive";
+
+// Devolve true se nem o breaker global nem o per-tenant estão open. Em falha
+// de RPC fail-open (true) — preferimos correr o batch a parar todo o pipeline
+// por um glitch da BD. Erros graves chegam aos logs do worker.
+export async function circuitBreakerCheck(
+  admin: SupabaseAdmin,
+  service: CircuitService,
+  tenantId?: string | null,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("circuit_breaker_check", {
+    p_service: service,
+    p_tenant_id: tenantId ?? null,
+  });
+  if (error) {
+    await logEdgeError({
+      functionName: "syncWorkers",
+      level: "error",
+      message: `circuit_breaker_check(${service}) RPC falhou`,
+      tenantId: tenantId ?? undefined,
+      metadata: { db_error: error.message },
+    });
+    return true;
+  }
+  return data === true;
+}
+
+export async function circuitBreakerTrip(
+  admin: SupabaseAdmin,
+  service: CircuitService,
+  reason: string,
+  tenantId?: string | null,
+): Promise<void> {
+  const { error } = await admin.rpc("circuit_breaker_record_failure", {
+    p_service: service,
+    p_tenant_id: tenantId ?? null,
+    p_reason: reason.slice(0, 200),
+  });
+  if (error) {
+    await logEdgeError({
+      functionName: "syncWorkers",
+      level: "error",
+      message: `circuit_breaker_record_failure(${service}) RPC falhou`,
+      tenantId: tenantId ?? undefined,
+      metadata: { db_error: error.message, reason: reason.slice(0, 200) },
+    });
+  }
+}
+
+// Sucesso fecha o breaker apenas se está em half_open. RPC server-side
+// garante (review B3): em open o success é ignorado.
+export async function circuitBreakerSuccess(
+  admin: SupabaseAdmin,
+  service: CircuitService,
+  tenantId?: string | null,
+): Promise<void> {
+  const { error } = await admin.rpc("circuit_breaker_record_success", {
+    p_service: service,
+    p_tenant_id: tenantId ?? null,
+  });
+  if (error) {
+    await logEdgeError({
+      functionName: "syncWorkers",
+      level: "error",
+      message: `circuit_breaker_record_success(${service}) RPC falhou`,
+      tenantId: tenantId ?? undefined,
+      metadata: { db_error: error.message },
+    });
+  }
+}
+
+// Helper para chamar success 1× por batch (review S6 — write amplification).
+// Cada `report(tenantId)` dispara duas RPCs (per-tenant e global) cada uma
+// no máximo 1× por batch. Necessário porque um trip global (429) só fecha
+// se algum probe success-com-tenantId-null chegar.
+export class BreakerSuccessOnce {
+  private reported = new Set<string>();
+  constructor(private admin: SupabaseAdmin, private service: CircuitService) {}
+
+  async report(tenantId?: string | null): Promise<void> {
+    if (tenantId) {
+      const key = `t:${tenantId}`;
+      if (!this.reported.has(key)) {
+        this.reported.add(key);
+        await circuitBreakerSuccess(this.admin, this.service, tenantId);
+      }
+    }
+    if (!this.reported.has("__global__")) {
+      this.reported.add("__global__");
+      await circuitBreakerSuccess(this.admin, this.service, null);
+    }
+  }
+}
+
+// Classificador de exceções (review B4) — decide se uma falha do worker é:
+//   service: serviço externo (Gemini/Drive) provavelmente caído → trip + bumpAttempt
+//   timeout: o serviço externo está lento mas vivo → releaseLock + next_retry sem trip
+//   internal: bug local (parsing, BD, etc.) → bumpAttempt sem trip do breaker externo
+// Aplicado no catch genérico dos workers; antes era tudo classificado como service.
+export type FailureKind = "service" | "timeout" | "internal";
+
+export function classifyFailure(e: unknown): { kind: FailureKind; reason: string } {
+  if (e instanceof Error) {
+    const name = e.name;
+    const msg = e.message ?? "";
+    // AbortController.abort() em fetchWithTimeout
+    if (name === "AbortError" || /\babort/i.test(msg)) {
+      return { kind: "timeout", reason: msg.slice(0, 200) || "abort" };
+    }
+    // Falhas de rede/DNS/TLS
+    if (/\b(ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ENETUNREACH|EAI_AGAIN|TypeError: fetch failed)\b/i.test(msg)) {
+      return { kind: "service", reason: msg.slice(0, 200) };
+    }
+    // Default: assume serviço externo apenas se o stack/message refere fetch ou api;
+    // caso contrário "internal" (bug nosso).
+    if (/\b(fetch|api|http|http_response)\b/i.test(msg)) {
+      return { kind: "service", reason: msg.slice(0, 200) };
+    }
+    return { kind: "internal", reason: msg.slice(0, 200) };
+  }
+  return { kind: "internal", reason: String(e).slice(0, 200) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // sync_jobs: heartbeat, contadores, pause, fail, lock atómico discover
 // ─────────────────────────────────────────────────────────────────────────────
 
