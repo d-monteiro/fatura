@@ -8,6 +8,7 @@ import { invalidateInvoiceLists, queryKeys } from '@/lib/queryKeys';
 import { reportError } from '@/lib/errors/errorReporter';
 import { InvoiceReviewDialog } from './InvoiceReviewDialog';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
+import { InvoiceIgnoredDialog } from './InvoiceIgnoredDialog';
 import { NormalDrawerContent, NormalDrawerFooter } from './InvoiceNormalDrawer';
 import { invoiceIdentifier } from './invoiceDisplay';
 import { useTenant } from '@/contexts/TenantContext';
@@ -137,7 +138,21 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
     );
   }
 
-  // MODE 1 - Normal drawer (also handles ignored items via isIgnored flag)
+  // MODE 4 - Ignored split screen (preview + dados read-only + Recuperar)
+  if (isIgnored) {
+    return (
+      <InvoiceIgnoredDialog
+        invoice={invoice}
+        open
+        onClose={onClose}
+        onRecover={handleRecover}
+        canRecover={can('recover_invoice')}
+        isRecovering={recoverMutation.isPending}
+      />
+    );
+  }
+
+  // MODE 1 - Normal drawer
   const categoryLabel = labelFor(invoice.category) || null;
   const ident = invoiceIdentifier(invoice);
   const canRecover = can('recover_invoice');

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ExternalLink, FileX } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import type { Invoice } from '@/types/database';
 
@@ -19,16 +19,36 @@ function stripQuery(url: string) {
 export function InvoiceDocPreview({ invoice }: Props) {
   const { t } = useI18n();
   const [forceFallback, setForceFallback] = useState(false);
+  const [supabaseDead, setSupabaseDead] = useState(false);
   // Reset do fallback ao trocar de invoice (storing info from prev props).
   const [prevId, setPrevId] = useState(invoice.id);
   if (prevId !== invoice.id) {
     setPrevId(invoice.id);
     setForceFallback(false);
+    setSupabaseDead(false);
   }
 
   const hasDrive = !!invoice.drive_file_id;
   const hasSupabase = !!invoice.file_url;
   const useDrive = hasDrive && !forceFallback;
+
+  // Pré-verifica o file_url do Supabase quando vamos cair lá (sem Drive ou
+  // após fallback manual). Iframes não disparam onError em 404 de PDFs, por
+  // isso fazemos um HEAD prévio. Resolve a má UX dos casos legacy em que
+  // o objecto físico já foi removido mas o file_url ficou no row.
+  useEffect(() => {
+    if (useDrive || !invoice.file_url) return;
+    let abort = false;
+    (async () => {
+      try {
+        const res = await fetch(invoice.file_url!, { method: 'HEAD' });
+        if (!abort && !res.ok) setSupabaseDead(true);
+      } catch {
+        if (!abort) setSupabaseDead(true);
+      }
+    })();
+    return () => { abort = true; };
+  }, [invoice.file_url, useDrive]);
 
   const base = stripQuery(invoice.file_url || '');
   const pathOrUrl = invoice.storage_path || base;
@@ -64,11 +84,16 @@ export function InvoiceDocPreview({ invoice }: Props) {
     );
   }
 
-  if (hasSupabase) {
+  if (hasSupabase && !supabaseDead) {
     if (isImage) {
       return (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 overflow-auto">
-          <img src={invoice.file_url ?? undefined} alt="Document" className="max-w-full max-h-full object-contain rounded" />
+          <img
+            src={invoice.file_url ?? undefined}
+            alt="Document"
+            className="max-w-full max-h-full object-contain rounded"
+            onError={() => setSupabaseDead(true)}
+          />
         </div>
       );
     }
@@ -80,6 +105,16 @@ export function InvoiceDocPreview({ invoice }: Props) {
           title="Document Preview"
           loading="lazy"
         />
+      </div>
+    );
+  }
+
+  if (supabaseDead) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-gray-500">
+        <FileX className="h-10 w-10 text-gray-400" />
+        <p className="text-sm font-medium text-gray-700">Documento já não está disponível</p>
+        <p className="text-xs text-gray-500">O ficheiro original foi removido. Os dados extraídos continuam aqui.</p>
       </div>
     );
   }

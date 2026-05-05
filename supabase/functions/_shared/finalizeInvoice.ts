@@ -200,13 +200,41 @@ export async function finalizeInvoice(
 
   const dup = await findDuplicate(admin, { ...invoice, company_id: detectedCompanyId }, normalizedSupplier);
   if (dup) {
-    await admin.from("invoices").update({
+    // Antes de remover o ficheiro próprio da duplicada, copia a referência
+    // do ficheiro da original (Drive ou outro path Storage). Sem isto, o
+    // user via "Ignoradas" abria a duplicada e batia 404 (storage_path/
+    // file_url referenciavam um objecto já removido).
+    const { data: originalRow } = await admin
+      .from("invoices")
+      .select("drive_file_id, drive_link, file_url, storage_path")
+      .eq("id", dup)
+      .maybeSingle();
+    const original = (originalRow ?? null) as {
+      drive_file_id: string | null;
+      drive_link: string | null;
+      file_url: string | null;
+      storage_path: string | null;
+    } | null;
+
+    const dupUpdates: Record<string, unknown> = {
       status: "failed",
       manual_review: false,
       review_reason: buildReviewReason("manual_request", `Duplicada de ${dup}`),
       deleted_at: new Date().toISOString(),
-    }).eq("id", invoiceId);
-    if (invoice.storage_path) {
+      drive_file_id: original?.drive_file_id ?? null,
+      drive_link: original?.drive_link ?? null,
+      file_url: original?.drive_link ?? original?.file_url ?? null,
+      // Se a original já está no Drive, abandonamos qualquer storage_path —
+      // o user vê o Drive da original. Caso contrário aponta para o Storage
+      // da original (mesmo objecto, contagem de referência implícita).
+      storage_path: original?.drive_file_id ? null : original?.storage_path ?? null,
+    };
+    await admin.from("invoices").update(dupUpdates).eq("id", invoiceId);
+
+    // Só remove o ficheiro próprio se não estamos a partilhá-lo com a
+    // original (defesa em profundidade — paths são únicos por message_id+
+    // attachment_id, mas evita race com outros fluxos a apontar para o mesmo).
+    if (invoice.storage_path && invoice.storage_path !== original?.storage_path) {
       await admin.storage.from("invoices").remove([invoice.storage_path]);
     }
     log("dedup", "soft-delete (duplicada)", { dup_of: dup });
