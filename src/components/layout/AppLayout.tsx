@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 import { ReauthBanner } from '@/components/common/ReauthBanner';
-import { SyncBanner } from '@/components/faturas/SyncBanner';
+import { SyncJobBanner } from '@/components/layout/SyncJobBanner';
 import { useTenant } from '@/contexts/TenantContext';
 
 export function AppLayout() {
@@ -19,7 +19,7 @@ export function AppLayout() {
       <main className="min-h-screen p-4 pt-[72px] sm:p-6 sm:pt-[72px] md:ml-60 md:pt-6">
         <div className="mb-4 empty:mb-0 space-y-2">
           <ReauthBanner />
-          <SyncBanner tenantId={tenant?.id ?? null} />
+          <SyncJobBanner tenantId={tenant?.id ?? null} />
         </div>
         <Outlet />
       </main>

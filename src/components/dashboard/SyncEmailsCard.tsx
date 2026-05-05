@@ -7,7 +7,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { SyncJobStatusBadge } from '@/components/admin/SyncJobBadges';
-import type { SyncJob } from '@/types/sync';
+import { useActiveSyncJob } from '@/hooks/useActiveSyncJob';
 
 export function SyncEmailsCard() {
   const { t } = useI18n();
@@ -33,22 +33,7 @@ export function SyncEmailsCard() {
     },
   });
 
-  const { data: activeJob } = useQuery<SyncJob | null>({
-    queryKey: queryKeys.syncJobActive(tenantId),
-    enabled: !!tenantId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('sync_jobs')
-        .select('*')
-        .eq('tenant_id', tenantId!)
-        .in('status', ['queued', 'discovering', 'processing', 'paused_reauth'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return (data as SyncJob | null) ?? null;
-    },
-    refetchInterval: 10_000,
-  });
+  const { activeJob } = useActiveSyncJob(tenantId);
 
   const startMutation = useMutation({
     mutationFn: async () => {

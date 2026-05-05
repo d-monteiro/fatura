@@ -19,8 +19,6 @@ export const queryKeys = {
   tickets: ['tickets'] as const,
   lineItems: (invoiceId: string) => ['line-items', invoiceId] as const,
   company: (companyId: string) => ['company', companyId] as const,
-  syncRuns: ['sync-runs'] as const,
-  syncRunsLatest: (tenantId: string | null) => ['sync-runs', 'latest', tenantId] as const,
   syncJob: (jobId: string | null) => ['sync-jobs', 'detail', jobId] as const,
   syncJobActive: (tenantId: string | null) => ['sync-jobs', 'active', tenantId] as const,
   adminSyncJobs: (filter: string) => ['admin', 'sync-jobs', filter] as const,

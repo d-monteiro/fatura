@@ -238,13 +238,8 @@ const translations = {
   'filter.date_to': 'Até',
 
   // Sync
-  'sync.processed': 'fatura(s) processada(s)!',
-  'sync.duplicates': 'duplicada(s) encontrada(s)',
-  'sync.no_emails': 'Nenhum email com faturas nos últimos 7 dias',
-  'sync.no_matches': 'emails verificados, nenhum anexo PDF/imagem novo',
-  'sync.skipped_only': 'anexo(s) encontrado(s) mas ignorados (tamanho/formato)',
-  'sync.errors_found': 'verificação com erros — ver Definições → Erros',
   'sync.error': 'Erro ao verificar',
+  'sync.banner_running': 'A verificar emails — podes continuar a trabalhar.',
   'sync.job_started': 'Sincronização iniciada',
   'sync.job_started_desc': 'A descobrir emails... isto pode demorar alguns minutos.',
   'sync.job_already_running': 'Já existe uma sincronização activa.',
