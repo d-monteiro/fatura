@@ -42,7 +42,7 @@ export function SyncJobStatusBadge({ status }: { status: SyncJobStatus }) {
 const TRIGGER_LABEL_KEY: Record<SyncJobTrigger, TranslationKey> = {
   cron: 'sync.trigger_cron',
   manual: 'sync.trigger_manual',
-  backfill_3m: 'sync.trigger_backfill_3m',
+  backfill_6m: 'sync.trigger_backfill_6m',
   admin: 'sync.trigger_admin',
 };
 

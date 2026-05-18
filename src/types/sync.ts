@@ -2,7 +2,7 @@
 // 1 activo por tenant, alimentado pelos workers stateless discover-emails,
 // fetch-attachments, analyze-batch e finalize-batch.
 
-export type SyncJobTrigger = 'cron' | 'manual' | 'backfill_3m' | 'admin';
+export type SyncJobTrigger = 'cron' | 'manual' | 'backfill_6m' | 'admin';
 
 export type SyncJobStatus =
   | 'queued'

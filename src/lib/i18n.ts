@@ -280,7 +280,7 @@ const translations = {
   'sync.eta_calculating': 'a calcular...',
   'sync.trigger_cron': 'Cron diário',
   'sync.trigger_manual': 'Manual',
-  'sync.trigger_backfill_3m': 'Importação 3 meses',
+  'sync.trigger_backfill_6m': 'Importação 6 meses',
   'sync.trigger_admin': 'Admin',
   'sync.status_queued': 'Em fila',
   'sync.status_discovering': 'A descobrir',
@@ -294,14 +294,14 @@ const translations = {
   'sync.emails_read_suffix': 'email(s) lidos',
   'sync.invoices_discovered_suffix': 'fatura(s) descobertas',
 
-  // Backfill 3 meses
+  // Backfill 6 meses
   'backfill.title': 'Importação inicial',
-  'backfill.desc': 'Esta empresa ainda não tem o histórico do email importado. Podemos buscar facturas dos últimos 3 meses automaticamente.',
-  'backfill.estimate': 'Custo estimado dependente do volume real de emails. Demora algumas horas em background.',
-  'backfill.cta': 'Importar últimos 3 meses',
+  'backfill.desc': 'Esta empresa ainda não tem o histórico do email importado. Podemos buscar facturas dos últimos 6 meses automaticamente.',
+  'backfill.estimate': 'Acção única — só pode ser executada uma vez por empresa. Demora algumas horas em background.',
+  'backfill.cta': 'Importar últimos 6 meses',
   'backfill.starting': 'A iniciar importação...',
-  'backfill.confirm_title': 'Iniciar importação 3 meses?',
-  'backfill.confirm_body': 'Esta acção vai analisar todos os emails dos últimos 90 dias com anexos. Custo de análise IA aplicável. Pode cancelar a qualquer momento.',
+  'backfill.confirm_title': 'Iniciar importação 6 meses?',
+  'backfill.confirm_body': 'Vai analisar todos os emails dos últimos 180 dias com anexos. Esta é uma acção única — só pode ser executada uma vez por empresa. Pode cancelar a qualquer momento.',
   'backfill.confirm_yes': 'Iniciar',
   'backfill.confirm_no': 'Não, agora não',
 

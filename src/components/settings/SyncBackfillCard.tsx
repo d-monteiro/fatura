@@ -16,9 +16,10 @@ import { queryKeys } from '@/lib/queryKeys';
 import { SyncJobStatusBadge } from '@/components/admin/SyncJobBadges';
 import { useActiveSyncJob } from '@/hooks/useActiveSyncJob';
 
-// Backfill 3m custa ~63€ em Gemini — gating restrito a quem gere billing
-// (owners). Member/readonly não vêem o card de todo. RPC valida o mesmo
-// no servidor (defesa em profundidade).
+// Custo Gemini escala com volume real do tenant (PLAN_HARDENING §9 estima
+// $0.007/call no caso pessimista de 100 emails/dia). Gating restrito a
+// owners — Member/readonly não vêem o card. RPC valida o mesmo no servidor
+// (defesa em profundidade) e impõe rate-limit 24h.
 export function SyncBackfillCard() {
   const { tenant } = useTenant();
   const { t } = useI18n();
@@ -31,24 +32,19 @@ export function SyncBackfillCard() {
 
   const { activeJob } = useActiveSyncJob(tenantId);
 
-  // Já houve um backfill_3m completo nas últimas 24h?
-  // - Esconde o card para evitar custo duplicado.
-  // - Refetch periódico para reflectir um backfill que terminou enquanto
-  //   o user está em Settings (caso contrário ficava em cache 'false' e
-  //   permitia accionar de novo).
-  // - Janela 24h alinha com o rate-limit da RPC start_sync_job (B2).
+  // One-time forever: esconde o card se já existe um backfill_6m com
+  // status='done' para o tenant. Falhas (error/cancelled) não escondem —
+  // user pode re-tentar. Alinhado com rate-limit da RPC start_sync_job.
   const { data: recentBackfill } = useQuery<boolean>({
     queryKey: ['sync-jobs', 'recent-backfill', tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from('sync_jobs')
         .select('id')
         .eq('tenant_id', tenantId!)
-        .eq('trigger', 'backfill_3m')
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
+        .eq('trigger', 'backfill_6m')
+        .eq('status', 'done')
         .limit(1);
       return Array.isArray(data) && data.length > 0;
     },
@@ -60,7 +56,7 @@ export function SyncBackfillCard() {
       if (!tenantId) throw new Error('Sem tenant activo');
       const { data, error } = await supabase.rpc('start_sync_job', {
         p_tenant_id: tenantId,
-        p_trigger: 'backfill_3m',
+        p_trigger: 'backfill_6m',
         p_email_account_id: null,
       });
       if (error) throw error;
