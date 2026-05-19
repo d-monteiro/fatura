@@ -21,17 +21,76 @@ export const KNOWN_DOCUMENT_TYPES = new Set([
 
 export type IvaCheck = { ok: true } | { ok: false; reason: string };
 
+// Subtipos com IVA estruturado diferente do B2B padrão (seguros têm imposto
+// de selo + FGA, telecom tem multi-taxa + taxa audiovisual, banca cobra
+// comissões sem IVA escriturado uniforme).
+const COMPLEX_TAX_SUBTYPES = new Set(["seguro", "telecom", "utilities", "banca"]);
+const SUBTYPES_WITHOUT_IVA = new Set(["seguro", "banca"]);
+
 // Apanha "Fidelidade": taxa_iva=0% mas valor_total > valor_sem_iva, ou
 // aritmética inconsistente. Tolerância 2 cêntimos para arredondamentos.
+//
+// Considera 3 fontes adicionais opcionais do Gemini para documentos compostos:
+//   - outros_impostos: [{nome, valor}] — selo, FGA, INEM, taxa audiovisual...
+//   - iva_breakdown:   [{taxa, base, valor}] — multi-taxa
+//   - document_subtype: "seguro"|"telecom"|"utilities"|"banca"|null — relaxa
+//     algumas regras (seguro pode ter taxa_iva=0 mas total > sem_iva por causa
+//     do imposto de selo).
+//
+// Backwards-compatible: ausência destes campos = comportamento original.
 export function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
   const sem = num(row.valor_sem_iva);
   const iva = num(row.valor_iva);
   const total = num(row.valor_total);
   const taxa = num(row.taxa_iva);
   const autoliq = row.autoliquidacao === true;
+  const subtype = typeof row.document_subtype === "string"
+    ? (row.document_subtype as string).toLowerCase()
+    : null;
 
   if (autoliq) return { ok: true };
 
+  const outrosTotal = sumOutrosImpostos(row.outros_impostos);
+  const breakdown = parseBreakdown(row.iva_breakdown);
+  const isComplex = subtype != null && COMPLEX_TAX_SUBTYPES.has(subtype);
+  const hasOutros = outrosTotal > 0.02;
+  const hasBreakdown = breakdown.length > 0;
+
+  // 1. Multi-taxa: somatório do breakdown tem de bater com total (+ outros).
+  if (hasBreakdown && total != null) {
+    const bases = breakdown.reduce((a, x) => a + x.base, 0);
+    const ivas = breakdown.reduce((a, x) => a + x.valor, 0);
+    const expected = bases + ivas + outrosTotal;
+    if (Math.abs(expected - total) > 0.02) {
+      return { ok: false, reason: `breakdown (bases ${bases.toFixed(2)} + ivas ${ivas.toFixed(2)} + outros ${outrosTotal.toFixed(2)}) ≠ total (${total})` };
+    }
+    // Se chega aqui, breakdown é a fonte canónica e está consistente: skip
+    // verificações de taxa única abaixo.
+    return { ok: true };
+  }
+
+  // 2. Documento composto (seguro/telecom/utilities/banca) com outros_impostos:
+  //    aceitar sem_iva + iva + Σ outros = total, mesmo com taxa_iva=0.
+  if ((isComplex || hasOutros) && sem != null && iva != null && total != null) {
+    const expected = sem + iva + outrosTotal;
+    if (Math.abs(expected - total) > 0.02) {
+      return { ok: false, reason: `sem_iva (${sem}) + iva (${iva}) + outros (${outrosTotal.toFixed(2)}) ≠ total (${total})` };
+    }
+    return { ok: true };
+  }
+
+  // 3. Seguros/banca às vezes só têm "prémio total + selo" sem IVA escriturado.
+  //    Aceitar valor_iva=null/0, taxa_iva=null/0 se outros_impostos cobre o gap.
+  if (subtype != null && SUBTYPES_WITHOUT_IVA.has(subtype) && sem != null && total != null) {
+    const iva0 = iva ?? 0;
+    const expected = sem + iva0 + outrosTotal;
+    if (Math.abs(expected - total) > 0.02) {
+      return { ok: false, reason: `${subtype}: sem_iva (${sem}) + iva (${iva0}) + outros (${outrosTotal.toFixed(2)}) ≠ total (${total})` };
+    }
+    return { ok: true };
+  }
+
+  // 4. Caso padrão B2B (lógica original).
   if (sem != null && iva != null && total != null) {
     if (Math.abs((sem + iva) - total) > 0.02) {
       return { ok: false, reason: `sem_iva (${sem}) + iva (${iva}) ≠ total (${total})` };
@@ -50,6 +109,34 @@ export function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
     }
   }
   return { ok: true };
+}
+
+function sumOutrosImpostos(raw: unknown): number {
+  if (!Array.isArray(raw)) return 0;
+  let total = 0;
+  for (const item of raw) {
+    if (item && typeof item === "object") {
+      const valor = num((item as Record<string, unknown>).valor);
+      if (valor != null) total += valor;
+    }
+  }
+  return total;
+}
+
+function parseBreakdown(raw: unknown): { taxa: number; base: number; valor: number }[] {
+  if (!Array.isArray(raw)) return [];
+  const out: { taxa: number; base: number; valor: number }[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const taxa = num(rec.taxa);
+    const base = num(rec.base);
+    const valor = num(rec.valor);
+    if (base != null && valor != null && taxa != null) {
+      out.push({ taxa, base, valor });
+    }
+  }
+  return out;
 }
 
 function num(v: unknown): number | null {

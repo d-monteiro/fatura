@@ -156,8 +156,18 @@ const translations = {
   // Status
   'status.pending': 'Pendente',
   'status.inbox': 'A verificar',
+  'status.analyzing': 'A analisar',
+  'status.discovered': 'Detetada',
+  'status.fetching': 'A descarregar',
+  'status.extracted': 'A processar',
   'status.processed': 'Processado',
+  'status.completed': 'Concluído',
   'status.review': 'Em revisão',
+  'status.failed': 'Erro',
+  'status.failed_permanent': 'Falha permanente',
+  'status.cancelled': 'Cancelado',
+  'status.rejected': 'Rejeitada',
+  'status.duplicate': 'Duplicada',
 
   // Companies
   'company.all': 'Todas as empresas',

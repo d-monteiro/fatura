@@ -41,10 +41,19 @@ Se um documento contém VÁRIAS faturas (números de documento diferentes), extr
 - A empresa aparece nas faturas como: ${c.nameVariations.join(", ")}
 - Se o documento for EMITIDO POR esta empresa (e não recebido), devolve is_valid_document: false e rejection_reason: "fatura_propria".`);
 
-  parts.push(`# VALIDAÇÃO INICIAL
+  parts.push(`# VALIDAÇÃO INICIAL (rejeitar cedo — não tentar extrair valores)
 1. Não é documento (selfie, foto pessoal, paisagem) → is_valid_document: false, rejection_reason: "nao_e_documento"
 2. Documento ilegível ou desfocado → "documento_ilegivel"
-3. É documento mas não fatura/recibo/nota crédito → "nao_e_fatura"
+3. É documento mas NÃO é fatura/recibo/nota crédito/aviso pagamento → "nao_e_fatura".
+   REJEITAR explicitamente (is_valid_document: false, rejection_reason: "nao_e_fatura"):
+   - Nota de encomenda, encomenda, pedido, "purchase order", "order confirmation".
+   - Proforma, fatura proforma, "pro forma invoice", "quotation".
+   - Comprovativo / talão de pagamento, comprovativo de transferência, "wire transfer summary",
+     "payment confirmation", "transfer receipt" (são prova de pagamento avulso, não fatura).
+   - Extracto bancário, extracto de conta, "bank statement", "statement of account".
+   - Ordem de pagamento sem detalhe (sem valor sem IVA / IVA discriminado).
+   - Cartas comerciais, propostas, contratos sem montantes a pagar.
+   - Encomenda online / confirmação de compra sem fatura associada.
 4. Caso contrário → is_valid_document: true.`);
 
   parts.push(`# CATEGORIA DA DESPESA
@@ -84,10 +93,40 @@ Devolve sempre o tipo na lista — não inventes outros valores.
 - valor_iva = montante de IVA cobrado (linha rotulada "IVA", "VAT", "Imposto").
 - valor_total = total final a pagar (linha rotulada "Total a pagar", "Total da fatura", "Grand total").
 - taxa_iva = percentagem (0, 6, 13, 23 em PT). Nunca uma quantia em euros.
-- INVARIANTE NUMÉRICA: valor_sem_iva + valor_iva ≈ valor_total (tolerância 2 cêntimos). Se a aritmética falhar, marca confidence_score < 0.7.
+- INVARIANTE NUMÉRICA (caso simples, taxa única, sem outros impostos):
+  valor_sem_iva + valor_iva ≈ valor_total (tolerância 2 cêntimos).
 - NÃO uses como base tributável linhas decorativas: "prémio comercial", "valor poupado", "desconto aplicado", "valor recomendado", "preço de tabela".
-- Se taxa_iva == 0 mas valor_iva > 0 ou valor_total > valor_sem_iva → inconsistência: força confidence_score < 0.7.
-- Quando o documento for de seguro/seguradora, "prémio" = montante a pagar, NÃO é base tributável diferente do valor_total.`);
+- Se taxa_iva == 0 mas valor_iva > 0 → inconsistência: força confidence_score < 0.7.
+
+## DOCUMENTOS COM IMPOSTOS COMPOSTOS (seguros, telecom, banca)
+Muitos documentos PT têm linhas adicionais entre "sem IVA" e "total" que NÃO são IVA:
+- Imposto de Selo (~9% em seguros)
+- FGA — Fundo de Garantia Automóvel
+- INEM — taxa do Instituto Nacional de Emergência Médica
+- Encargos de fraccionamento, comissões, taxas administrativas, taxa de regulação
+- Taxa Audiovisual, Contribuição Audiovisual (CAV), Imposto Especial (telecom)
+
+Para estes documentos:
+- Preenche o array "outros_impostos" com cada componente: { "nome": "Imposto de Selo", "valor": 12.34 }.
+- INVARIANTE: valor_sem_iva + valor_iva + Σ(outros_impostos.valor) ≈ valor_total (tolerância 2 cêntimos).
+- Se o documento não discrimina valor_sem_iva e só apresenta "prémio total" + impostos, define:
+  valor_sem_iva = prémio comercial (base sobre a qual o imposto de selo é calculado),
+  valor_iva = 0, taxa_iva = 0, autoliquidacao = false,
+  e mete TUDO o resto em outros_impostos. valor_total = soma final a pagar.
+
+## FATURAS COM MÚLTIPLAS TAXAS DE IVA (telecom, utilities multi-serviço)
+Se o documento tem várias linhas com taxas IVA diferentes (ex.: 6% + 23%):
+- Preenche "iva_breakdown" com uma entrada por taxa: { "taxa": 23, "base": 100.00, "valor": 23.00 }.
+- valor_iva = Σ(iva_breakdown.valor); valor_sem_iva = Σ(iva_breakdown.base); taxa_iva = a taxa dominante (ou null se forem muito misturadas).
+- INVARIANTE: Σ(iva_breakdown.base) + Σ(iva_breakdown.valor) + Σ(outros_impostos.valor) ≈ valor_total.
+
+## SUBTIPO DO DOCUMENTO (ajuda a tolerância de validação)
+Preenche "document_subtype" com um destes valores (ou null) quando reconhecível:
+- "seguro" — apólices, recibos de seguro (Allianz, Fidelidade, Tranquilidade, Generali, Liberty, etc.).
+- "telecom" — operadores móveis/fixos (MEO, NOS, Vodafone, NOWO, Digi).
+- "utilities" — eletricidade, gás, água (EDP, Galp, Goldenergy, Iberdrola, Endesa, EPAL, AdRA).
+- "banca" — comissões/extractos bancários, prestações de leasing/crédito.
+- null — qualquer outro caso.`);
 
   parts.push(`# FORMATO DE SAÍDA (APENAS JSON, sem markdown nem texto antes/depois)
 SEMPRE devolves { "invoices": [...] }, mesmo que seja uma só fatura.
@@ -98,6 +137,7 @@ SEMPRE devolves { "invoices": [...] }, mesmo que seja uma só fatura.
       "is_valid_document": boolean,
       "rejection_reason": "nao_e_documento" | "documento_ilegivel" | "nao_e_fatura" | "fatura_propria" | null,
       "document_type": "fatura" | "recibo" | "nota_credito" | "aviso_pagamento" | "outro" | null,
+      "document_subtype": "seguro" | "telecom" | "utilities" | "banca" | null,
       "category": ${c.categories.length ? c.categories.map((x) => `"${x.code}"`).join(" | ") + " | null" : "null"},
       "doc_year": number | null,
       "doc_date": "YYYY-MM-DD" | null,
@@ -110,6 +150,12 @@ SEMPRE devolves { "invoices": [...] }, mesmo que seja uma só fatura.
       "taxa_iva": number | null,
       "valor_iva": number | null,
       "valor_total": number | null,
+      "outros_impostos": [
+        { "nome": string, "valor": number }
+      ],
+      "iva_breakdown": [
+        { "taxa": number, "base": number, "valor": number }
+      ],
       "autoliquidacao": boolean,
       "payment_method": "transferencia" | "MB" | "multibanco" | "cheque" | "numerario" | "cartao" | null,
       "supplier_iban": string | null,
