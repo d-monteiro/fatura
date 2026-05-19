@@ -16,6 +16,7 @@ export interface SendResult {
   messageId?: string;
   error?: string;
   status?: number;
+  skipped?: boolean;
 }
 
 interface ResendResponse {
@@ -26,7 +27,7 @@ interface ResendResponse {
 
 export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY_missing" };
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY_missing", skipped: true };
 
   const payload: Record<string, unknown> = {
     from: args.from,

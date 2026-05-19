@@ -223,12 +223,14 @@ Deno.serve(async (req) => {
   });
 
   if (!send.ok) {
-    await logEdgeError({
-      functionName: "send-report-now", level: "error",
-      message: `resend failed: ${send.error}`,
-      tenantId: config.tenant_id, requestId: runId,
-      metadata: { config_id: config.id, period_start: periodStart, status: send.status },
-    });
+    if (!send.skipped) {
+      await logEdgeError({
+        functionName: "send-report-now", level: "error",
+        message: `resend failed: ${send.error}`,
+        tenantId: config.tenant_id, requestId: runId,
+        metadata: { config_id: config.id, period_start: periodStart, status: send.status },
+      });
+    }
     return json(502, { success: false, error: send.error ?? "send_failed" }, corsHeaders);
   }
 

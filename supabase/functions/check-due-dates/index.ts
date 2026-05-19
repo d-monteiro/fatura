@@ -278,12 +278,14 @@ async function processTenant(a: ProcessArgs): Promise<RunResult> {
   });
 
   if (!send.ok) {
-    await logEdgeError({
-      functionName: "check-due-dates", level: "error",
-      message: `resend failed: ${send.error}`,
-      tenantId: tenant.id, requestId: runId,
-      metadata: { email_to: emailTo, status: send.status, invoices_count: invoices.length },
-    });
+    if (!send.skipped) {
+      await logEdgeError({
+        functionName: "check-due-dates", level: "error",
+        message: `resend failed: ${send.error}`,
+        tenantId: tenant.id, requestId: runId,
+        metadata: { email_to: emailTo, status: send.status, invoices_count: invoices.length },
+      });
+    }
     return { tenantId: tenant.id, outcome: "failed", reason: send.error, emailTo, invoicesCount: invoices.length };
   }
 

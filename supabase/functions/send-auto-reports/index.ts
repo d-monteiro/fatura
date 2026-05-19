@@ -323,12 +323,14 @@ async function processConfig(a: ProcessArgs): Promise<RunResult> {
   });
 
   if (!send.ok) {
-    await logEdgeError({
-      functionName: "send-auto-reports", level: "error",
-      message: `resend failed: ${send.error}`,
-      tenantId: config.tenant_id, requestId: runId,
-      metadata: { config_id: config.id, period_start: win.periodStart, kind: config.frequency, email_to: emailTo, status: send.status },
-    });
+    if (!send.skipped) {
+      await logEdgeError({
+        functionName: "send-auto-reports", level: "error",
+        message: `resend failed: ${send.error}`,
+        tenantId: config.tenant_id, requestId: runId,
+        metadata: { config_id: config.id, period_start: win.periodStart, kind: config.frequency, email_to: emailTo, status: send.status },
+      });
+    }
     return {
       configId: config.id, tenantId: config.tenant_id, outcome: "failed",
       reason: send.error, emailTo, periodStart: win.periodStart, periodEnd: win.periodEnd,
