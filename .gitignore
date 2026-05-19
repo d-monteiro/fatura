@@ -12,6 +12,9 @@ ai-fatura-pro.zip
 .claude/settings.local.json
 .claude/worktrees/
 
+# Supabase CLI temp state (auto-update markers)
+supabase/.temp/
+
 # sample PDFs — nunca servir faturas em public
 public/faturasex/
 *.pdf
