@@ -1,9 +1,47 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plug, LifeBuoy, FileSpreadsheet, Sparkles, Clock, Download } from 'lucide-react';
+import { Plug, LifeBuoy, FileSpreadsheet, Sparkles, Clock, Download, X } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
+const DISMISS_KEY_PREFIX = 'flowzi.dashboard.externalIntegrationsDismissed.';
+
+function dismissKey(userId: string | null | undefined) {
+  return userId ? `${DISMISS_KEY_PREFIX}${userId}` : null;
+}
 
 export function ExternalIntegrationsCard() {
+  const { user } = useAuth();
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    const key = dismissKey(user?.id);
+    if (!key) return false;
+    try {
+      return window.localStorage.getItem(key) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    const key = dismissKey(user?.id);
+    if (key) {
+      try { window.localStorage.setItem(key, '1'); } catch { /* ignore quota/SSR */ }
+    }
+    setDismissed(true);
+  };
+
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-white p-5 shadow-card sm:p-6">
+    <div className="relative rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-white p-5 shadow-card sm:p-6">
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label="Dispensar"
+        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-indigo-500/70 hover:bg-indigo-100 hover:text-indigo-700"
+      >
+        <X className="h-4 w-4" />
+      </button>
+
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
         <div className="flex flex-1 items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
