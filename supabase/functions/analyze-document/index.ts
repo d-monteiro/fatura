@@ -408,8 +408,13 @@ async function analyzeByInvoiceId(
   const verdict = classifyInvoice(first, { allowedTypes });
   const { needsReview, reviewReason, normalizedNif, docType } = verdict;
   const confidence = (first.confidence_score as number | undefined) ?? 0;
+  // Tipo extraído pela Gemini não está nos aceites pelo tenant — vai directo
+  // para ignorados (em vez de ficar a poluir a fila de revisão). Mantém os
+  // campos extraídos para que o user possa ver o conteúdo e recuperar se
+  // mudar de ideias. Salta o finalize (Drive+Sheets) — ignoradas não vão p/ Drive.
+  const isUnknownType = verdict.reasonKind === "document_type_unknown";
 
-  const { error: updateErr } = await adminClient.from("invoices").update({
+  const baseUpdate = {
     document_type: docType,
     category: (first.category as string | undefined) ?? null,
     doc_date: first.doc_date ?? null,
@@ -429,17 +434,28 @@ async function analyzeByInvoiceId(
     summary: first.summary ?? null,
     destinatario_nome: (first.destinatario_nome as string | undefined) ?? null,
     confidence_score: confidence,
-    // skip_finalize=true (worker analyze-batch da Fase 4): status='extracted' é
-    // o estado intermédio que o watchdog reconhece como "ainda em pipeline" e
-    // o finalize-batch pega para fazer Drive+Sheets. Sem isto, status='inbox'
-    // antes de Drive marcaria sync_jobs como 'done' prematuramente. needsReview
-    // mantém 'review' independente do skip — distinção entre "infra terminou"
-    // e "infra pendente" passa a ser via drive_file_id IS (NOT) NULL.
-    // skip_finalize=false (frontend upload directo): mantém 'inbox' como antes
-    // porque o finalizeInvoice corre logo a seguir nesta mesma invocação.
-    status: needsReview ? "review" : (skipFinalize ? "extracted" : "inbox"),
-    manual_review: needsReview,
     review_reason: reviewReason,
+  };
+
+  const statusUpdate = isUnknownType
+    ? {
+        status: "cancelled" as const,
+        manual_review: false,
+        deleted_at: new Date().toISOString(),
+      }
+    : {
+        // skip_finalize=true (worker analyze-batch da Fase 4): status='extracted' é
+        // o estado intermédio que o watchdog reconhece como "ainda em pipeline" e
+        // o finalize-batch pega para fazer Drive+Sheets. Sem isto, status='inbox'
+        // antes de Drive marcaria sync_jobs como 'done' prematuramente.
+        status: (needsReview ? "review" : (skipFinalize ? "extracted" : "inbox")) as
+          | "review" | "extracted" | "inbox",
+        manual_review: needsReview,
+      };
+
+  const { error: updateErr } = await adminClient.from("invoices").update({
+    ...baseUpdate,
+    ...statusUpdate,
   }).eq("id", invoiceId);
 
   if (updateErr) {
@@ -472,6 +488,11 @@ async function analyzeByInvoiceId(
         metadata: { invoice_id: invoiceId, lines: lineItems.length },
       });
     }
+  }
+
+  // Tipo não-aceite: já soft-deleted acima. Não corre finalize (não vai p/ Drive).
+  if (isUnknownType) {
+    return json(200, { ok: true, state: "ignored_unknown_type" }, corsHeaders);
   }
 
   // Fase 2: Drive + Sheets + supplier match + dedup via finalizeInvoice.

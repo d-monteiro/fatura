@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { X, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { useI18n } from '@/contexts/I18nContext';
@@ -9,6 +9,7 @@ import { reportError } from '@/lib/errors/errorReporter';
 import { InvoiceReviewDialog } from './InvoiceReviewDialog';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 import { InvoiceIgnoredDialog } from './InvoiceIgnoredDialog';
+import { InvoiceDocPreview } from './InvoiceDocPreview';
 import { NormalDrawerContent, NormalDrawerFooter } from './InvoiceNormalDrawer';
 import { invoiceIdentifier } from './invoiceDisplay';
 import { useTenant } from '@/contexts/TenantContext';
@@ -152,52 +153,70 @@ export function InvoiceDetailDrawer({ invoice, open, onClose }: Props) {
     );
   }
 
-  // MODE 1 - Normal drawer
+  // MODE 1 - Normal drawer (split com preview do documento)
   const categoryLabel = labelFor(invoice.category) || null;
   const ident = invoiceIdentifier(invoice);
   const canRecover = can('recover_invoice');
+  const drivePreviewUrl = invoice.drive_file_id
+    ? `https://drive.google.com/file/d/${invoice.drive_file_id}/preview`
+    : null;
+  const mobileDocLink = invoice.drive_link || drivePreviewUrl || invoice.file_url || null;
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30 md:left-60" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-xl">
-        <div className="border-b px-5 py-4">
-          <div className="flex items-start justify-between">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold text-gray-900 truncate">{ident.primary}</h2>
-              {ident.secondary && <p className="truncate text-xs text-gray-500">{ident.secondary}</p>}
-              {company?.name && <p className="text-sm text-gray-500">{company.name}</p>}
+      <div className="fixed inset-0 z-50 bg-black/50 md:left-60" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:left-60">
+        <div className="relative flex h-[90vh] w-full max-w-[95vw] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl md:w-[1400px]"
+          onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-1 flex-col md:flex-row min-h-0">
+            <div className="hidden md:flex flex-1 bg-gray-100 min-h-0 items-center justify-center">
+              <InvoiceDocPreview invoice={invoice} />
             </div>
-            <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100"><X className="h-5 w-5" /></button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {isIgnored && (
-              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">Ignorado</span>
-            )}
-            {invoice.document_type && !isIgnored && (
-              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">{invoice.document_type}</span>
-            )}
-            {categoryLabel && !isIgnored && (
-              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{categoryLabel}</span>
-            )}
-            {invoice.autoliquidacao && !isIgnored && (
-              <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">{t('inv.autoliquidacao')}</span>
-            )}
+
+            <div className="flex w-full flex-col md:w-[380px] md:shrink-0 min-h-0 flex-1 md:flex-none border-l">
+              <div className="border-b px-4 py-3">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-semibold text-gray-900 truncate">{ident.primary}</h2>
+                    {ident.secondary && <p className="truncate text-xs text-gray-500">{ident.secondary}</p>}
+                    {company?.name && <p className="truncate text-xs text-gray-500">{company.name}</p>}
+                    {mobileDocLink && (
+                      <a href={mobileDocLink} target="_blank" rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 md:hidden">
+                        <ExternalLink className="h-4 w-4" /> {t('drawer.view_pdf')}
+                      </a>
+                    )}
+                  </div>
+                  <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {invoice.document_type && (
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">{invoice.document_type}</span>
+                  )}
+                  {categoryLabel && (
+                    <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">{categoryLabel}</span>
+                  )}
+                  {invoice.autoliquidacao && (
+                    <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">{t('inv.autoliquidacao')}</span>
+                  )}
+                </div>
+              </div>
+              <NormalDrawerContent invoice={invoice} lineItems={lineItems ?? []} t={t} isIgnored={false} />
+              <NormalDrawerFooter
+                invoice={invoice}
+                t={t}
+                onEdit={handleStartEdit}
+                onDelete={() => setShowDeleteConfirm(true)}
+                onRecover={handleRecover}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canRecover={canRecover}
+                isIgnored={false}
+                isRecovering={recoverMutation.isPending}
+              />
+            </div>
           </div>
         </div>
-        <NormalDrawerContent invoice={invoice} lineItems={lineItems ?? []} t={t} isIgnored={isIgnored} />
-        <NormalDrawerFooter
-          invoice={invoice}
-          t={t}
-          onEdit={handleStartEdit}
-          onDelete={() => setShowDeleteConfirm(true)}
-          onRecover={handleRecover}
-          canEdit={canEdit}
-          canDelete={canDelete}
-          canRecover={canRecover}
-          isIgnored={isIgnored}
-          isRecovering={recoverMutation.isPending}
-        />
       </div>
 
       {showDeleteConfirm && (

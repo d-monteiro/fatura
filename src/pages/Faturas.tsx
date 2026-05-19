@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -70,6 +70,10 @@ export default function Faturas() {
     bulk.clearSelection();
   };
 
+  // Reset page quando muda o que altera o total de resultados — sem isto,
+  // o utilizador pode ficar em page=N com offset>count e PostgREST devolve PGRST103.
+  useEffect(() => { setPage(0); }, [filters, companyId, tab]);
+
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.faturasList(companyId, filters, sortField, sortDir, page, tab),
     queryFn: async () => {
@@ -85,6 +89,17 @@ export default function Faturas() {
           .order('deleted_at', { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
         if (companyId) q = q.eq('company_id', companyId);
+        if (filters.search) q = q.ilike('supplier_name', `%${escapeLike(filters.search)}%`);
+        const { start, end } = computeDateRange(filters);
+        if (start) q = q.gte('doc_date', start);
+        if (end) q = q.lte('doc_date', end);
+        if (filters.supplierId === NO_SUPPLIER_VALUE) {
+          q = q.is('supplier_id', null);
+        } else if (filters.supplierId) {
+          q = q.eq('supplier_id', filters.supplierId);
+        }
+        if (filters.category) q = q.eq('category', filters.category);
+        if (filters.documentType) q = q.eq('document_type', filters.documentType);
         const { data: rows, count, error } = await q;
         if (error) throw error;
         return { invoices: rows as Invoice[], total: count ?? 0 };
@@ -120,6 +135,12 @@ export default function Faturas() {
     },
     enabled: !!tenantId,
   });
+
+  // Defesa contra realtime: se uma DELETE remota encolher o total abaixo do offset
+  // actual, voltar à primeira página em vez de pedir um range inválido.
+  useEffect(() => {
+    if (data && page > 0 && page * PAGE_SIZE >= data.total) setPage(0);
+  }, [data, page]);
 
   const { data: counts } = useQuery({
     queryKey: queryKeys.invoiceTabCounts(tenantId, companyId),
@@ -228,9 +249,7 @@ export default function Faturas() {
         ))}
       </div>
 
-      {tab === 'active' && (
-        <FaturasFilters filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} tenantId={tenantId} />
-      )}
+      <FaturasFilters filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} tenantId={tenantId} />
 
       {isLoading ? (
         <div className="space-y-2">
