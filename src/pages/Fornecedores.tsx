@@ -23,11 +23,16 @@ export default function Fornecedores() {
     queryKey: [...queryKeys.suppliersSearch(search), tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
+      // invoice_count > 0: protege contra suppliers órfãos. Antes do commit
+      // e79ab33, finalizeInvoice criava o supplier para faturas que depois iam
+      // para `document_type_unknown` → ignoradas. Root cause já está fixed mas
+      // mantemos guard UI para casos legítimos (fatura única apagada/recuperada).
       let query = supabase
         .from('suppliers')
         .select('*')
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
+        .gt('invoice_count', 0)
         .order('total_spent', { ascending: false });
 
       if (search) {
