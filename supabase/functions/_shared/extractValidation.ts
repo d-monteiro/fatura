@@ -21,6 +21,13 @@ export const KNOWN_DOCUMENT_TYPES = new Set([
 
 export type IvaCheck = { ok: true } | { ok: false; reason: string };
 
+// Tolerância de arredondamento na aritmética de IVA: 5 cêntimos ou 1% do
+// total, o que for maior. Faturas de retalho acumulam arredondamentos por
+// linha — 0,02 fixo mandava faturas correctas para revisão.
+export function ivaTolerance(total: number | null): number {
+  return Math.max(0.05, Math.abs(total ?? 0) * 0.01);
+}
+
 // Subtipos com IVA estruturado diferente do B2B padrão (seguros têm imposto
 // de selo + FGA, telecom tem multi-taxa + taxa audiovisual, banca cobra
 // comissões sem IVA escriturado uniforme).
@@ -61,7 +68,7 @@ export function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
     const bases = breakdown.reduce((a, x) => a + x.base, 0);
     const ivas = breakdown.reduce((a, x) => a + x.valor, 0);
     const expected = bases + ivas + outrosTotal;
-    if (Math.abs(expected - total) > 0.02) {
+    if (Math.abs(expected - total) > ivaTolerance(total)) {
       return { ok: false, reason: `breakdown (bases ${bases.toFixed(2)} + ivas ${ivas.toFixed(2)} + outros ${outrosTotal.toFixed(2)}) ≠ total (${total})` };
     }
     // Se chega aqui, breakdown é a fonte canónica e está consistente: skip
@@ -73,7 +80,7 @@ export function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
   //    aceitar sem_iva + iva + Σ outros = total, mesmo com taxa_iva=0.
   if ((isComplex || hasOutros) && sem != null && iva != null && total != null) {
     const expected = sem + iva + outrosTotal;
-    if (Math.abs(expected - total) > 0.02) {
+    if (Math.abs(expected - total) > ivaTolerance(total)) {
       return { ok: false, reason: `sem_iva (${sem}) + iva (${iva}) + outros (${outrosTotal.toFixed(2)}) ≠ total (${total})` };
     }
     return { ok: true };
@@ -84,7 +91,7 @@ export function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
   if (subtype != null && SUBTYPES_WITHOUT_IVA.has(subtype) && sem != null && total != null) {
     const iva0 = iva ?? 0;
     const expected = sem + iva0 + outrosTotal;
-    if (Math.abs(expected - total) > 0.02) {
+    if (Math.abs(expected - total) > ivaTolerance(total)) {
       return { ok: false, reason: `${subtype}: sem_iva (${sem}) + iva (${iva0}) + outros (${outrosTotal.toFixed(2)}) ≠ total (${total})` };
     }
     return { ok: true };
@@ -92,19 +99,19 @@ export function checkIvaConsistency(row: Record<string, unknown>): IvaCheck {
 
   // 4. Caso padrão B2B (lógica original).
   if (sem != null && iva != null && total != null) {
-    if (Math.abs((sem + iva) - total) > 0.02) {
+    if (Math.abs((sem + iva) - total) > ivaTolerance(total)) {
       return { ok: false, reason: `sem_iva (${sem}) + iva (${iva}) ≠ total (${total})` };
     }
   }
-  if (taxa === 0 && iva != null && iva > 0.02) {
+  if (taxa === 0 && iva != null && iva > ivaTolerance(total)) {
     return { ok: false, reason: `taxa_iva 0% mas valor_iva = ${iva}` };
   }
-  if (taxa === 0 && sem != null && total != null && Math.abs(total - sem) > 0.02) {
+  if (taxa === 0 && sem != null && total != null && Math.abs(total - sem) > ivaTolerance(total)) {
     return { ok: false, reason: `taxa_iva 0% mas total (${total}) ≠ sem_iva (${sem})` };
   }
   if (taxa != null && taxa > 0 && sem != null && total != null) {
     const expected = sem * (1 + taxa / 100);
-    if (Math.abs(expected - total) > 0.02) {
+    if (Math.abs(expected - total) > ivaTolerance(total)) {
       return { ok: false, reason: `total (${total}) não bate com sem_iva×(1+${taxa}%)` };
     }
   }

@@ -10,11 +10,19 @@ export async function detectCompanyId(
 ): Promise<string | null> {
   if (dest) {
     const { data } = await supabase.from('companies')
-      .select('id, name, short_name').eq('tenant_id', tenantId).eq('is_active', true);
+      .select('id, name, short_name, invoice_name_variations')
+      .eq('tenant_id', tenantId).eq('is_active', true);
     const d = dest.toLowerCase();
-    const match = data?.find((c) =>
-      d.includes((c.name as string).toLowerCase()) || d.includes((c.short_name as string).toLowerCase()),
-    );
+    const match = data?.find((c) => {
+      const needles = [
+        c.name as string,
+        (c.short_name as string) ?? '',
+        ...((c.invoice_name_variations as string[]) ?? []),
+      ]
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.length >= 3);
+      return needles.some((n) => d.includes(n));
+    });
     if (match) return match.id as string;
   }
   if (fallback) return fallback;
@@ -82,7 +90,7 @@ export async function insertInvoiceRow(a: PersistArgs): Promise<{ invoice: Invoi
     supplier_iban: g.supplier_iban,
     summary: g.summary,
     confidence_score: g.confidence_score,
-    status: needsReview ? 'review' : 'inbox',
+    status: needsReview ? 'review' : 'processed',
     manual_review: needsReview,
     review_reason: reviewReason,
     attachment_hash: attachmentHash,

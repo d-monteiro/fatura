@@ -73,13 +73,16 @@ interface PreviewBody {
 function buildConfigFromBody(c: PreviewBody["config"]): TenantAIConfig {
   const country = (c.country ?? "PT").toUpperCase();
   const variations = (c.nameVariations ?? []).map((v) => v.trim()).filter(Boolean);
+  const companyName = c.companyName?.trim() || "A sua empresa";
   return {
-    companyName: c.companyName?.trim() || "A sua empresa",
-    nif: (c.nif ?? "").trim(),
+    companies: [{
+      name: companyName,
+      nif: (c.nif ?? "").trim(),
+      nameVariations: variations.length ? variations : [companyName.toUpperCase()],
+    }],
     sector: c.sector?.trim() || "geral",
     country,
     currency: c.currency?.trim() || "EUR",
-    nameVariations: variations.length ? variations : [(c.companyName ?? "A SUA EMPRESA").toUpperCase()],
     vatRates: getVatRatesForCountry(country),
     categories: (c.categories ?? []).map((label, i) => ({
       code: label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")

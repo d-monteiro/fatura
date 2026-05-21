@@ -78,7 +78,7 @@ export default function Duplicates() {
   const markDuplicateMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
       const { error } = await supabase.from('invoices')
-        .update({ deleted_at: new Date().toISOString(), status: 'inbox' })
+        .update({ deleted_at: new Date().toISOString(), status: 'duplicate' })
         .eq('id', invoiceId).eq('tenant_id', tenantId!);
       if (error) throw error;
     },

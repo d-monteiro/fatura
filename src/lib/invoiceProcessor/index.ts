@@ -30,10 +30,10 @@ export interface UploadResult {
 }
 
 // Os critérios IVA, NIF e document_type vêm do Edge (analyze-document) via
-// `g._validation`, garantindo paridade com o fluxo by-invoice. Aqui só
-// adicionamos critérios cliente-only que a Edge não conhece (data suspeita)
-// e o resultado do validateMontants cliente, que é redundante mas defensivo
-// caso a Edge não tenha enriquecido (fallback grácil).
+// `g._validation` — fonte única da verdade, partilhada com o fluxo by-invoice.
+// Aqui só acrescentamos um critério cliente-only que a Edge não conhece (data
+// suspeita). O validateMontants cliente sobrevive apenas para avisos não-
+// bloqueantes (ver processSingle), nunca para forçar revisão.
 function evaluateReview(g: GeminiInvoiceData, validationOk: boolean): { needsReview: boolean; reason: string | null } {
   const edge = g._validation;
   const curYear = new Date().getFullYear();
@@ -42,7 +42,6 @@ function evaluateReview(g: GeminiInvoiceData, validationOk: boolean): { needsRev
   if (edge) {
     if (edge.needs_review) return { needsReview: true, reason: edge.review_reason };
     if (suspiciousDate) return { needsReview: true, reason: 'manual_request: data suspeita' };
-    if (!validationOk) return { needsReview: true, reason: 'iva_inconsistente: erro de validação cliente' };
     return { needsReview: false, reason: null };
   }
   // Fallback (Edge sem enrichment, ex: versão antiga em flight): apenas

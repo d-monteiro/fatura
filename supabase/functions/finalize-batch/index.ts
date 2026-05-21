@@ -2,10 +2,10 @@
 // drive_file_id, corre finalizeInvoice (Drive folders + upload + Sheet
 // append + cleanup Storage). Self-trigger se há mais.
 //
-// Decisão de design: 'extracted' → 'inbox' (não 'completed' como o plano
-// sugere) por compat com a UI legacy que filtra por status='inbox'. A
-// distinção "infra terminou" vs "humano ainda a rever" passa a ser via
-// drive_file_id IS (NOT) NULL para items em 'review'.
+// Decisão de design: uma fatura limpa que termina o pipeline vai directa a
+// 'processed' — não há passo manual de "inbox". Só faturas marcadas ficam em
+// 'review' à espera do humano. A distinção "infra terminou" vs "humano ainda
+// a rever" passa a ser via drive_file_id IS (NOT) NULL para items em 'review'.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
 
       if (wasExtracted) {
         await admin.from("invoices")
-          .update({ status: "inbox", locked_until: null })
+          .update({ status: "processed", locked_until: null })
           .eq("id", item.id)
           .eq("status", "extracted");
       } else {

@@ -91,6 +91,11 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
   const { data: suppliers } = await supabase.from("suppliers")
     .select("name, name_variations").eq("tenant_id", tenantId).limit(100);
 
+  const { data: companyRows } = await supabase.from("companies")
+    .select("name, nif, invoice_name_variations")
+    .eq("tenant_id", tenantId).eq("is_active", true)
+    .order("is_default", { ascending: false }).order("name");
+
   const ob = (tenant.onboarding_data ?? {}) as OnboardingData;
 
   const categories = (cats ?? []).map((c) => ({
@@ -123,15 +128,32 @@ async function loadTenantConfig(supabase: ReturnType<typeof createClient>, tenan
     ? allowedFromCol
     : (Array.isArray(ob.documentTypes) && ob.documentTypes.length ? ob.documentTypes : ["fatura", "recibo"]);
 
+  // Cada empresa do tenant entra no prompt com as suas variações de nome — a
+  // IA usa para rotear cada fatura recebida à empresa destinatária correcta.
+  const companies = ((companyRows ?? []) as { name: string; nif: string | null; invoice_name_variations: string[] | null }[])
+    .map((co) => ({
+      name: co.name,
+      nif: co.nif ?? "",
+      nameVariations: (co.invoice_name_variations ?? []).length
+        ? (co.invoice_name_variations as string[])
+        : [co.name.toUpperCase()],
+    }));
+  // Fallback defensivo: tenant sem empresas activas — usa a identidade do tenant.
+  if (companies.length === 0) {
+    companies.push({
+      name: tenant.name as string,
+      nif: (tenant.nif as string) ?? "",
+      nameVariations: ((tenant.invoice_name_variations as string[]) ?? []).length
+        ? (tenant.invoice_name_variations as string[])
+        : [(tenant.name as string).toUpperCase()],
+    });
+  }
+
   return {
-    companyName: tenant.name as string,
-    nif: (tenant.nif as string) ?? "",
+    companies,
     sector: (tenant.sector as string) ?? "geral",
     country: (tenant.country as string) ?? "PT",
     currency: (tenant.currency as string) ?? "EUR",
-    nameVariations: ((tenant.invoice_name_variations as string[]) ?? []).length
-      ? (tenant.invoice_name_variations as string[])
-      : [(tenant.name as string).toUpperCase()],
     vatRates: getVatRatesForCountry((tenant.country as string) ?? "PT"),
     categories,
     knownSuppliers,
@@ -444,12 +466,13 @@ async function analyzeByInvoiceId(
         deleted_at: new Date().toISOString(),
       }
     : {
-        // skip_finalize=true (worker analyze-batch da Fase 4): status='extracted' é
-        // o estado intermédio que o watchdog reconhece como "ainda em pipeline" e
-        // o finalize-batch pega para fazer Drive+Sheets. Sem isto, status='inbox'
-        // antes de Drive marcaria sync_jobs como 'done' prematuramente.
-        status: (needsReview ? "review" : (skipFinalize ? "extracted" : "inbox")) as
-          | "review" | "extracted" | "inbox",
+        // skip_finalize=true (worker analyze-batch da Fase 4): status='extracted'
+        // é o estado intermédio que o watchdog reconhece como "ainda em pipeline"
+        // e o finalize-batch pega para fazer Drive+Sheets. No fluxo by-invoice
+        // directo, uma fatura limpa fica logo 'processed' — não há passo manual
+        // de inbox; só faturas marcadas ficam em 'review'.
+        status: (needsReview ? "review" : (skipFinalize ? "extracted" : "processed")) as
+          | "review" | "extracted" | "processed",
         manual_review: needsReview,
       };
 
@@ -511,7 +534,7 @@ async function analyzeByInvoiceId(
 
   return json(200, {
     ok: true,
-    state: needsReview ? "review" : "inbox",
+    state: needsReview ? "review" : "processed",
     finalize: finalizeResult,
   }, corsHeaders);
 }

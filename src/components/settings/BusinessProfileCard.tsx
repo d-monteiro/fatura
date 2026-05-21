@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 import { SECTORS, EU_COUNTRIES, CURRENCIES } from '@/components/onboarding/onboardingTypes';
 import { extractLogoColors } from '@/lib/utils/extractLogoColors';
-import { Briefcase, Plus, X, Check, ImagePlus, Trash2 } from 'lucide-react';
+import { Briefcase, Check, ImagePlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,6 @@ interface Form {
   primary_color: string;
   secondary_color: string;
   logo_url: string | null;
-  invoice_name_variations: string[];
 }
 
 function emptyForm(): Form {
@@ -38,7 +37,6 @@ function emptyForm(): Form {
     primary_color: '#0E2435',
     secondary_color: '#BBB388',
     logo_url: null,
-    invoice_name_variations: [],
   };
 }
 
@@ -63,11 +61,9 @@ export function BusinessProfileCard() {
     primary_color: tenant.primary_color,
     secondary_color: tenant.secondary_color,
     logo_url: tenant.logo_url,
-    invoice_name_variations: tenant.invoice_name_variations ?? [],
   } : emptyForm(), [tenant]);
 
   const [form, setForm] = useState<Form>(initial);
-  const [variationDraft, setVariationDraft] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +85,6 @@ export function BusinessProfileCard() {
         primary_color: form.primary_color,
         secondary_color: form.secondary_color,
         logo_url: form.logo_url,
-        invoice_name_variations: form.invoice_name_variations,
         updated_at: new Date().toISOString(),
       }).eq('id', tenant.id);
       if (error) throw error;
@@ -120,16 +115,6 @@ export function BusinessProfileCard() {
       setLogoBusy(false);
     }
   };
-
-  const addVariation = () => {
-    const v = variationDraft.trim();
-    if (!v || form.invoice_name_variations.includes(v)) return;
-    setForm((p) => ({ ...p, invoice_name_variations: [...p.invoice_name_variations, v] }));
-    setVariationDraft('');
-  };
-
-  const removeVariation = (v: string) =>
-    setForm((p) => ({ ...p, invoice_name_variations: p.invoice_name_variations.filter((x) => x !== v) }));
 
   if (!tenant) return null;
 
@@ -240,38 +225,6 @@ export function BusinessProfileCard() {
         <div className="grid grid-cols-2 gap-2">
           <ColorInput label="Cor primária" value={form.primary_color} onChange={(v) => setForm((p) => ({ ...p, primary_color: v }))} />
           <ColorInput label="Cor secundária" value={form.secondary_color} onChange={(v) => setForm((p) => ({ ...p, secondary_color: v }))} />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Nomes nas faturas recebidas</Label>
-        <p className="text-xs text-muted-foreground">
-          Variações do nome da sua empresa como aparecem nas faturas (ex: abreviaturas, marcas). A IA usa isto para identificar o destinatário.
-        </p>
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {form.invoice_name_variations.map((v) => (
-            <span key={v} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">
-              {v}
-              <button onClick={() => removeVariation(v)} className="hover:text-red-600"><X className="h-3 w-3" /></button>
-            </span>
-          ))}
-          {form.invoice_name_variations.length === 0 && <span className="text-xs text-muted-foreground">Nenhuma ainda.</span>}
-        </div>
-        <div className="flex gap-2">
-          <Input
-            value={variationDraft}
-            onChange={(e) => setVariationDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVariation(); } }}
-            placeholder="Ex: Flowzi, Flowzi Lda, FZI"
-          />
-          <button
-            type="button"
-            onClick={addVariation}
-            disabled={!variationDraft.trim()}
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0"
-          >
-            <Plus className="h-3.5 w-3.5" /> Adicionar
-          </button>
         </div>
       </div>
 

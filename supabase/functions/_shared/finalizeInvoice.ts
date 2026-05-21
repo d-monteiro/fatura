@@ -13,7 +13,6 @@ import { ensureFolderPath, ensureYearlySheet } from "./driveFolders.ts";
 import { appendInvoiceToSheet } from "./sheets.ts";
 import { formatMonthFolder } from "./months.ts";
 import { normalizeSupplierName, type KnownSupplier } from "./suppliers.ts";
-import { validateMontants } from "./validation.ts";
 import { logEdgeError } from "./logError.ts";
 import { escapeLike } from "./queries.ts";
 import { buildReviewReason } from "./reviewReason.ts";
@@ -86,6 +85,7 @@ interface CompanyRow {
   short_name: string | null;
   is_active: boolean;
   is_default: boolean | null;
+  invoice_name_variations: string[] | null;
 }
 
 const DRIVE_TOKEN_BUFFER_MS = 5 * 60 * 1000;
@@ -157,7 +157,7 @@ export async function finalizeInvoice(
 
   const { data: companiesRaw } = await admin
     .from("companies")
-    .select("id, name, short_name, is_active, is_default")
+    .select("id, name, short_name, is_active, is_default, invoice_name_variations")
     .eq("tenant_id", invoice.tenant_id)
     .eq("is_active", true)
     .order("is_default", { ascending: false })
@@ -248,9 +248,6 @@ export async function finalizeInvoice(
     );
   }
 
-  const vm = validateMontants(invoice.valor_sem_iva, invoice.valor_iva, invoice.valor_total, invoice.taxa_iva);
-  const needsReviewFromValidation = !vm.valid;
-
   const coName = (company.short_name || company.name || "EMPRESA").trim();
   const yearCandidate = invoice.doc_year || (invoice.doc_date ? new Date(invoice.doc_date).getFullYear() : new Date().getFullYear());
   const monthIdx = invoice.doc_date ? new Date(invoice.doc_date).getMonth() : new Date().getMonth();
@@ -339,11 +336,6 @@ export async function finalizeInvoice(
     supplier_id: supplierId,
   };
   if (supplierChanged) updateBeforeSheets.supplier_name = normalizedSupplier;
-  if (needsReviewFromValidation) {
-    updateBeforeSheets.status = "review";
-    updateBeforeSheets.manual_review = true;
-    updateBeforeSheets.review_reason = buildReviewReason("iva_inconsistente", vm.errors.join("; "));
-  }
   const { error: updErr } = await admin.from("invoices").update(updateBeforeSheets).eq("id", invoiceId);
   if (updErr) {
     await logEdgeError({
@@ -575,9 +567,10 @@ function detectCompany(
   if (destinatarioNome) {
     const d = destinatarioNome.toLowerCase();
     const match = companies.find((c) => {
-      const nm = c.name.toLowerCase();
-      const sn = (c.short_name ?? "").toLowerCase();
-      return (nm && d.includes(nm)) || (sn && d.includes(sn));
+      const needles = [c.name, c.short_name ?? "", ...(c.invoice_name_variations ?? [])]
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.length >= 3);
+      return needles.some((n) => d.includes(n));
     });
     if (match) return match.id;
   }

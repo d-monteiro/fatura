@@ -17,6 +17,9 @@ export interface Company {
   email: string | null;
   oauth_token_id: string | null;
   is_default: boolean;
+  // Nomes/abreviaturas com que esta empresa aparece como destinatária nas
+  // faturas recebidas — a IA usa para rotear cada fatura à empresa certa.
+  invoice_name_variations: string[];
 }
 
 // ==========================================

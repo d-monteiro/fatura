@@ -49,7 +49,7 @@ export default function Dashboard() {
     .reduce((s, r) => s + (r.valor_total ?? 0), 0);
   const variaveis = total - fixos;
   const toReview = (metrics ?? [])
-    .filter((r) => r.status === 'review' || r.status === 'inbox')
+    .filter((r) => r.status === 'review')
     .reduce((s, r) => s + (r.valor_total ?? 0), 0);
 
   return (

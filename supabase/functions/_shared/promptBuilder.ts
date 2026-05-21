@@ -1,12 +1,16 @@
 // Construtor do prompt Gemini, por tenant. PT-PT apenas — categoria única.
 
-export interface TenantAIConfig {
-  companyName: string;
+export interface TenantCompany {
+  name: string;
   nif: string;
+  nameVariations: string[];
+}
+
+export interface TenantAIConfig {
+  companies: TenantCompany[];
   sector: string;
   country: string;
   currency: string;
-  nameVariations: string[];
   vatRates: number[];
   categories: { code: string; label: string; isFixed?: boolean }[];
   knownSuppliers: { normalized: string; variations: string[] }[];
@@ -32,14 +36,20 @@ export function buildTenantPrompt(c: TenantAIConfig): string {
 
   parts.push(`# OBJETIVO
 És um CONTABILISTA SÉNIOR especializado em "${c.sector}" em Portugal.
-Processas faturas de fornecedores recebidas pela empresa "${c.companyName}".
+Processas faturas de fornecedores recebidas pelas empresas do grupo abaixo.
 Devolve sempre um JSON estruturado conforme o formato indicado abaixo.
 Se um documento contém VÁRIAS faturas (números de documento diferentes), extrai CADA fatura como entrada separada.`);
 
+  const companyList = c.companies.map((co, i) => {
+    const variations = co.nameVariations.length ? co.nameVariations.join(", ") : co.name;
+    return `${i + 1}. "${co.name}"${co.nif ? ` (NIF ${co.nif})` : ""} — aparece nas faturas como: ${variations}`;
+  }).join("\n");
+
   parts.push(`# IDENTIFICAÇÃO DA EMPRESA
-- NIF: ${c.nif}
-- A empresa aparece nas faturas como: ${c.nameVariations.join(", ")}
-- Se o documento for EMITIDO POR esta empresa (e não recebido), devolve is_valid_document: false e rejection_reason: "fatura_propria".`);
+Estas faturas são recebidas por uma destas empresas do mesmo tenant:
+${companyList}
+- Em "destinatario_nome" devolve o nome da empresa ACIMA a quem a fatura foi efectivamente endereçada (escolhe a que corresponde ao destinatário no documento).
+- Se o documento for EMITIDO POR uma destas empresas (e não recebido por ela), devolve is_valid_document: false e rejection_reason: "fatura_propria".`);
 
   parts.push(`# VALIDAÇÃO INICIAL (rejeitar cedo — não tentar extrair valores)
 1. Não é documento (selfie, foto pessoal, paisagem) → is_valid_document: false, rejection_reason: "nao_e_documento"

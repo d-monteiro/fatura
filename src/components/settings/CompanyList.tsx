@@ -48,7 +48,10 @@ export function CompanyList() {
     mutationFn: async () => {
       if (!tenant?.id) throw new Error('Sem tenant activo');
       if (!name.trim()) throw new Error('Nome é obrigatório');
-      const short = name.trim().split(/\s+/)[0]?.toUpperCase().substring(0, 16) ?? 'EMPRESA';
+      // Tira pontuação do fim do 1.º token — "FASHIONVIANA, LDA" não pode dar
+      // um nome curto "FASHIONVIANA," com vírgula colada.
+      const firstWord = name.trim().split(/\s+/)[0] ?? '';
+      const short = firstWord.replace(/[\s,.;:]+$/, '').toUpperCase().substring(0, 16) || 'EMPRESA';
       const isDefault = companies.length === 0;
       const { error } = await supabase.from('companies').insert({
         tenant_id: tenant.id,
